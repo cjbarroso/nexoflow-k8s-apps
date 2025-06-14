@@ -8,3 +8,9 @@ spec:
   primaryUpdateStrategy: unsupervised
   storage:
     size: 2Gi
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
