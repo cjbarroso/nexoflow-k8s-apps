@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  # Add a finalizer to prevent accidental deletion
+  finalizers: 
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
+    path: 'apps' # This app's "workload" is the directory containing other app definitions
+    targetRevision: HEAD
+  destination:
+    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
+    namespace: 'argocd' # The Application resources themselves must be in the argocd namespace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: soft-serve-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi # Adjust the storage size as needed
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soft-serve
+  labels:
+    app: soft-serve
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soft-serve
+  template:
+    metadata:
+      labels:
+        app: soft-serve
+    spec:
+      containers:
+        - name: soft-serve
+          image: charmcli/soft-serve:latest
+          ports:
+            - containerPort: 23231
+              name: ssh
+            - containerPort: 23232
+              name: http
+            - containerPort: 9418
+              name: git
+          env:
+            - name: SOFT_SERVE_INITIAL_ADMIN_KEYS
+              value: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDAz5MygWZZIkfOXVzagJ5Hbz4b0rgmTV0DRf+ny3h3MCbZDEG+s6WJ5mutCPkt66T6Ki6J9FbkEN6DpGZQJbqE57wx9IyIzcGkcPdYjR4xw85NuzR1iqqPBTcv1DaeUieyvVUinz5jKcr+0ubLZGfs8zzHl/EBqu9b/nZ1nPoVWMWMviKzHTQrAaW6zhjySq/eQCXdKVLzRZ8/7IAVjixFsTQQVhKb/KPCaS05kOzYmitXOlNlejEHoidaLhmiZK6JGlZ380aA88s/MUcu1O1k6+XntBS1dXTAkJgXbxMmfqVnDiwoMHfW6/Qt1yQtn/2VxFzAS/a3N3CTi5ItN54I1Fxi7mAdvdWhHM9VCNyk0rqCOnVj8MZxiRKdfOakQ9HM7V7FKNKBPPfCbp39YV2aye2RB865XcawRxIglbplA2E5lv5kKfDd/VWxzmGuXm4J+DOAywjNzRHxGd0i5nqrikT8nrhuDw8b+r+bMT/RP0vUrq4qX2L4h13dQ0r69IM="
+            - name: SOFT_SERVE_DATA_PATH
+              value: "/soft-serve"
+          volumeMounts:
+            - name: data
+              mountPath: /soft-serve
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: soft-serve-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: soft-serve-ssh
+spec:
+  type: LoadBalancer
+  selector:
+    app: soft-serve
+  ports:
+    - protocol: TCP
+      port: 23231
+      targetPort: ssh
+      name: ssh
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: soft-serve-http
+spec:
+  type: LoadBalancer
+  selector:
+    app: soft-serve
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: http
+      name: http
