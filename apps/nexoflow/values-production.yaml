@@ -1,0 +1,43 @@
+#small deployment with nodeport for local testing or small deployments
+main:
+  config:
+    n8n:
+      hide_usage_page: true
+      host: nexoflow.cjbarroso.com
+      port: 5678
+      protocol: https
+      node_env: production
+      webhook_url: https://nexoflow.cjbarroso.com
+      runners_enabled: true
+      redis_host: redis
+      redis_port: 6379
+      queue_health_check_active: true
+  secret:
+    db:
+      type: postgresdb
+      postgresdb:
+        host: 
+          valueFrom:
+            secretKeyRef:
+              name: nexoflow-cluster-app
+              key: host
+        port: port
+          valueFrom:
+            secretKeyRef:
+              name: nexoflow-cluster-app
+              key: port
+        database: dbname
+          valueFrom:
+            secretKeyRef:
+              name: nexoflow-cluster-app
+              key: dbname
+        user: user
+          valueFrom:
+            secretKeyRef:
+              name: nexoflow-cluster-app
+              key: user
+        password: password
+          valueFrom:
+            secretKeyRef:
+              name: nexoflow-cluster-app
+              key: password

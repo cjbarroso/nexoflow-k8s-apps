@@ -1,5 +1,9 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+source:
+  helm:
+    valueFiles:
+    - values-production.yaml
 metadata:
   name: nexoflow
 spec:
