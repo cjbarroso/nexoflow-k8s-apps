@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nexoflow
+spec:
+  project: default
+  source:
+    chart: n8n
+    repoURL: 8gears.container-registry.com/library
+    targetRevision: 1.0.0
+  destination:
+    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
+    namespace: 'nexoflow' 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
