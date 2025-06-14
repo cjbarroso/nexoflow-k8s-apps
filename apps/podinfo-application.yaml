@@ -1,0 +1,53 @@
+# podinfo-application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The name of our application in Argo CD
+  name: podinfo
+  # Argo CD Application resources must be created in the argocd namespace
+  namespace: argocd
+spec:
+  # The project this application belongs to. 'default' is fine for now.
+  project: default
+
+  # Source of the application manifests. In this case, a Helm chart repository.
+  source:
+    # The URL of the public Helm repository where podinfo is hosted
+    repoURL: 'https://stefanprodan.github.io/podinfo'
+    # The name of the chart to deploy
+    chart: podinfo
+    # The version of the chart to deploy. Pinning a version is a best practice.
+    targetRevision: 6.3.5
+
+    # This 'helm' section is where we can override the default values
+    # from the chart's values.yaml file. This is how we customize it.
+    helm:
+      values: |
+        # Override the default replica count
+        replicaCount: 2
+        
+        # Override values under the 'ui' key in the chart
+        ui:
+          # Change the welcome message displayed by the web UI
+          message: "Hello from Argo CD!"
+          # Change the color of the UI header
+          color: "#2277dd"
+
+  # Destination where the manifests will be deployed
+  destination:
+    # 'https://kubernetes.default.svc' is the magic name for the local cluster
+    server: 'https://kubernetes.default.svc'
+    # The target namespace for the podinfo application resources
+    namespace: podinfo
+
+  # Sync policy: how we want Argo CD to behave
+  syncPolicy:
+    automated:
+      # Automatically delete resources that are no longer defined in the source
+      prune: true
+      # Automatically sync the application when it deviates from the desired state
+      selfHeal: true
+    syncOptions:
+      # This is a very useful option that tells Argo CD to create the
+      # destination namespace ('podinfo') if it doesn't already exist.
+      - CreateNamespace=true
