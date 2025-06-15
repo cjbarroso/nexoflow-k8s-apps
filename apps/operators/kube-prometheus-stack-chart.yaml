@@ -10,14 +10,17 @@ spec:
     targetRevision: 11.2.3
     helm:
       valueFiles:
-      - $values/apps/nexoflow/kube-prometheus-stack-values-production.yaml
+      - $values/apps/operators/kube-prometheus-stack-values-production.yaml
   - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
-    namespace: 'nexoflow' 
+    namespace: 'kube-prometheus' 
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
