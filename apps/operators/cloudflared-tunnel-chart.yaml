@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflared
+spec:
+  project: default
+  sources:
+  - repoURL: cloudflare.github.io/helm-charts
+    chart: cloudflare-tunnel
+    targetRevision: 0.3.2
+    helm:
+      valueFiles:
+      - $values/apps/operators/cloudflared-tunnel-values-production.yaml
+  - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
+    namespace: 'cloudflared' 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
