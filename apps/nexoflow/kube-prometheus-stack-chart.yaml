@@ -1,16 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: redis
+  name: kube-prometheus
 spec:
   project: default
   sources:
-  - chart: redis
-    repoURL: registry-1.docker.io/bitnamicharts
-    targetRevision: 21.2.3
+  - repoURL: registry-1.docker.io/bitnamicharts
+    chart: kube-prometheus
+    targetRevision: 11.2.3
     helm:
       valueFiles:
-      - $values/apps/nexoflow/redis-values-production.yaml
+      - $values/apps/nexoflow/kube-prometheus-stack-values-production.yaml
   - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
