@@ -6,11 +6,11 @@ spec:
   project: default
   sources:
   - chart: n8n
-    repoURL: 8gears.container-registry.com/library
+    repoURL: registry-1.docker.io/bitnamicharts
     targetRevision: 1.0.0
     helm:
       valueFiles:
-      - $values/apps/nexoflow/n8n-values-production.yaml
+      - $values/apps/nexoflow/redis-values-production.yaml
   - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
