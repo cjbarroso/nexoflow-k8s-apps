@@ -5,7 +5,7 @@ metadata:
 spec:
   project: default
   sources:
-  - repoURL: cloudflare.github.io/helm-charts
+  - repoURL: https://cloudflare.github.io/helm-charts
     chart: cloudflare-tunnel
     targetRevision: 0.3.2
     helm:
