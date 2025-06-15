@@ -12,32 +12,31 @@ main:
       redis_host: redis
       redis_port: 6379
       queue_health_check_active: true
-  secret:
-    db:
-      type: postgresdb
-      postgresdb:
-        host: 
-          valueFrom:
-            secretKeyRef:
-              name: nexoflow-cluster-app
-              key: host
-        port: port
-          valueFrom:
-            secretKeyRef:
-              name: nexoflow-cluster-app
-              key: port
-        database: dbname
-          valueFrom:
-            secretKeyRef:
-              name: nexoflow-cluster-app
-              key: dbname
-        user: user
-          valueFrom:
-            secretKeyRef:
-              name: nexoflow-cluster-app
-              key: user
-        password: password
-          valueFrom:
-            secretKeyRef:
-              name: nexoflow-cluster-app
-              key: password
+      db_type: postgresdb
+  extraenv:
+    DB_POSTGRESDB_HOST:
+      valueFrom:
+        secretKeyRef:
+          name: nexoflow-cluster-app
+          key: host
+    DB_POSTGRESDB_PORT:
+      valueFrom:
+        secretKeyRef:
+          name: nexoflow-cluster-app
+          key: port
+    DB_POSTGRESDB_DATABASE:
+      valueFrom:
+        secretKeyRef:
+          name: nexoflow-cluster-app
+          key: dbname
+    DB_POSTGRESDB_USER:
+      valueFrom:
+        secretKeyRef:
+          name: nexoflow-cluster-app
+          key: user
+    DB_POSTGRESDB_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: nexoflow-cluster-app
+          key: password
+
