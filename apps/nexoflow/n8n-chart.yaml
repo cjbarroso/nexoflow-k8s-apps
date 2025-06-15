@@ -4,13 +4,16 @@ metadata:
   name: nexoflow
 spec:
   project: default
-  source:
-    chart: n8n
+  sources:
+  - chart: n8n
     repoURL: 8gears.container-registry.com/library
     targetRevision: 1.0.0
     helm:
       valueFiles:
-      - values-production.yaml
+      - $values/apps/nexoflow/values-production.yaml
+  - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    ref: values
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
     namespace: 'nexoflow' 
