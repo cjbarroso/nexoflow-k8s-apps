@@ -1,4 +1,4 @@
 cloudflare:
-  apiToken: "eyJhIjoiNzdkZjNkNjZhZjllYjU3MmZlMTgwZDgwMGQ0NDEyN2IiLCJ0IjoiYmI0YTk3MDQtOTIwNC00NGNlLTlhNTMtYWYwNjUyNDA3MjkxIiwicyI6Ik5UTTRZbUUyTTJRdFpUZGpOeTAwTkRJMUxUazFZVFF0WWpOa01UUXdOell6TWpKaiJ9"
-  accountId: "77df3d66af9eb572fe180d800d44127b"
-  tunnelName: "nexoflow-k8s"
+  apiToken: eyJhIjoiNzdkZjNkNjZhZjllYjU3MmZlMTgwZDgwMGQ0NDEyN2IiLCJ0IjoiYmI0YTk3MDQtOTIwNC00NGNlLTlhNTMtYWYwNjUyNDA3MjkxIiwicyI6Ik5UTTRZbUUyTTJRdFpUZGpOeTAwTkRJMUxUazFZVFF0WWpOa01UUXdOell6TWpKaiJ9
+  accountId: 77df3d66af9eb572fe180d800d44127b
+  tunnelName: nexoflow-k8s
