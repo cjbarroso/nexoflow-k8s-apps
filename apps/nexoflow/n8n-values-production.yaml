@@ -1,7 +1,7 @@
 #small deployment with nodeport for local testing or small deployments
 main:
   persistence:
-    enabled: true
+    enabled: false
     type: existing
     existingClaim: n8n-data
     accessModes:
