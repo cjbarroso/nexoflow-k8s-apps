@@ -20,7 +20,7 @@ main:
       redis_port: 6379
       queue_health_check_active: true
       db_type: postgresdb
-  extraenv:
+  extraEnv:
     DB_POSTGRESDB_HOST:
       valueFrom:
         secretKeyRef:
