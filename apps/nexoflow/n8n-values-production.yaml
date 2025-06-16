@@ -11,10 +11,10 @@ main:
       n8n_enforce_settings_file_permissions: true
       # encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
       hide_usage_page: true
-      host: nexo.cjbarroso.com
+      host: flow.cjbarroso.com
       protocol: https
       node_env: production
-      webhook_url: https://nexo.cjbarroso.com
+      webhook_url: https://flow.cjbarroso.com
       runners_enabled: true
       redis_host: redis
       redis_port: 6379
