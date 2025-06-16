@@ -9,7 +9,7 @@ main:
   config:
     n8n:
       n8n_enforce_settings_file_permissions: true
-      hide_usage_page: true
+      hide_usage_page: false
       host: flow.cjbarroso.com
       protocol: https
       node_env: development
