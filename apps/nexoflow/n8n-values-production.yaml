@@ -19,6 +19,9 @@ main:
       redis_port: 6379
       queue_health_check_active: true
   extraEnv:
+    GENERIC_TIMEZONE:
+      value: America/Argentina/San_Luis
+    N8N_DEFAULT_LOCALE: es
     DB_TYPE:
       value: postgresdb
     DB_POSTGRESDB_HOST:
