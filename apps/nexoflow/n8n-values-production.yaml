@@ -2,6 +2,7 @@
 main:
   config:
     n8n:
+      encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
       hide_usage_page: true
       host: nexoflow.cjbarroso.com
       port: 5678
