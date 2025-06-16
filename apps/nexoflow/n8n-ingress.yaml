@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # The name of the Ingress resource
+  name: n8n-ingress
+  # The namespace where the Ingress will be created
+  namespace: nexoflow
+spec:
+  # Specifies the Ingress Controller that should implement this Ingress
+  ingressClassName: cloudflare-tunnel
+  rules:
+    # Rule for routing traffic based on the hostname
+    - host: "otro.cjbarroso.com"
+      http:
+        paths:
+          # Path configuration for the host
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                # The name of the backend Service
+                name: nexoflow-n8n
+                port:
+                  # The port number of the backend Service
+                  number: 80
+
