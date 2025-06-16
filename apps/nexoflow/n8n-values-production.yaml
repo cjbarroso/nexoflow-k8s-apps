@@ -7,6 +7,7 @@ main:
     accessModes:
       - ReadWriteOnce
   config:
+    webhook_url: https://flow.cjbarroso.com
     n8n:
       n8n_enforce_settings_file_permissions: true
       hide_usage_page: false
@@ -14,7 +15,6 @@ main:
       host: flow.cjbarroso.com
       protocol: https
       node_env: development
-      webhook_url: https://flow.cjbarroso.com
       runners_enabled: true
       redis_host: redis
       redis_port: 6379
