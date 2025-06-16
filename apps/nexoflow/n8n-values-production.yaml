@@ -10,11 +10,11 @@ main:
     n8n:
       encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
       hide_usage_page: true
-      host: nexoflow.cjbarroso.com
+      host: nexo.cjbarroso.com
       port: 5678
       protocol: https
       node_env: production
-      webhook_url: https://nexoflow.cjbarroso.com
+      webhook_url: https://nexo.cjbarroso.com
       runners_enabled: true
       redis_host: redis
       redis_port: 6379

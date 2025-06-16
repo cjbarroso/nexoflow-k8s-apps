@@ -10,7 +10,7 @@ spec:
   ingressClassName: cloudflare-tunnel
   rules:
     # Rule for routing traffic based on the hostname
-    - host: "otro.cjbarroso.com"
+    - host: "nexo.cjbarroso.com"
       http:
         paths:
           # Path configuration for the host
