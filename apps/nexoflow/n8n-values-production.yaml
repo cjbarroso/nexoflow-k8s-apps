@@ -10,8 +10,8 @@ main:
     n8n:
       n8n_enforce_settings_file_permissions: true
       hide_usage_page: false
+      log_level: debug
       host: flow.cjbarroso.com
-      port: 80
       protocol: https
       node_env: development
       webhook_url: https://flow.cjbarroso.com
