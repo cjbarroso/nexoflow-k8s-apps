@@ -21,7 +21,8 @@ main:
   extraEnv:
     GENERIC_TIMEZONE:
       value: America/Argentina/San_Luis
-    N8N_DEFAULT_LOCALE: es
+    N8N_DEFAULT_LOCALE: 
+      value: es
     DB_TYPE:
       value: postgresdb
     DB_POSTGRESDB_HOST:
