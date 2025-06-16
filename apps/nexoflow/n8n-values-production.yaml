@@ -15,7 +15,7 @@ main:
       protocol: https
       node_env: development
       webhook_url: https://flow.cjbarroso.com
-      # runners_enabled: true
+      runners_enabled: true
       redis_host: redis
       redis_port: 6379
       queue_health_check_active: true
