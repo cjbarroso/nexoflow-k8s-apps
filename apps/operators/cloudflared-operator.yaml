@@ -6,7 +6,7 @@ spec:
   project: default
   sources:
   - repoURL: https://helm.strrl.dev
-    chart: cloudflared-tunnel-ingress-controller
+    chart: strrl.dev/cloudflare-tunnel-ingress-controller
     targetRevision: 0.0.18 
     helm:
       valueFiles:
