@@ -7,7 +7,7 @@ spec:
   sources:
   - chart: n8n
     repoURL: 8gears.container-registry.com/library
-    targetRevision: 1.0.0
+    targetRevision: 1.0.7
     helm:
       valueFiles:
       - $values/apps/nexoflow/n8n-values-production.yaml
