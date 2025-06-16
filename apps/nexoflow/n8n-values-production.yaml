@@ -1,15 +1,14 @@
 #small deployment with nodeport for local testing or small deployments
 main:
-  persistence:
-    enabled: false
-    type: existing
-    existingClaim: n8n-data
-    accessModes:
-      - ReadWriteOnce
+  # persistence:
+  #   enabled: true
+  #   type: existing
+  #   existingClaim: n8n-data
+  #   accessModes:
+  #     - ReadWriteOnce
   config:
     n8n:
       n8n_enforce_settings_file_permissions: true
-      # encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
       hide_usage_page: true
       host: flow.cjbarroso.com
       protocol: https
@@ -20,7 +19,6 @@ main:
       redis_port: 6379
       queue_health_check_active: true
       db_type: postgresdb
-
   extraEnv:
     DB_POSTGRESDB_HOST:
       valueFrom:
