@@ -1,5 +1,11 @@
 #small deployment with nodeport for local testing or small deployments
 main:
+  persistence:
+    enabled: true
+    type: existing
+    existingClaim: n8n-data
+    accessModes:
+      - ReadWriteOnce
   config:
     n8n:
       encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
