@@ -7,7 +7,7 @@ spec:
   sources:
   - repoURL: https://helm.strrl.dev
     chart: cloudflared-tunnel-ingress-controller
-    targetRevision: "0.0.18" # Use a specific chart version
+    targetRevision: 0.0.18 
     helm:
       valueFiles:
       - $values/apps/operators/cloudflared-values-production.yaml
