@@ -11,7 +11,6 @@ main:
       encryption_key: Zf8lB4nL1E+gWWRC5RjkKLaXGm1FzOxF
       hide_usage_page: true
       host: nexo.cjbarroso.com
-      port: 5678
       protocol: https
       node_env: production
       webhook_url: https://nexo.cjbarroso.com
