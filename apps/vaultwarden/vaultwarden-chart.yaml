@@ -26,7 +26,7 @@ spec:
           # Run the following command in your terminal, replacing "YourSuperSecretPassword".
           # echo -n "YourSuperSecretPassword" | argon2 "$(openssl rand -base64 32)" -e -id -k 19456 -t 2 -p 1
           ADMIN_TOKEN: "$argon2id$v=19$m=19456,t=2,p=1$eS93V1cwVEJJZnJQU1pmRnNlSk56UG9SVFBSUnU5WWJ0YmpoM09tWU83RT0$hBWgl1UeIYuNWewU7F3AsomDNQrWOGq1+BKdda7iN6M"
-
+          SIGNUPS_ALLOWED: false
         ingress:
           # The ingress configuration is now under the 'main' key.
           main:
