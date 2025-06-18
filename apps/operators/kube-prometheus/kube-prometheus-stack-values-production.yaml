@@ -1,3 +1,15 @@
 prometheus:
   ingress:
     enabled: true
+    ingressClassName: cloudflare-tunnel
+    annotations:
+      # This annotation tells the Cloudflare Tunnel Ingress controller to handle this.
+      kubernetes.io/ingress.class: "cloudflare-tunnel"
+    hosts:
+      - host: "prometheus.cjbarroso.com"
+    paths:
+      - path: /
+        pathType: Prefix
+    tls:
+      - hosts:
+          - "prometheus.cjbarroso.com"
