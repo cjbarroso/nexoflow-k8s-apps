@@ -11,7 +11,7 @@ spec:
     helm:
       valueFiles:
       - $values/apps/operators/cloudflared/cloudflared-values-production.yaml
-  - repoURL: 'ssh://192.168.1.101:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   source:

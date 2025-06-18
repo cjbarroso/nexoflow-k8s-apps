@@ -4,7 +4,7 @@
 
 
 # Para crear el repo
-git remote add origin ssh://192.168.1.101:23231/nexoflow-k8s-apps
+git remote add origin ssh://192.168.1.10:23231/nexoflow-k8s-apps
 Here
 
 # Para que ande la conexion al repo
