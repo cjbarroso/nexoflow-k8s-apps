@@ -11,7 +11,7 @@ spec:
   source:
     # UPDATED: This is the new, correct Helm repository URL.
     repoURL: https://charts.gabe565.com
-    targetRevision: vaultwarden
+    targetRevision: 0.16.1
     # The name of the chart to deploy
     chart: vaultwarden
     # The targetRevision has been removed to allow Argo CD to use the latest chart version.
