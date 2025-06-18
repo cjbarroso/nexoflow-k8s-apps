@@ -12,4 +12,4 @@ prometheus:
         pathType: Prefix
     tls:
       - hosts:
-          - "prometheus.cjbarroso.com"
+        - "prometheus.cjbarroso.com"
