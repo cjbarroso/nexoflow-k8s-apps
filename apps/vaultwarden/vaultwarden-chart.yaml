@@ -30,7 +30,7 @@ spec:
           SMTP_HOST: mail.smtp2go.com
           SMTP_PORT: 465
           SMTP_SECURITY: force_tls
-          SMTP_FROM: cjbarroso@smtp2go.com
+          SMTP_FROM: carlos@cjbarroso.com
           SMTP_USERNAME: cjbarroso
           SMTP_PASSWORD: BmZJzHIrI5oCNEvp
         ingress:
