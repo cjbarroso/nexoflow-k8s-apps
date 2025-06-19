@@ -1,16 +1,27 @@
 prometheus:
   ingress:
     enabled: true
+
+    # The IngressClass to use (Cloudflare Tunnel)
     ingressClassName: cloudflare-tunnel
+
+    # Annotations for the Ingress controller
     annotations:
-      # This annotation tells the Cloudflare Tunnel Ingress controller to handle this.
       kubernetes.io/ingress.class: "cloudflare-tunnel"
+
+    # A list of hostnames for the ingress rule
     hosts:
-      - host: "prometheus.cjbarroso.com"
+      - "prometheus.cjbarroso.com"
+
+    # A list of paths for the ingress rule
     paths:
-      - path: /
+      - "/"
+
+    # The path matching type
     pathType: Prefix
-    tls:
-      - hosts:
-          - "prometheus.cjbarroso.com"
-        secretName: prometheus-cjbarroso-com-tls
+
+    # Per the error message, the template expects a boolean value here.
+    # Setting this to 'true' enables TLS for the Ingress resource.
+    # The template will likely use the hosts from the list above and
+    # auto-populate the necessary TLS section in the final Ingress manifest.
+    tls: true
