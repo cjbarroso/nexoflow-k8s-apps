@@ -1,4 +1,12 @@
 # My apps
+Instalar argocd core
+
+```sh
+
+ kubectl config set-context --current --namespace=argocd
+
+```
+
 
 # Instalar https://github.com/charmbracelet/soft-serve
 
