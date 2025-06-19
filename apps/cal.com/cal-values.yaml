@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: calcom/cal.com
+  # It is best practice to pin to a specific image tag rather than using 'latest'.
+  tag: "latest" # Check for the latest stable version from Cal.com
+  pullPolicy: IfNotPresent
+
+# This is the crucial link to the Secret created in Section 1.1.
+# The name provided here MUST match the metadata.name of your Secret resource.
+secretRef: "calcom-runtime-secrets"
+
+# Configure resource requests and limits to ensure pod quality of service and cluster stability.
+# Adjust these values based on your monitoring and expected load.
+resources:
+  limits:
+    cpu: 1000m # 1 vCPU
+    memory: 1Gi
+  requests:
+    cpu: 500m # 0.5 vCPU
+    memory: 512Mi
+
+# --- Ingress Configuration ---
+# This section exposes the Cal.com application to the internet via a Kubernetes Ingress.
+ingress:
+  enabled: true
+  # Specify the IngressClass that corresponds to your installed Ingress controller (e.g., nginx, traefik, etc.).
+  className: "cloudflare-tunnel"
+  annotations:
+    # This annotation tells the Cloudflare Tunnel Ingress controller to handle this.
+    kubernetes.io/ingress.class: "cloudflare-tunnel"
+  hosts:
+    - host: cal.cjbarroso.com # Must match the NEXT_PUBLIC_WEBAPP_URL (without protocol)
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    # This configures TLS termination for the Ingress.
+     hosts:
+       - cal.cjbarroso.com # The domain to be included in the certificate.
