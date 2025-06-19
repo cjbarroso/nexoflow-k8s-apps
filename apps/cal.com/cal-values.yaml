@@ -38,4 +38,4 @@ ingress:
     # This configures TLS termination for the Ingress.
     - hosts:
         - cal.cjbarroso.com # The domain to be included in the certificate.
-      secretName: cal-com-tls-secret # Name of the k8s secret for the TLS cert
+      secretName: calcom-config # Name of the k8s secret for the TLS cert
