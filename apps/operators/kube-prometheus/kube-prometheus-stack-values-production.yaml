@@ -9,5 +9,8 @@ prometheus:
       - host: "prometheus.cjbarroso.com"
     paths:
       - path: /
-        pathType: Prefix
-    tls: true
+    pathType: Prefix
+    tls:
+      - hosts:
+          - "prometheus.cjbarroso.com"
+        secretName: prometheus-cjbarroso-com-tls
