@@ -1,0 +1,31 @@
+replicaCount: 1
+persistence:
+  enabled: true
+  size: 10Gi
+  deleteEnabled: true
+  storageClass: "local-path"
+
+# Configure resource requests and limits to ensure pod quality of service and cluster stability.
+# Adjust these values based on your monitoring and expected load.
+resources:
+  limits:
+    cpu: 1000m # 1 vCPU
+    memory: 1Gi
+  requests:
+    cpu: 500m # 0.5 vCPU
+    memory: 512Mi
+
+# --- Ingress Configuration ---
+# This section exposes the Cal.com application to the internet via a Kubernetes Ingress.
+ingress:
+  enabled: true
+  # Specify the IngressClass that corresponds to your installed Ingress controller (e.g., nginx, traefik, etc.).
+  className: "cloudflare-tunnel"
+  annotations:
+    # This annotation tells the Cloudflare Tunnel Ingress controller to handle this.
+    kubernetes.io/ingress.class: "cloudflare-tunnel"
+  hosts:
+    - host: registry.cjbarroso.com # Must match the NEXT_PUBLIC_WEBAPP_URL (without protocol)
+      paths:
+        - path: /
+          pathType: ImplementationSpecific

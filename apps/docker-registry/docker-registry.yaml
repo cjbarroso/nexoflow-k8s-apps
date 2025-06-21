@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: registry
+spec:
+  project: default
+  sources:
+  - chart: docker-registry
+    repoURL: https://helm.twun.io
+    targetRevision: 2.3.0
+    helm:
+      valueFiles:
+      - $values/apps/docker-registry/docker-registry-values.yaml
+  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
+    namespace: 'registry' 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # If the destination namespace does not exist, Argo CD will create it.
+      - CreateNamespace=true
+      # Uses server-side apply, which is a more robust way to manage Kubernetes objects.
+      - ServerSideApply=true
