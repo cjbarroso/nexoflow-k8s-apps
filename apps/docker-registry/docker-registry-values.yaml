@@ -24,8 +24,8 @@ ingress:
   annotations:
     # This annotation tells the Cloudflare Tunnel Ingress controller to handle this.
     kubernetes.io/ingress.class: "cloudflare-tunnel"
-  hosts:
-    - host: registry.cjbarroso.com # Must match the NEXT_PUBLIC_WEBAPP_URL (without protocol)
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
+  # hosts:
+  #   - host: registry.cjbarroso.com # Must match the NEXT_PUBLIC_WEBAPP_URL (without protocol)
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
