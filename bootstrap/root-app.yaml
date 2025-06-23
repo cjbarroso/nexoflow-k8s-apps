@@ -12,6 +12,8 @@ spec:
     repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
     path: 'apps' # This app's "workload" is the directory containing other app definitions
     targetRevision: HEAD
+    directory:
+      recurse: true
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
     namespace: 'argocd' # The Application resources themselves must be in the argocd namespace
