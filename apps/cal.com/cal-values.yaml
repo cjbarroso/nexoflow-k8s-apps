@@ -33,9 +33,3 @@ ingress:
     - host: cal.cjbarroso.com # Must match the NEXT_PUBLIC_WEBAPP_URL (without protocol)
       paths:
         - path: /
-          pathType: ImplementationSpecific
-  tls:
-    # This configures TLS termination for the Ingress.
-    - hosts:
-        - cal.cjbarroso.com # The domain to be included in the certificate.
-      secretName: calcom-config # Name of the k8s secret for the TLS cert
