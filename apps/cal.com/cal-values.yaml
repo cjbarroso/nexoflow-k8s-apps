@@ -36,4 +36,4 @@ ingress:
           pathType: ImplementationSpecific
 
 env:
-  ALLOWED_HOSTNAMES: "cal.cjbarroso.com"
+  ALLOWED_HOSTNAMES: "cal.cjbarroso.com:443"
