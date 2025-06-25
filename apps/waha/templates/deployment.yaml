@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "waha.fullname" . }}
+  labels:
+    {{- include "waha.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "waha.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "waha.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "waha.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "waha.fullname" . }}
+            - secretRef:
+                name: {{ include "waha.fullname" . }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: sessions
+              mountPath: {{ .Values.config.sessionStorage.folder | quote }}
+            - name: media
+              mountPath: {{ .Values.config.mediaStorage.local.folder | quote }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- if not .Values.persistence.sessions.enabled }}
+        - name: sessions
+          emptyDir: {}
+      {{- else }}
+        - name: sessions
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.sessions.existingClaim | default (printf "%s-sessions" (include "waha.fullname" .)) }}
+      {{- end }}
+      {{- if not .Values.persistence.media.enabled }}
+        - name: media
+          emptyDir: {}
+      {{- else }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.media.existingClaim | default (printf "%s-media" (include "waha.fullname" .)) }}
+      {{- end }}

@@ -1,0 +1,183 @@
+# Default values for waha chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: devlikeapro/waha-plus
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart's appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1001
+
+securityContext:
+  runAsUser: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: true
+  className: "cloudflared"
+  annotations: {}
+    # For some setups, you might need specific annotations, e.g.:
+    # kubernetes.io/ingress.class: "cloudflare-tunnel"
+    # Or for cert-manager:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: waha.cjbarroso.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+   - secretName: waha-cjbarroso-com-tls
+     hosts:
+       - waha.cjbarroso.com
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+   limits:
+     cpu: 500m
+     memory: 512Mi
+   requests:
+     cpu: 250m
+     memory: 256Mi
+
+# Persistence for sessions and media files.
+persistence:
+  sessions:
+    enabled: true
+    storageClassName: ""
+    size: 1Gi
+    # existingClaim: ""
+  media:
+    enabled: true
+    storageClassName: ""
+    size: 5Gi
+    # existingClaim: ""
+
+
+# Main application configuration. These values are mapped to environment variables.
+config:
+  # Base URL for the API (used for webhooks, file URLs, etc.)
+  # It's recommended to set this to your Ingress host if you use one.
+  baseUrl: "https://waha.cjbarroso.com"
+
+  # -- Security settings
+  security:
+    # -- Generate a secure key with:
+    # echo -n "your-secret-key" | sha512sum | awk '{print "sha512:"$1}'
+    apiKey: "sha512:c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ec"
+
+    dashboard:
+      enabled: true
+      username: "admin"
+      # -- The password will be stored in a Kubernetes secret.
+      password: "admin"
+
+    swagger:
+      enabled: true
+      username: "admin"
+      # -- The password will be stored in a Kubernetes secret.
+      password: "Caquita00"
+
+  # -- WhatsApp engine (WEBJS is default, GOWS or NOWEB for better performance)
+  engine: "NOWEB"
+
+  # -- Logging configuration
+  logging:
+    # -- Log format: JSON (for log management systems) or PRETTY (for development)
+    format: "JSON"
+    # -- Log level: info, debug, error, warn
+    level: "info"
+    # -- Don't print QR codes in logs
+    printQr: false
+
+  # -- Media storage configuration
+  # By default, local file storage is used.
+  mediaStorage:
+    # -- Storage type: LOCAL, S3, POSTGRESQL
+    type: "LOCAL"
+    # -- Media download is enabled by default. Set to false to disable.
+    download: true
+    # -- Comma-separated list of mimetypes to download. Empty means all.
+    mimetypes: "image/jpeg,image/png"
+
+    local:
+      # -- Lifetime of files in seconds. 0 means forever.
+      filesLifetime: 0
+      # -- Internal folder for media files.
+      # This is mounted via a PersistentVolumeClaim if persistence.media.enabled is true.
+      folder: "/app/waha/.media"
+
+    s3:
+      # -- To use S3, set mediaStorage.type to "S3" and fill in these values.
+      enabled: false
+      region: "eu-west-2"
+      bucket: "waha"
+      accessKeyId: "minioadmin"
+      secretAccessKey: "minioadmin"
+      endpoint: "http://minio:9000"
+      forcePathStyle: true
+      proxyFiles: true
+
+  # -- Session storage configuration. Default is File-based storage.
+  # PostgreSQL or MongoDB can be used for multi-instance deployments.
+  sessionStorage:
+    # -- To use a database for sessions, uncomment the relevant URL.
+    # postgresqlUrl: "postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable"
+    # mongodbUrl: "mongodb://mongouser:mongopassword@mongodb:27017"
+    # Internal folder for session files.
+    # This is mounted via a PersistentVolumeClaim if persistence.sessions.enabled is true.
+    folder: "/app/waha/.sessions"
+
+  # -- Advanced configuration
+  advanced:
+    # -- Timezone for screenshots and logs, e.g., "Europe/Dublin"
+    timezone: "America/Argentina/San_Luis"
+    # -- Comma-separated list of session names to start on boot.
+    startSessions: ""
+    # -- Restart all sessions on boot.
+    restartAllSessions: false
+
+    # -- Webhook configuration
+    webhook:
+      url: ""
+      # -- Comma-separated list of events to send to the webhook.
+      # e.g., "session.status,message,message.reaction"
+      events: ""
+
+    # -- Proxy configuration for WhatsApp connections
+    proxy:
+      server: ""
+      username: ""
+      password: ""
