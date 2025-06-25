@@ -1,0 +1,95 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: waha
+  namespace: argocd # This should be your Argo CD namespace
+spec:
+  project: default # Change this to your desired Argo CD project
+
+  # Source of the application's configuration
+  # This points to the Helm chart in the same Git repository.
+  source:
+    repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+    path: apps/waha # EDIT THIS: Change to the path of your 'waha' chart directory
+    targetRevision: HEAD # Or a specific branch/tag
+
+    # Helm-specific configuration
+    helm:
+      # The 'values' block contains the configuration for the chart.
+      # This is equivalent to the 'values.yaml' file.
+      values: |
+        replicaCount: 1
+
+        image:
+          repository: devlikeapro/waha
+          pullPolicy: IfNotPresent
+          tag: ""
+
+        service:
+          type: ClusterIP
+          port: 3000
+
+        ingress:
+          enabled: true
+          className: "cloudflared"
+          annotations: {}
+          hosts:
+            - host: waha.cjbarroso.com
+              paths:
+                - path: /
+                  pathType: ImplementationSpecific
+
+        persistence:
+          sessions:
+            enabled: true
+            storageClassName: ""
+            size: 1Gi
+          media:
+            enabled: true
+            storageClassName: ""
+            size: 5Gi
+
+        config:
+          baseUrl: "https://waha.cjbarroso.com"
+
+          security:
+            apiKey: "sha512:c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ec"
+            dashboard:
+              enabled: true
+              username: "admin"
+              password: "admin"
+            swagger:
+              enabled: true
+              username: "admin"
+              password: "admin"
+
+          engine: "WEBJS"
+
+          logging:
+            format: "JSON"
+            level: "info"
+            printQr: false
+
+          mediaStorage:
+            type: "LOCAL"
+            download: true
+            mimetypes: "image/jpeg,image/png"
+            local:
+              filesLifetime: 0
+              folder: "/app/waha/.media"
+
+          sessionStorage:
+            folder: "/app/waha/.sessions"
+  
+  # Destination where the application will be deployed
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: waha # The namespace where you want to deploy WAHA
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true # Automatically create the namespace if it doesn't exist
