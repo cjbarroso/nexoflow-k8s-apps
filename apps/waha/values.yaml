@@ -44,7 +44,7 @@ service:
 
 ingress:
   enabled: true
-  className: "cloudflared"
+  className: "cloudflare-tunnel"
   annotations: {}
     # For some setups, you might need specific annotations, e.g.:
     # kubernetes.io/ingress.class: "cloudflare-tunnel"
