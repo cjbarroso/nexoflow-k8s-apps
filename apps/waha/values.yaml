@@ -102,7 +102,7 @@ config:
       enabled: true
       username: "admin"
       # -- The password will be stored in a Kubernetes secret.
-      password: "admin"
+      password: "Caquita00"
 
     swagger:
       enabled: true
