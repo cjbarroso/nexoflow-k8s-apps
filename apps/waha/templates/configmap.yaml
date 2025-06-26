@@ -6,7 +6,7 @@ metadata:
     {{- include "waha.labels" . | nindent 4 }}
 data:
   WAHA_BASE_URL: {{ .Values.config.baseUrl | quote }}
-  WAHA_DASHBOARD_ENABLED: {{ .Values.config.security.dashboard.enabled | quote }}
+  WAHA_DASHBOARD_ENABLED: {{ .Values.config.security.dashboard.enabled | toString | quote }}
   WAHA_DASHBOARD_USERNAME: {{ .Values.config.security.dashboard.username | quote }}
   WHATSAPP_SWAGGER_ENABLED: {{ .Values.config.security.swagger.enabled | quote }}
   WHATSAPP_SWAGGER_USERNAME: {{ .Values.config.security.swagger.username | quote }}
