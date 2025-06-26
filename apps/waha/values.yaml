@@ -96,7 +96,7 @@ config:
   security:
     # -- Generate a secure key with:
     # echo -n "your-secret-key" | sha512sum | awk '{print "sha512:"$1}'
-    apiKey: "sha512:60934755c827cba995972d06b6094bc76874e7df1d45d6821fc24c493f28978021fc02af186431be1aac0ebf61bee91e33005f783908f78ab9ed0244c3476980"
+    apiKey: "sha512:3f11b9f1c8e316f704c540d863c5c856b412587b1abd6001b8fb41d7089df6f84dc0c9d7b1828cb85f6a6a367afe42c604a959227b399b6c6e10365ea238be70"
 
     # -- Comma-separated list of endpoints to exclude from API Key requirement (e.g., "health,ping")
     apiKeyExcludePath: "health"
