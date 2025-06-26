@@ -56,7 +56,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: sessions
-              mountPath: {{ .Values.config.sessionStorage.folder | quote }}
+              mountPath: /app/.sessions
             - name: media
               mountPath: {{ .Values.config.mediaStorage.local.folder | quote }}
             - name: tmp
