@@ -5,4 +5,45 @@ metadata:
   labels:
     {{- include "waha.labels" . | nindent 4 }}
 data:
-{{- tpl (toYaml .Values.config) . | nindent 2 }}
+  WAHA_BASE_URL: {{ .Values.config.baseUrl | quote }}
+  WAHA_DASHBOARD_ENABLED: {{ .Values.config.security.dashboard.enabled | quote }}
+  WAHA_DASHBOARD_USERNAME: {{ .Values.config.security.dashboard.username | quote }}
+  WHATSAPP_SWAGGER_ENABLED: {{ .Values.config.security.swagger.enabled | quote }}
+  WHATSAPP_SWAGGER_USERNAME: {{ .Values.config.security.swagger.username | quote }}
+  WHATSAPP_DEFAULT_ENGINE: {{ .Values.config.engine | quote }}
+  WAHA_LOG_FORMAT: {{ .Values.config.logging.format | quote }}
+  WAHA_LOG_LEVEL: {{ .Values.config.logging.level | quote }}
+  WAHA_PRINT_QR: {{ .Values.config.logging.printQr | quote }}
+  WAHA_MEDIA_STORAGE: {{ .Values.config.mediaStorage.type | quote }}
+  WHATSAPP_DOWNLOAD_MEDIA: {{ .Values.config.mediaStorage.download | quote }}
+  WHATSAPP_FILES_MIMETYPES: {{ .Values.config.mediaStorage.mimetypes | quote }}
+  {{- if eq .Values.config.mediaStorage.type "LOCAL" }}
+  WHATSAPP_FILES_LIFETIME: {{ .Values.config.mediaStorage.local.filesLifetime | quote }}
+  WHATSAPP_FILES_FOLDER: {{ .Values.config.mediaStorage.local.folder | quote }}
+  {{- else if and (eq .Values.config.mediaStorage.type "S3") .Values.config.mediaStorage.s3.enabled }}
+  WAHA_S3_REGION: {{ .Values.config.mediaStorage.s3.region | quote }}
+  WAHA_S3_BUCKET: {{ .Values.config.mediaStorage.s3.bucket | quote }}
+  WAHA_S3_ACCESS_KEY_ID: {{ .Values.config.mediaStorage.s3.accessKeyId | quote }}
+  WAHA_S3_ENDPOINT: {{ .Values.config.mediaStorage.s3.endpoint | quote }}
+  WAHA_S3_FORCE_PATH_STYLE: {{ .Values.config.mediaStorage.s3.forcePathStyle | quote }}
+  WAHA_S3_PROXY_FILES: {{ .Values.config.mediaStorage.s3.proxyFiles | quote }}
+  {{- end }}
+  {{- if .Values.config.advanced.timezone }}
+  TZ: {{ .Values.config.advanced.timezone | quote }}
+  {{- end }}
+  {{- if .Values.config.advanced.startSessions }}
+  WHATSAPP_START_SESSION: {{ .Values.config.advanced.startSessions | quote }}
+  {{- end }}
+  WHATSAPP_RESTART_ALL_SESSIONS: {{ .Values.config.advanced.restartAllSessions | quote }}
+  {{- if .Values.config.advanced.webhook.url }}
+  WHATSAPP_HOOK_URL: {{ .Values.config.advanced.webhook.url | quote }}
+  {{- end }}
+  {{- if .Values.config.advanced.webhook.events }}
+  WHATSAPP_HOOK_EVENTS: {{ .Values.config.advanced.webhook.events | quote }}
+  {{- end }}
+  {{- if .Values.config.advanced.proxy.server }}
+  WHATSAPP_PROXY_SERVER: {{ .Values.config.advanced.proxy.server | quote }}
+  {{- end }}
+  {{- if .Values.config.advanced.proxy.username }}
+  WHATSAPP_PROXY_SERVER_USERNAME: {{ .Values.config.advanced.proxy.username | quote }}
+  {{- end }}
