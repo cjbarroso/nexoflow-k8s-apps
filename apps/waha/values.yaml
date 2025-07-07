@@ -5,12 +5,13 @@
 replicaCount: 1
 
 image:
-  repository: devlikeapro/waha
+  repository: devlikeapro/waha-plus
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart's appVersion.
   tag: ""
+imagePullSecrets:
+  - name: waha-pull-secret
 
-imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
