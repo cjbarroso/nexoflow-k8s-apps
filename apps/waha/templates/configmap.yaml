@@ -4,6 +4,42 @@ metadata:
   name: {{ include "waha.fullname" . }}
   labels:
     {{- include "waha.labels" . | nindent 4 }}
+{{- $hasData := or
+    .Values.config.baseUrl
+    .Values.config.security.apiKey
+    .Values.config.security.apiKeyExcludePath
+    .Values.config.security.dashboard.enabled
+    .Values.config.security.dashboard.username
+    .Values.config.security.swagger.enabled
+    .Values.config.security.swagger.username
+    .Values.config.engine
+    .Values.config.logging.format
+    .Values.config.logging.level
+    (hasKey .Values.config.logging "printQr")
+    .Values.config.mediaStorage.type
+    (hasKey .Values.config.mediaStorage "download")
+    .Values.config.mediaStorage.mimetypes
+    .Values.config.mediaStorage.local.filesLifetime
+    .Values.config.mediaStorage.local.folder
+    .Values.config.mediaStorage.s3.enabled
+    .Values.config.mediaStorage.s3.region
+    .Values.config.mediaStorage.s3.bucket
+    .Values.config.mediaStorage.s3.accessKeyId
+    .Values.config.mediaStorage.s3.endpoint
+    (hasKey .Values.config.mediaStorage.s3 "forcePathStyle")
+    (hasKey .Values.config.mediaStorage.s3 "proxyFiles")
+    .Values.config.sessionStorage.folder
+    .Values.config.sessionStorage.postgresqlUrl
+    .Values.config.sessionStorage.mongodbUrl
+    .Values.config.advanced.timezone
+    .Values.config.advanced.startSessions
+    (hasKey .Values.config.advanced "restartAllSessions")
+    .Values.config.advanced.webhook.url
+    .Values.config.advanced.webhook.events
+    .Values.config.advanced.proxy.server
+    .Values.config.advanced.proxy.username
+}}
+{{- if $hasData }}
 data:
   # Base URL for the API
   {{- if .Values.config.baseUrl }}
@@ -133,3 +169,5 @@ data:
   WHATSAPP_PROXY_SERVER_USERNAME: {{ .Values.config.advanced.proxy.username | quote }}
   {{- end }}
   # WHATSAPP_PROXY_PASSWORD is typically handled as a Secret.
+
+{{- end }}
