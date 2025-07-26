@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chatui
+spec:
+  project: default
+  sources:
+  - chart: chatui
+    repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+    path: apps/chatui
+    targetRevision: HEAD
+    helm:
+      valueFiles:
+      - $values/apps/chatui/chatui-values-production.yaml
+  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    ref: values
+  destination:
+    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
+    namespace: 'chatui' 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:  
+      # This will create the 'chatui' namespace if it doesn't exist.
+      - CreateNamespace=true
+ 
