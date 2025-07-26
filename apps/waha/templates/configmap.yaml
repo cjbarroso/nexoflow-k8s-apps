@@ -5,21 +5,45 @@ metadata:
   labels:
     {{- include "waha.labels" . | nindent 4 }}
 data:
+  {{- if .Values.config.baseUrl }}
   WAHA_BASE_URL: {{ .Values.config.baseUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.security.dashboard.enabled }}
   WAHA_DASHBOARD_ENABLED: {{ .Values.config.security.dashboard.enabled | quote }}
+  {{- end }}
   {{- if .Values.config.security.apiKeyExcludePath }}
   WAHA_API_KEY_EXCLUDE_PATH: {{ .Values.config.security.apiKeyExcludePath | quote }}
   {{- end }}
+  {{- if .Values.config.security.dashboard.username }}
   WAHA_DASHBOARD_USERNAME: {{ .Values.config.security.dashboard.username | quote }}
+  {{- end }}
+  {{- if .Values.config.security.swagger.enabled }}
   WHATSAPP_SWAGGER_ENABLED: {{ .Values.config.security.swagger.enabled | quote }}
+  {{- end }}
+  {{- if .Values.config.security.swagger.username }}
   WHATSAPP_SWAGGER_USERNAME: {{ .Values.config.security.swagger.username | quote }}
+  {{- end }}
+  {{- if .Values.config.engine }}
   WHATSAPP_DEFAULT_ENGINE: {{ .Values.config.engine | quote }}
+  {{- end }}
+  {{- if .Values.config.logging.format }}
   WAHA_LOG_FORMAT: {{ .Values.config.logging.format | quote }}
+  {{- end }}
+  {{- if .Values.config.logging.level }}
   WAHA_LOG_LEVEL: {{ .Values.config.logging.level | quote }}
+  {{- end }}
+  {{- if hasKey .Values.config.logging "printQr" }}
   WAHA_PRINT_QR: {{ .Values.config.logging.printQr | quote }}
+  {{- end }}
+  {{- if .Values.config.mediaStorage.type }}
   WAHA_MEDIA_STORAGE: {{ .Values.config.mediaStorage.type | quote }}
+  {{- end }}
+  {{- if hasKey .Values.config.mediaStorage "download" }}
   WHATSAPP_DOWNLOAD_MEDIA: {{ .Values.config.mediaStorage.download | quote }}
+  {{- end }}
+  {{- if .Values.config.mediaStorage.mimetypes }}
   WHATSAPP_FILES_MIMETYPES: {{ .Values.config.mediaStorage.mimetypes | quote }}
+  {{- end }}
   {{- if eq .Values.config.mediaStorage.type "LOCAL" }}
   WHATSAPP_FILES_LIFETIME: {{ .Values.config.mediaStorage.local.filesLifetime | quote }}
   WHATSAPP_FILES_FOLDER: {{ .Values.config.mediaStorage.local.folder | quote }}
@@ -37,7 +61,9 @@ data:
   {{- if .Values.config.advanced.startSessions }}
   WHATSAPP_START_SESSION: {{ .Values.config.advanced.startSessions | quote }}
   {{- end }}
+  {{- if hasKey .Values.config.advanced "restartAllSessions" }}
   WHATSAPP_RESTART_ALL_SESSIONS: {{ .Values.config.advanced.restartAllSessions | quote }}
+  {{- end }}
   {{- if .Values.config.advanced.webhook.url }}
   WHATSAPP_HOOK_URL: {{ .Values.config.advanced.webhook.url | quote }}
   {{- end }}
