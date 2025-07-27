@@ -7,7 +7,7 @@ spec:
   sources:
   - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
     path: apps/chatui
-    targetRevision: 0.1.0
+    targetRevision: HEAD
     helm:
       valueFiles:
       - $values/apps/chatui/chatui-values-production.yaml
