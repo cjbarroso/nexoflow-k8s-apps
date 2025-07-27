@@ -5,22 +5,24 @@ metadata:
 spec:
   project: default
   sources:
+    # --- SOURCE 1: The Helm Chart from Git ---
   - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
-    path: apps/chatui
-    targetRevision: HEAD
+    path: apps/chatui # This tells Argo CD where the chart is
+    targetRevision: master # The branch, tag, or commit in Git
     helm:
       valueFiles:
-      - $values/apps/chatui/chatui-values-production.yaml
+        - $values/apps/chatui/chatui-values-production.yaml
+
+    # --- SOURCE 2: The values files ---
   - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
     ref: values
+
   destination:
-    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
-    namespace: 'chatui' 
+    server: 'https://kubernetes.default.svc'
+    namespace: 'chatui'
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:  
-      # This will create the 'chatui' namespace if it doesn't exist.
+    syncOptions:
       - CreateNamespace=true
- 
