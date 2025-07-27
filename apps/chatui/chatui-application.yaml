@@ -5,8 +5,7 @@ metadata:
 spec:
   project: default
   sources:
-  - chart: chatui
-    repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
     path: apps/chatui
     targetRevision: 0.1.0
     helm:
