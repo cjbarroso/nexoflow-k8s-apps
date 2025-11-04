@@ -37,3 +37,8 @@ ingress:
 
 env:
   ALLOWED_HOSTNAMES: "cal.cjbarroso.com:443"
+
+hostAliases:
+  - ip: "10.43.94.70"  # <-- PASTE THE CLUSTER-IP FROM STEP 2 HERE
+    hostnames:
+      - "cal.cjbarroso.com"
