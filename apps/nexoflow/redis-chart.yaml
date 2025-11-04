@@ -7,11 +7,11 @@ spec:
   sources:
   - chart: redis
     repoURL: registry-1.docker.io/bitnamicharts
-    targetRevision: 21.2.3
+    targetRevision: 23.0.4
     helm:
       valueFiles:
       - $values/apps/nexoflow/redis-values-production.yaml
-  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   destination:

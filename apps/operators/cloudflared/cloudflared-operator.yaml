@@ -7,11 +7,11 @@ spec:
   sources:
   - repoURL: https://helm.strrl.dev
     chart: cloudflare-tunnel-ingress-controller
-    targetRevision: 0.0.18 
+    targetRevision: 0.0.21
     helm:
       valueFiles:
       - $values/apps/operators/cloudflared/cloudflared-values-production.yaml
-  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   source:

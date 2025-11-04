@@ -7,11 +7,11 @@ spec:
   sources:
   - chart: n8n
     repoURL: 8gears.container-registry.com/library
-    targetRevision: 1.0.7
+    targetRevision: 1.1.0
     helm:
       valueFiles:
       - $values/apps/nexoflow/n8n-values-production.yaml
-  - repoURL: 'ssh://192.168.1.10:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   destination:
