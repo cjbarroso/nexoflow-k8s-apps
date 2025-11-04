@@ -14,3 +14,6 @@ argocd cert add-ssh --batch --from ~/.ssh/known_hosts
 
 Create app-of-apps app deploy, point to the created repo
 kubectl apply it
+
+
+all subdirs on apps/ are scanned
