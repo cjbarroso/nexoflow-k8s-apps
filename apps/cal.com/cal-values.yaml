@@ -42,3 +42,6 @@ hostAliases:
   - ip: "10.43.94.70"  # <-- PASTE THE CLUSTER-IP FROM STEP 2 HERE
     hostnames:
       - "cal.cjbarroso.com"
+
+
+# TEST BORRAME
