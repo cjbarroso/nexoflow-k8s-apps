@@ -1,22 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: redis
+  name: valkey
 spec:
   project: default
   sources:
-  - chart: redis-ha
-    repoURL: https://dandydeveloper.github.io/charts
-    targetRevision: 4.35.3
+  - chart: valkey
+    repoURL: oci://registry-1.docker.io/bitnamicharts
+    targetRevision: 5.0.8
     helm:
       valueFiles:
-      - $values/apps/nexoflow/redis-values-production.yaml
+      - $values/apps/nexoflow/valkey-values-production.yaml
   - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
-    namespace: 'nexoflow' 
+    namespace: 'nexoflow'
   syncPolicy:
     automated:
       prune: true
