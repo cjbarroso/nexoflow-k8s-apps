@@ -6,7 +6,7 @@ spec:
   project: default
   sources:
   - repoURL: 'https://github.com/valkey-io/valkey-helm'
-    targetRevision: 'V0.8.1'
+    targetRevision: 'v0.8.1'
     path: valkey
     helm:
       valueFiles:
