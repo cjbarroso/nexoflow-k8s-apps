@@ -1,7 +1,5 @@
-# Use standalone architecture for a single Valkey instance.
-architecture: standalone
-
-# Auth is enabled by default. A password will be auto-generated.
-# You can set a specific password using auth.password
-# auth:
-#   password: "your-password"
+auth:
+  enabled: true
+  aclUsers:
+    default:
+      permissions: "~* &* +@all"
