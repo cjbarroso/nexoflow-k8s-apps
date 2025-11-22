@@ -1,2 +1,4 @@
-master:
-  count: 1
+# This value is for the dandydeveloper/redis-ha chart.
+# It sets the number of Redis instances.
+# With a single-node cluster, this should be set to 1 to avoid anti-affinity issues.
+replicas: 1
