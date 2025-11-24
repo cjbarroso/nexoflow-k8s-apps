@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    # Matches the working configuration from your monitoring stack
+    kubernetes.io/ingress.class: cloudflare-tunnel
+    
+    # Optional: Increases body size limits (helpful for large Helm charts uploads)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  rules:
+    - host: argocd.cjbarroso.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
+  # Keeping the TLS block as per your working example
+  tls:
+    - hosts:
+        - argocd.cjbarroso.com

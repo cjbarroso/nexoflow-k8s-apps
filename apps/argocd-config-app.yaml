@@ -1,0 +1,21 @@
+# /apps/argocd-internal-config.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-internal-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    path: bootstrap/argocd-config # Points to the folder with the Ingress
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
