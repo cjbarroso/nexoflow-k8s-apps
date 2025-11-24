@@ -10,10 +10,10 @@ spec:
   source:
     repoURL: https://prometheus-community.github.io/helm-charts
     chart: kube-prometheus-stack
-    targetRevision: 65.x.x  # Pin to a major version for stability
+    targetRevision: 65.x.x
     helm:
       values: |
-        # --- DIET RESOURCE CONFIGURATION ---
+        # --- DIET RESOURCE CONFIGURATION (Unchanged) ---
         alertmanager:
           alertmanagerSpec:
             replicas: 1
@@ -28,17 +28,21 @@ spec:
             resources:
               limits: { memory: 500Mi }
               requests: { cpu: 100m, memory: 250Mi }
-          # --- PROMETHEUS INGRESS (Cloudflared) ---
+          
+          # --- PROMETHEUS INGRESS ---
           ingress:
             enabled: true
-            ingressClassName: cloudflared
+            # usage of annotation instead of ingressClassName
             annotations:
-              # Cloudflare specific annotations if needed (e.g., mostly for external-dns)
-              external-dns.alpha.kubernetes.io/hostname: prometheus.your-domain.com
+              kubernetes.io/ingress.class: cloudflare-tunnel
             hosts:
               - prometheus.cjbarroso.com
             paths:
               - /
+            # TLS block is often required for the controller to register the host
+            tls:
+              - hosts:
+                  - prometheus.cjbarroso.com
 
         grafana:
           resources:
@@ -48,15 +52,18 @@ spec:
             dashboards:
               enabled: true
               label: grafana_dashboard
-          # --- GRAFANA INGRESS (Cloudflared) ---
+          
+          # --- GRAFANA INGRESS ---
           ingress:
             enabled: true
-            ingressClassName: cloudflared
             annotations:
-              external-dns.alpha.kubernetes.io/hostname: grafana.your-domain.com
+              kubernetes.io/ingress.class: cloudflare-tunnel
             hosts:
               - grafana.cjbarroso.com
             path: /
+            tls:
+              - hosts:
+                  - grafana.cjbarroso.com
 
         nodeExporter:
           enabled: true
@@ -72,4 +79,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true  # CRITICAL: Fixes "CRD too long" error
+      - ServerSideApply=true
