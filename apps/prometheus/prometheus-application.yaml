@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 65.x.x  # Pin to a major version for stability
+    helm:
+      values: |
+        # --- DIET RESOURCE CONFIGURATION ---
+        alertmanager:
+          alertmanagerSpec:
+            replicas: 1
+            resources:
+              limits: { memory: 200Mi }
+              requests: { cpu: 50m, memory: 100Mi }
+
+        prometheus:
+          prometheusSpec:
+            replicas: 1
+            retention: 2d
+            resources:
+              limits: { memory: 500Mi }
+              requests: { cpu: 100m, memory: 250Mi }
+          # --- PROMETHEUS INGRESS (Cloudflared) ---
+          ingress:
+            enabled: true
+            ingressClassName: cloudflared
+            annotations:
+              # Cloudflare specific annotations if needed (e.g., mostly for external-dns)
+              external-dns.alpha.kubernetes.io/hostname: prometheus.your-domain.com
+            hosts:
+              - prometheus.cjbarroso.com
+            paths:
+              - /
+
+        grafana:
+          resources:
+            limits: { memory: 256Mi }
+            requests: { cpu: 50m, memory: 100Mi }
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+          # --- GRAFANA INGRESS (Cloudflared) ---
+          ingress:
+            enabled: true
+            ingressClassName: cloudflared
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: grafana.your-domain.com
+            hosts:
+              - grafana.cjbarroso.com
+            path: /
+
+        nodeExporter:
+          enabled: true
+          resources:
+            limits: { memory: 50Mi, cpu: 50m }
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true  # CRITICAL: Fixes "CRD too long" error
