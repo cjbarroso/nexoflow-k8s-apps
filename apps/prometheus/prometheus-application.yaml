@@ -10,11 +10,23 @@ spec:
   source:
     repoURL: https://prometheus-community.github.io/helm-charts
     chart: kube-prometheus-stack
-    targetRevision: 65.x.x  # Pin version for stability
+    targetRevision: 65.x.x
     helm:
       values: |
         # ==========================================================
-        # 1. CUSTOM ALERTS (Disk Space > 90%)
+        # 1. DISABLE CONTROL PLANE MONITORING (Fix for False Alerts)
+        # ==========================================================
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+
+        # ==========================================================
+        # 2. CUSTOM ALERTS (Disk Space > 90%)
         # ==========================================================
         additionalPrometheusRulesMap:
           custom-node-alerts:
@@ -31,7 +43,7 @@ spec:
                       description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
         # ==========================================================
-        # 2. ALERTMANAGER (Notifications)
+        # 3. ALERTMANAGER (Notifications)
         # ==========================================================
         alertmanager:
           alertmanagerSpec:
@@ -50,21 +62,21 @@ spec:
             # Receiver 1: Healthchecks.io (Heartbeat)
             - name: 'deadmansswitch'
               webhook_configs:
-              - url: 'https://hc-ping.com/26daa724-a3cd-41f1-a428-84c4791d35e5' # <--- REPLACE THIS
+              - url: 'https://hc-ping.com/YOUR_UUID_HERE' # <--- REPLACE THIS
                 send_resolved: false
             
             # Receiver 2: Telegram (Critical Alerts)
             - name: 'telegram-personal'
               telegram_configs:
-              - bot_token: '1978675533:AAFWHVmp-r3ZU0Z7O1qLdykyzxiC2G7Q6fY'
-                chat_id: 1142335836                                  
+              - bot_token: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11' # <--- REPLACE THIS
+                chat_id: 123456789                                   # <--- REPLACE THIS
                 parse_mode: 'HTML'
 
             route:
               group_by: ['alertname']
               group_wait: 30s
               group_interval: 5m
-              repeat_interval: 4h  # Standard repeat for critical alerts
+              repeat_interval: 4h
               receiver: 'null'
               
               routes:
@@ -83,7 +95,7 @@ spec:
                 continue: true
 
         # ==========================================================
-        # 3. PROMETHEUS (Diet Mode + Ingress)
+        # 4. PROMETHEUS (Diet Mode + Ingress)
         # ==========================================================
         prometheus:
           prometheusSpec:
@@ -92,7 +104,6 @@ spec:
             resources:
               limits: { memory: 500Mi }
               requests: { cpu: 100m, memory: 250Mi }
-            # Allow scraping services without strict release labeling
             serviceMonitorSelectorNilUsesHelmValues: false
             podMonitorSelectorNilUsesHelmValues: false
           
@@ -100,7 +111,6 @@ spec:
             enabled: true
             annotations:
               kubernetes.io/ingress.class: cloudflare-tunnel
-              # Fix for "Resource not found" sync error
               argocd.argoproj.io/sync-options: ServerSideApply=false
             hosts:
               - prometheus.cjbarroso.com
@@ -111,14 +121,13 @@ spec:
                   - prometheus.cjbarroso.com
 
         # ==========================================================
-        # 4. GRAFANA (Dashboards + Ingress)
+        # 5. GRAFANA (Dashboards + Ingress)
         # ==========================================================
         grafana:
           resources:
             limits: { memory: 256Mi }
             requests: { cpu: 50m, memory: 100Mi }
           
-          # Auto-load Dashboards from file
           dashboardProviders:
             dashboardproviders.yaml:
               apiVersion: 1
@@ -132,7 +141,6 @@ spec:
                 options:
                   path: /var/lib/grafana/dashboards/default
 
-          # Download Node Exporter Full (ID 1860)
           dashboards:
             default:
               node-exporter-full:
@@ -148,7 +156,6 @@ spec:
             enabled: true
             annotations:
               kubernetes.io/ingress.class: cloudflare-tunnel
-              # Fix for "Resource not found" sync error
               argocd.argoproj.io/sync-options: ServerSideApply=false
             hosts:
               - grafana.cjbarroso.com
@@ -158,7 +165,7 @@ spec:
                   - grafana.cjbarroso.com
 
         # ==========================================================
-        # 5. NODE EXPORTER (Diet Mode)
+        # 6. NODE EXPORTER (Diet Mode)
         # ==========================================================
         nodeExporter:
           enabled: true
@@ -175,5 +182,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # Global ServerSideApply for heavy CRDs (except Ingress, handled above)
       - ServerSideApply=true
