@@ -62,14 +62,14 @@ spec:
             # Receiver 1: Healthchecks.io (Heartbeat)
             - name: 'deadmansswitch'
               webhook_configs:
-              - url: 'https://hc-ping.com/YOUR_UUID_HERE' # <--- REPLACE THIS
+              - url: 'https://hc-ping.com/26daa724-a3cd-41f1-a428-84c4791d35e5' # <--- REPLACE THIS
                 send_resolved: false
             
             # Receiver 2: Telegram (Critical Alerts)
             - name: 'telegram-personal'
               telegram_configs:
-              - bot_token: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11' # <--- REPLACE THIS
-                chat_id: 123456789                                   # <--- REPLACE THIS
+              - bot_token: '1978675533:AAFWHVmp-r3ZU0Z7O1qLdykyzxiC2G7Q6fY' # <--- REPLACE THIS
+                chat_id: 1142335836                                   # <--- REPLACE THIS
                 parse_mode: 'HTML'
 
             route:
