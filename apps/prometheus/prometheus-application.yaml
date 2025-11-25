@@ -20,7 +20,25 @@ spec:
             resources:
               limits: { memory: 200Mi }
               requests: { cpu: 50m, memory: 100Mi }
-
+          config:
+            global:
+              resolve_timeout: 5m
+            receivers:
+            - name: 'null'
+            - name: 'deadmansswitch'
+              webhook_configs:
+              - url: 'https://hc-ping.com/26daa724-a3cd-41f1-a428-84c4791d35e5' # <--- Your Healthchecks.io URL
+                send_resolved: false
+            route:
+              group_by: ['alertname']
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 1m
+              receiver: 'null'
+              routes:
+              - receiver: 'deadmansswitch'
+                matchers:
+                  - alertname = Watchdog
         prometheus:
           prometheusSpec:
             replicas: 1
