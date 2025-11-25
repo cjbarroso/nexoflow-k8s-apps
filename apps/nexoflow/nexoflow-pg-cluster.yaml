@@ -4,6 +4,19 @@ metadata:
   name: nexoflow-cluster
   namespace: nexoflow  # The namespace where you want your database
 spec:
+  backup:
+    barmanObjectStore:
+      # R2 Endpoint format: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+      endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
+      destinationPath: s3://backups-k8s/postgres-backups/
+      s3Credentials:
+        accessKeyId:
+          name: backup-creds-secret
+          key: accessKeyId
+        secretAccessKey:
+          name: backup-creds-secret
+          key: secretAccessKey
+    retentionPolicy: "30d"
   instances: 3
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: true
