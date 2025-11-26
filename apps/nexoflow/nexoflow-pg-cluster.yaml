@@ -8,4 +8,4 @@ spec:
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: true
   storage:
-    size: 2Gi
+    size: 10Gi
