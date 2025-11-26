@@ -11,6 +11,9 @@ spec:
   source:
     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
+    kustomize:
+      commonLabels:
+        app.kubernetes.io/managed-by: argocd
     path: apps/barman-cloud-plugin
   destination:
     server: https://kubernetes.default.svc
