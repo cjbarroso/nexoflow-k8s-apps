@@ -1,0 +1,23 @@
+# /apps/argocd-internal-config.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: barman-cloud-plugin
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+    path: bootstrap/barman-cloud
+    targetRevision: HEAD
+    kustomize:
+      commonLabels:
+        app.kubernetes.io/managed-by: argocd
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
