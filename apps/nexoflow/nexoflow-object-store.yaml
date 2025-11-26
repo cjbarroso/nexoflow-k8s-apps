@@ -1,11 +1,11 @@
-apiVersion: postgresql.cnpg.io/v1
+apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
   name: nexoflow-object-store
   namespace: nexoflow
 spec:
   configuration:
-    bucket: backups-k8s
+    destinationPath: s3://backups-k8s/nexoflow-cluster
     endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
     s3Credentials:
       accessKeyId:
