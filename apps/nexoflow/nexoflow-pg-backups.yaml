@@ -3,8 +3,10 @@ kind: ScheduledBackup
 metadata:
   name: nexoflow-cluster-daily
   namespace: nexoflow
+  annotations:
+    force-update: "attempt-2"
 spec:
-  schedule: "45 1 * * *"
+  schedule: "55 1 * * *"
   cluster:
     name: nexoflow-cluster
   method: plugin
