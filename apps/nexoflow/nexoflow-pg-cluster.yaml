@@ -7,5 +7,10 @@ spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: true
+  plugins: 
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: nexoflow-object-store
   storage:
     size: 10Gi
