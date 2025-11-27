@@ -6,7 +6,7 @@ metadata:
   annotations:
     force-update: "attempt-2"
 spec:
-  schedule: "30 2 * * *"
+  schedule: "0 3 * * *"
   cluster:
     name: nexoflow-cluster
   method: plugin
