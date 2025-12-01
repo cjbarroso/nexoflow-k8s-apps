@@ -17,7 +17,7 @@ spec:
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
     namespace: 'nexoflow' 
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+  syncPolicy: {}
+#    automated:
+#      prune: true
+#      selfHeal: true
