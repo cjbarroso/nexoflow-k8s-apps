@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: velero
+  namespace: argocd
+spec:
+  project: default
+  sources:
+  # Source 1: Official Velero Helm Chart
+  - chart: velero
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    targetRevision: 8.0.0 # Check for latest stable version
+    helm:
+      valueFiles:
+      # References the file in Source 2
+      - $values/apps/velero/values-production.yaml
+  
+  # Source 2: Your Private Config Repo
+  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    ref: values
+
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: 'velero' # Recommended to keep Velero in its own namespace
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,42 @@
+# apps/velero/values-production.yaml
+
+# 1. Enable the Node Agent (Essential for backing up the n8n PVC)
+deployNodeAgent: true
+
+# 2. Install the AWS Plugin (Required for S3/R2 compatibility)
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.10.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+# 3. Configure Cloudflare R2
+configuration:
+  provider: aws
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: velero-backups # <--- REPLACE WITH YOUR BUCKET NAME
+      config:
+        # R2 Endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+        s3Url: https://77df3d66af9eb572fe180d800d44127.r2.cloudflarestorage.com # <--- REPLACE WITH YOUR R2 URL
+        region: us-east-1      # R2 ignores this, but Velero requires a value
+        s3ForcePathStyle: true # CRITICAL: Must be true for R2
+
+# 4. Reference the Secret (Created manually via kubectl)
+credentials:
+  useSecret: true
+  name: cloud-credentials
+  secretContents: {} # We populated this manually, so we leave it empty here
+
+# 5. Define the Backup Schedule
+schedules:
+  nexoflow-daily:
+    schedule: "0 2 * * *"
+    template:
+      includedNamespaces:
+        - nexoflow
+      # This flag forces Velero to backup the PVCs using the Node Agent
+      defaultVolumesToFsBackup: true
+      ttl: 720h # 30 days
