@@ -1,32 +1,41 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: velero
-  namespace: argocd
-spec:
-  project: default
-  sources:
-  # Source 1: Official Velero Helm Chart
-  - chart: velero
-    repoURL: https://vmware-tanzu.github.io/helm-charts
-    targetRevision: 8.0.0 # Check for latest stable version
-    helm:
-      valueFiles:
-      # References the file in Source 2
-      - $values/apps/velero/values-production.yaml
-  
-  # Source 2: Your Private Config Repo
-  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
-    targetRevision: HEAD
-    ref: values
+deployNodeAgent: true
 
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: 'velero' # Recommended to keep Velero in its own namespace
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.10.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: velero-backups
+      config:
+        s3Url: https://[YOUR_ACCOUNT_ID].r2.cloudflarestorage.com
+        region: us-east-1
+        s3ForcePathStyle: true
   
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+  # Empty because we use Node Agent for file-level backups
+  volumeSnapshotLocation: []
+
+credentials:
+  useSecret: true
+  name: cloud-credentials
+  secretContents: {}
+
+schedules:
+  nexoflow-daily:
+    schedule: "0 2 * * *"
+    template:
+      includedNamespaces:
+        - nexoflow
+      defaultVolumesToFsBackup: true
+      ttl: 720h
+
+# --- NEW FIX BELOW ---
+kubectl:
+  image:
+    repository: registry.k8s.io/kubectl
+    tag: v1.32.0
