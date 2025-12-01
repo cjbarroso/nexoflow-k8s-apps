@@ -1,9 +1,9 @@
 # apps/velero/values-production.yaml
 
-# 1. Enable the Node Agent (Essential for backing up the n8n PVC)
+# 1. Enable Node Agent (Essential for PV backups via file system)
 deployNodeAgent: true
 
-# 2. Install the AWS Plugin (Required for S3/R2 compatibility)
+# 2. Install AWS Plugin (Required for S3/R2 compatibility)
 initContainers:
   - name: velero-plugin-for-aws
     image: velero/velero-plugin-for-aws:v1.10.0
@@ -11,32 +11,36 @@ initContainers:
       - mountPath: /target
         name: plugins
 
-# 3. Configure Cloudflare R2
 configuration:
-  provider: aws
+  # REMOVED: provider: aws (This was the cause of your error)
+  
+  # 3. Configure Backup Location (R2)
   backupStorageLocation:
     - name: default
-      provider: aws
-      bucket: velero-backups # <--- REPLACE WITH YOUR BUCKET NAME
+      provider: aws  # <--- It is correctly defined here
+      bucket: velero-backups
       config:
-        # R2 Endpoint: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-        s3Url: https://77df3d66af9eb572fe180d800d44127.r2.cloudflarestorage.com # <--- REPLACE WITH YOUR R2 URL
-        region: us-east-1      # R2 ignores this, but Velero requires a value
-        s3ForcePathStyle: true # CRITICAL: Must be true for R2
+        s3Url: https://[YOUR_ACCOUNT_ID].r2.cloudflarestorage.com
+        region: us-east-1
+        s3ForcePathStyle: true
 
-# 4. Reference the Secret (Created manually via kubectl)
+  # 4. Configure Snapshot Location 
+  # Since you are using R2 (Object Storage), you cannot do native cloud volume snapshots.
+  # We leave this empty/disabled so Velero relies on the Node Agent (Restic) instead.
+  volumeSnapshotLocation: []
+
+# 5. Credentials
 credentials:
   useSecret: true
   name: cloud-credentials
-  secretContents: {} # We populated this manually, so we leave it empty here
+  secretContents: {}
 
-# 5. Define the Backup Schedule
+# 6. Schedule
 schedules:
   nexoflow-daily:
     schedule: "0 2 * * *"
     template:
       includedNamespaces:
         - nexoflow
-      # This flag forces Velero to backup the PVCs using the Node Agent
       defaultVolumesToFsBackup: true
-      ttl: 720h # 30 days
+      ttl: 720h
