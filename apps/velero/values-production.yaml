@@ -36,6 +36,5 @@ schedules:
 
 kubectl:
   image:
-    repository: docker.io/bitnami/kubectl
-    tag: 1.31.4
-    pullPolicy: IfNotPresent
+    repository: docker.io/rancher/kubectl
+    tag: v1.31.0 # Note the 'v' prefix for Rancher
