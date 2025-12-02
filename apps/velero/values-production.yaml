@@ -37,5 +37,5 @@ schedules:
 kubectl:
   image:
     repository: docker.io/bitnami/kubectl
-    tag: 1.32.0
+    tag: 1.31.4
     pullPolicy: IfNotPresent
