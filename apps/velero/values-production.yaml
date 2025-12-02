@@ -33,6 +33,7 @@ schedules:
         - nexoflow
       defaultVolumesToFsBackup: true
       ttl: 720h
+upgradeCRDs: false
 kubectl:
   image:
     repository: docker.io/bitnami/kubectl
