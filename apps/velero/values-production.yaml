@@ -17,6 +17,7 @@ configuration:
         region: us-east-1
         s3ForcePathStyle: true
   
+  # Empty because we use Node Agent for file-level backups
   volumeSnapshotLocation: []
 
 credentials:
@@ -33,7 +34,7 @@ schedules:
       defaultVolumesToFsBackup: true
       ttl: 720h
 
-# ADD THIS SECTION
+# --- NEW FIX BELOW ---
 kubectl:
   image:
     repository: registry.k8s.io/kubectl
