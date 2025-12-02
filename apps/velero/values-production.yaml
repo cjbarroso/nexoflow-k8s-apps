@@ -34,8 +34,8 @@ schedules:
       defaultVolumesToFsBackup: true
       ttl: 720h
 
-# --- NEW FIX BELOW ---
 kubectl:
   image:
-    repository: registry.k8s.io/kubectl
-    tag: v1.32.0
+    repository: docker.io/bitnami/kubectl
+    tag: 1.32.0
+    pullPolicy: IfNotPresent
