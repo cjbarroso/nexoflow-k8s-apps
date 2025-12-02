@@ -33,8 +33,3 @@ schedules:
         - nexoflow
       defaultVolumesToFsBackup: true
       ttl: 720h
-
-kubectl:
-  image:
-    repository: docker.io/rancher/kubectl
-    tag: v1.31.0 # Note the 'v' prefix for Rancher
