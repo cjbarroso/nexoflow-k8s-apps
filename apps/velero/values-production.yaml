@@ -13,7 +13,7 @@ configuration:
       provider: aws
       bucket: velero-backups
       config:
-        s3Url: https://[YOUR_ACCOUNT_ID].r2.cloudflarestorage.com
+        s3Url: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
         region: us-east-1
         s3ForcePathStyle: true
   
