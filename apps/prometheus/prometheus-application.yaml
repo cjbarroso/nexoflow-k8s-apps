@@ -102,7 +102,7 @@ spec:
             replicas: 1
             retention: 2d
             resources:
-              limits: { memory: 500Mi }
+              limits: { memory: 1000Mi }
               requests: { cpu: 100m, memory: 250Mi }
             serviceMonitorSelectorNilUsesHelmValues: false
             podMonitorSelectorNilUsesHelmValues: false
