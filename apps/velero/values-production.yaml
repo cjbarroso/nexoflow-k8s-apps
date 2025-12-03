@@ -14,7 +14,7 @@ configuration:
       bucket: velero-backups
       config:
         s3Url: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
-        region: us-east-1
+        region: auto
         s3ForcePathStyle: true
   
   # Empty because we use Node Agent for file-level backups
@@ -23,7 +23,6 @@ configuration:
 credentials:
   useSecret: true
   name: cloud-credentials
-  secretContents: {}
 
 schedules:
   nexoflow-daily:
