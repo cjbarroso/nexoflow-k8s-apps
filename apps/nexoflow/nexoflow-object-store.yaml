@@ -16,3 +16,5 @@ spec:
         key: secretAccessKey
     wal:
       compression: gzip
+    data:
+      compression: gzip
