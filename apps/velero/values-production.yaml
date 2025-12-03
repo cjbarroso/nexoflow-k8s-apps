@@ -26,7 +26,7 @@ credentials:
 
 schedules:
   nexoflow-daily:
-    schedule: "0 2 * * *"
+    schedule: "0 10 * * *"
     template:
       includedNamespaces:
         - nexoflow
