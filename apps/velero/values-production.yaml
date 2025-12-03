@@ -22,7 +22,7 @@ configuration:
 
 credentials:
   useSecret: true
-  name: cloud-credentials
+  existingSecret: cloud-credentials
 
 schedules:
   nexoflow-daily:
