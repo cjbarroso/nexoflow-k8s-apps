@@ -1,7 +1,8 @@
 #small deployment with nodeport for local testing or small deployments
-podAnnotations:
-  backup.velero.io/backup-volumes: data
+
 main:
+  podAnnotations:
+    backup.velero.io/backup-volumes: data
   persistence:
     enabled: true
     type: existing
