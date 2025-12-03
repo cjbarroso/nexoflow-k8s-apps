@@ -4,9 +4,9 @@ metadata:
   name: nexoflow-cluster-daily
   namespace: nexoflow
   annotations:
-    force-update: "attempt-2"
+    force-update: "deleteme"
 spec:
-  schedule: "0 3 * * *"
+  schedule: "0 20 16 * * *"
   cluster:
     name: nexoflow-cluster
   method: plugin
