@@ -1,0 +1,13 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: hhccia-cluster-daily
+  namespace: hhccia
+spec:
+  schedule: "0 20 16 * * *"
+  cluster:
+    name: hhccia-cluster
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+  backupOwnerReference: none
