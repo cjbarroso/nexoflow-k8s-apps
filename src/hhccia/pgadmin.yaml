@@ -37,7 +37,7 @@ data:
     cp /etc/pgadmin/servers.json /var/lib/pgadmin/servers.json
 
     # Ensure the pgadmin user owns all its files
-    chown -R pgadmin:pgadmin /var/lib/pgadmin
+    # chown -R pgadmin:pgadmin /var/lib/pgadmin
 
     # Execute the original pgAdmin entrypoint
     exec /entrypoint.sh
