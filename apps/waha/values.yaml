@@ -14,7 +14,7 @@ app-template:
             WAHA_HTTP_HOST: 0.0.0.0
             WAHA_HTTP_PORT: "3000"
             WAHA_LOG_LEVEL: info
-            WHATSAPP_DEFAULT_ENGINE: NOWEB
+            WHATSAPP_DEFAULT_ENGINE: GOWS
             # WHATSAPP_API_HOSTNAME: waha.cjbarroso.com
             WAHA_PUBLIC_URL: https://waha.cjbarroso.com
             WAHA_APPS_ENABLED: true
