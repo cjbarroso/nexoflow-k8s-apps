@@ -10,11 +10,10 @@ spec:
     targetRevision: 0.0.21
     helm:
       valueFiles:
-      - $values/apps/operators/cloudflared/cloudflared-values-production.yaml
+      - $values/manifests/operators/cloudflared/cloudflared-values-production.yaml
   - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
-  source:
   destination:
     server: https://kubernetes.default.svc
     namespace: cloudflared
