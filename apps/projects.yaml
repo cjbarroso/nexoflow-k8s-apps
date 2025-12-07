@@ -9,7 +9,6 @@ spec:
   description: System infrastructure and support services
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
@@ -28,7 +27,6 @@ spec:
   description: Kubernetes Operators
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
@@ -47,7 +45,6 @@ spec:
   description: Prometheus and Grafana monitoring stack
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
@@ -66,7 +63,6 @@ spec:
   description: Nexoflow applications
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
@@ -103,7 +99,6 @@ spec:
   description: HHCCIA applications
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
@@ -122,7 +117,6 @@ spec:
   description: Personal applications
   sourceRepos:
     - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
   destinations:
     - namespace: '*'
       server: '*'
