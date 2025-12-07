@@ -20,7 +20,7 @@ app-template:
               protocol: TCP
           probes:
             liveness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
@@ -29,7 +29,7 @@ app-template:
                 initialDelaySeconds: 10
                 periodSeconds: 30
             readiness:
-              enabled: true
+              enabled: false
               custom: true
               spec:
                 httpGet:
