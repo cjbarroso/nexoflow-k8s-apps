@@ -57,6 +57,18 @@ app-template:
           targetPort: http
           protocol: TCP
 
+  ingress:
+    main:
+      enabled: true
+      className: "cloudflare-tunnel"
+      annotations:
+        kubernetes.io/ingress.class: "cloudflare-tunnel"
+      hosts:
+        - host: waha.cjbarroso.com
+          paths:
+            - path: /
+              pathType: Prefix
+
   persistence:
     data:
       enabled: true
