@@ -1,0 +1,10 @@
+apiVersion: v2
+name: waha
+description: A wrapper chart for Waha (WhatsApp HTTP API) using bjw-s/app-template
+type: application
+version: 0.1.0
+appVersion: "latest"
+dependencies:
+  - name: app-template
+    version: 3.2.1
+    repository: https://bjw-s.github.io/helm-charts
