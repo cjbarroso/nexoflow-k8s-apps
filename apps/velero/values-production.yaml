@@ -30,7 +30,7 @@ schedules:
     template:
       includedNamespaces:
         - nexoflow
-      defaultVolumesToFsBackup: true
+      defaultVolumesToFsBackup: true # Backup everything except excluded
       ttl: 720h
 upgradeCRDs: false
 kubectl:
