@@ -10,10 +10,11 @@ spec:
     targetRevision: 0.8.6
     helm:
       valueFiles:
-      - $values/apps/cal.com/cal-values.yaml
+      - $values/manifests/cal.com/cal-values.yaml
   - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
+    path: manifests/cal.com
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
     namespace: 'calcom' 
