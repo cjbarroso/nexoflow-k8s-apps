@@ -14,17 +14,17 @@ app-template:
             WAHA_HTTP_HOST: 0.0.0.0
             WAHA_HTTP_PORT: "3000"
             WAHA_LOG_LEVEL: info
-            WHATSAPP_API_HOSTNAME: waha.cjbarroso.com
-            WAHA_PUBLIC_URL: https://waha.cjbarroso.com
-            WAHA_APPS_ENABLED: true
-            WAHA_APPS_URL: https://waha.cjbarroso.com/apps
-            WAHA_WEBHOOKS_ENABLED: true
-            WAHA_WEBHOOKS_URL: https://waha.cjbarroso.com/webhooks
-            WAHA_DASHBOARD_ENABLED: true
-            WAHA_DASHBOARD_URL: https://waha.cjbarroso.com/dashboard
-            WAHA_DASHBOARD_NO_PASSWORD: true
-            WAHA_API_KEY_PLAIN: changeme
-            WAHA_API_KEY: changeme
+            #WHATSAPP_API_HOSTNAME: waha.cjbarroso.com
+            # WAHA_PUBLIC_URL: https://waha.cjbarroso.com
+            #WAHA_APPS_ENABLED: true
+            #WAHA_APPS_URL: https://waha.cjbarroso.com/apps
+            #WAHA_WEBHOOKS_ENABLED: true
+            #WAHA_WEBHOOKS_URL: https://waha.cjbarroso.com/webhooks
+            #WAHA_DASHBOARD_ENABLED: true
+            #WAHA_DASHBOARD_URL: https://waha.cjbarroso.com/dashboard
+            # WAHA_DASHBOARD_NO_PASSWORD: true
+            #WAHA_API_KEY_PLAIN: changeme
+            #WAHA_API_KEY: changeme
           ports:
             - name: http
               containerPort: 3000
