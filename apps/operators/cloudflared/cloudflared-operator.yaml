@@ -3,7 +3,7 @@ kind: Application
 metadata:
   name: cloudflared
 spec:
-  project: default
+  project: operators
   sources:
   - repoURL: https://helm.strrl.dev
     chart: cloudflare-tunnel-ingress-controller

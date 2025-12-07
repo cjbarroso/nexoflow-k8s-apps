@@ -3,7 +3,7 @@ kind: Application
 metadata:
   name: nexoflow
 spec:
-  project: default
+  project: apps
   sources:
   - chart: n8n
     repoURL: 8gears.container-registry.com/library

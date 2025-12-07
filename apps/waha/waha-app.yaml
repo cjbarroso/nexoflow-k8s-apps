@@ -4,10 +4,10 @@ metadata:
   name: waha
   namespace: argocd
 spec:
-  project: default
+  project: apps
   source:
     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
-    path: apps/waha
+    path: manifests/waha
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc

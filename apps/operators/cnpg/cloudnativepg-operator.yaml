@@ -4,7 +4,7 @@ metadata:
   name: cnpg-operator
   namespace: argocd
 spec:
-  project: default
+  project: operators
   source:
     repoURL: https://cloudnative-pg.github.io/charts
     chart: cloudnative-pg

@@ -5,7 +5,7 @@ metadata:
   name: barman-cloud-plugin
   namespace: argocd
 spec:
-  project: default
+  project: support
   source:
     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     path: bootstrap/barman-cloud

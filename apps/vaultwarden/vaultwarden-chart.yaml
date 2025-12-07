@@ -7,7 +7,7 @@ metadata:
   namespace: argocd
 spec:
   # The project this application belongs to
-  project: default
+  project: personales
   source:
     # UPDATED: This is the new, correct Helm repository URL.
     repoURL: https://charts.gabe565.com

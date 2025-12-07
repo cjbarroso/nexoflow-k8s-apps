@@ -4,7 +4,7 @@ metadata:
   name: atlas-operator
   namespace: argocd
 spec:
-  project: default
+  project: operators
   sources:
     - repoURL: ghcr.io/ariga/charts
       chart: atlas-operator
@@ -12,7 +12,7 @@ spec:
       helm:
         releaseName: atlas-operator
         valueFiles:
-          - $values/apps/operators/atlas/atlas-values-production.yaml
+          - $values/manifests/operators/atlas/atlas-values-production.yaml
     - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
       targetRevision: HEAD
       ref: values
