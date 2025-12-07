@@ -24,6 +24,15 @@ credentials:
   useSecret: true
   existingSecret: cloud-credentials
 
+schedules:
+  nexoflow-daily:
+    schedule: "0 10 * * *"
+    template:
+      includedNamespaces:
+        - nexoflow
+      defaultVolumesToFsBackup: true
+      ttl: 720h
+
 upgradeCRDs: false # Do not upgrade CRDs. Fixes installation issues.
 kubectl:
   image:
