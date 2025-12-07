@@ -5,3 +5,4 @@ metadata:
 spec:
   shards: 1
   platformManagedSecurityContext: true
+  namespace: waha
