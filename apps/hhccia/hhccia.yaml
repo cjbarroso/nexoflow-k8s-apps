@@ -4,7 +4,7 @@ metadata:
   name: hhccia
   namespace: argocd
 spec:
-  project: default
+  project: hhccia
   source:
     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     path: src/hhccia

@@ -4,7 +4,7 @@ metadata:
   name: waha
   namespace: argocd
 spec:
-  project: apps
+  project: waha
   source:
     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     path: manifests/waha
