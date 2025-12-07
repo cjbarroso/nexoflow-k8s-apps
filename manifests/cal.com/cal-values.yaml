@@ -40,7 +40,7 @@ hostAliases:
     hostnames:
       - "cal.cjbarroso.com"
 
-extraEnv:
+env:
   - name: DATABASE_URL
     valueFrom:
       secretKeyRef:
