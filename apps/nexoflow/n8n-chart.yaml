@@ -14,6 +14,9 @@ spec:
   - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     ref: values
+  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+    targetRevision: HEAD
+    path: manifests/nexoflow
   destination:
     server: 'https://kubernetes.default.svc' # Deploy to the local cluster
     namespace: 'nexoflow' 
