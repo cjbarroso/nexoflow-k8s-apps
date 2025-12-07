@@ -68,6 +68,9 @@ app-template:
           paths:
             - path: /
               pathType: Prefix
+              service:
+                identifier: main
+                port: http
 
   persistence:
     data:
