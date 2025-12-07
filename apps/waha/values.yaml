@@ -27,6 +27,7 @@ app-template:
             WAHA_DASHBOARD_PASSWORD: 229fedaff9254101a1e0335b7ec77c6d
             WHATSAPP_SWAGGER_USERNAME: waha
             WHATSAPP_SWAGGER_PASSWORD: 229fedaff9254101a1e0335b7ec77c6d
+            REDIS_URL: redis://waha-valkey:6379
           ports:
             - name: http
               containerPort: 3000

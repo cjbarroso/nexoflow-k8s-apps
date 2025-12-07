@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: waha-valkey
+  namespace: waha
+  labels:
+    app: waha-valkey
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: waha-valkey
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waha-valkey
+  namespace: waha
+  labels:
+    app: waha-valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: waha-valkey
+  template:
+    metadata:
+      labels:
+        app: waha-valkey
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:8
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: valkey-data
+          persistentVolumeClaim:
+            claimName: waha-valkey-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: waha-valkey-pvc
+  namespace: waha
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
