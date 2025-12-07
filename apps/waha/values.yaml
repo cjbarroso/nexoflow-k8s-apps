@@ -21,6 +21,8 @@ app-template:
             WAHA_WEBHOOKS_ENABLED: true
             #WAHA_WEBHOOKS_URL: https://waha.cjbarroso.com/webhooks
             WAHA_API_KEY: a7a30edde27f41f18813cd4f6f679010
+            WAHA_API_KEY_PLAIN: a7a30edde27f41f18813cd4f6f679010
+            WAHA_DASHBOARD_ENABLED: true
             WAHA_DASHBOARD_USERNAME: waha
             WAHA_DASHBOARD_PASSWORD: 229fedaff9254101a1e0335b7ec77c6d
             WHATSAPP_SWAGGER_USERNAME: waha
