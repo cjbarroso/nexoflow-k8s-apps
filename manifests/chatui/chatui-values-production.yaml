@@ -1,0 +1,14 @@
+replicaCount: 1
+image:
+  repository: jimmartinquis/n8n-chatui
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart's appVersion.
+  tag: "latest"
+
+env:
+  VITE_N8N_WEBHOOK_URL: "https://nexoflow.cjbarroso.com/webhook-test/60c1babc-fcc5-43e6-8ba9-3e1711207446"
+  VITE_N8N_WEBHOOK_USERNAME: "charlie"
+  VITE_N8N_WEBHOOK_SECRET: "caquita00"
+  VITE_WELCOME_MESSAGE: "Your welcome message"
+  VITE_SITE_TITLE: "Charbot"
+  VITE_ASSISTANT_NAME: "Your Assistant Name"
