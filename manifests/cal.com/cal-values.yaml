@@ -39,12 +39,3 @@ hostAliases:
   - ip: "10.43.94.70"  # <-- PASTE THE CLUSTER-IP FROM STEP 2 HERE
     hostnames:
       - "cal.cjbarroso.com"
-
-env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: calcom-cluster-app
-        key: uri
-  - name: ALLOWED_HOSTNAMES
-    value: "cal.cjbarroso.com:443"
