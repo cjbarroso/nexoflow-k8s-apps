@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: valkey-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: ghcr.io/hyperspike
+      chart: valkey-operator
+      targetRevision: v0.0.61-chart
+      helm:
+        releaseName: valkey-operator
+        valueFiles:
+          - $values/apps/operators/valkey/valkey-values.yaml
+    - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: valkey-operator-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
