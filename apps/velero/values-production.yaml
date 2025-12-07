@@ -24,15 +24,7 @@ credentials:
   useSecret: true
   existingSecret: cloud-credentials
 
-schedules:
-  nexoflow-daily:
-    schedule: "0 10 * * *"
-    template:
-      includedNamespaces:
-        - nexoflow
-      defaultVolumesToFsBackup: true # Backup everything except excluded
-      ttl: 720h
-upgradeCRDs: false
+upgradeCRDs: false # Do not upgrade CRDs. Fixes installation issues.
 kubectl:
   image:
     repository: docker.io/bitnami/kubectl

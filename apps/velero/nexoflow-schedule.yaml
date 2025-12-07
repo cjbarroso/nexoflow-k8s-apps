@@ -1,0 +1,12 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: nexoflow-daily
+  namespace: velero
+spec:
+  schedule: "0 10 * * *"
+  template:
+    includedNamespaces:
+      - nexoflow
+    defaultVolumesToFsBackup: true
+    ttl: 720h
