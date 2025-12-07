@@ -7,35 +7,20 @@ app-template:
       containers:
         main:
           image:
-            repository: devlikeapro/waha
+            repository: devlikeapro/waha-plus
             tag: latest
             pullPolicy: IfNotPresent
           env:
             WAHA_HTTP_HOST: 0.0.0.0
             WAHA_HTTP_PORT: "3000"
             WAHA_LOG_LEVEL: info
-            #WHATSAPP_API_HOSTNAME: waha.cjbarroso.com
-            # WAHA_PUBLIC_URL: https://waha.cjbarroso.com
-            #WAHA_APPS_ENABLED: true
-            #WAHA_APPS_URL: https://waha.cjbarroso.com/apps
-            #WAHA_WEBHOOKS_ENABLED: true
-            #WAHA_WEBHOOKS_URL: https://waha.cjbarroso.com/webhooks
-            #WAHA_DASHBOARD_ENABLED: true
-            #WAHA_DASHBOARD_URL: https://waha.cjbarroso.com/dashboard
-            # WAHA_DASHBOARD_NO_PASSWORD: true
-            #WAHA_API_KEY_PLAIN: changeme
-            WAHA_API_KEY: a7a30edde27f41f18813cd4f6f679010
-            WAHA_DASHBOARD_USERNAME: waha
-            WAHA_DASHBOARD_PASSWORD: 229fedaff9254101a1e0335b7ec77c6d
-            WHATSAPP_SWAGGER_USERNAME: waha
-            WHATSAPP_SWAGGER_PASSWORD: 229fedaff9254101a1e0335b7ec77c6d
           ports:
             - name: http
               containerPort: 3000
               protocol: TCP
           probes:
             liveness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -44,7 +29,7 @@ app-template:
                 initialDelaySeconds: 10
                 periodSeconds: 30
             readiness:
-              enabled: false
+              enabled: true
               custom: true
               spec:
                 httpGet:
@@ -71,21 +56,6 @@ app-template:
           port: 3000
           targetPort: http
           protocol: TCP
-
-  ingress:
-    main:
-      enabled: true
-      className: "cloudflare-tunnel"
-      annotations:
-        kubernetes.io/ingress.class: "cloudflare-tunnel"
-      hosts:
-        - host: waha.cjbarroso.com
-          paths:
-            - path: /
-              pathType: Prefix
-              service:
-                identifier: main
-                port: http
 
   persistence:
     data:
