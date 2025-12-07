@@ -64,9 +64,7 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   description: Nexoflow applications
-  sourceRepos:
-    - '*'
-    - 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+
   destinations:
     - namespace: '*'
       server: '*'
