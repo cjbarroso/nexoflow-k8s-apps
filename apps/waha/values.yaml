@@ -16,7 +16,7 @@ app-template:
             WAHA_LOG_LEVEL: info
             #WHATSAPP_API_HOSTNAME: waha.cjbarroso.com
             WAHA_PUBLIC_URL: https://waha.cjbarroso.com
-            WAHA_APPS_ENABLED: true
+            # WAHA_APPS_ENABLED: true
             #WAHA_APPS_URL: https://waha.cjbarroso.com/apps
             WAHA_WEBHOOKS_ENABLED: true
             #WAHA_WEBHOOKS_URL: https://waha.cjbarroso.com/webhooks
