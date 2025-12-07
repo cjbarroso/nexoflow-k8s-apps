@@ -7,6 +7,10 @@ spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: true
+  inheritedMetadata:
+    annotations:
+      # Excludes the main database volume from Velero's File System Backup
+      backup.velero.io/backup-volumes-excludes: pgdata
   plugins: 
   - name: barman-cloud.cloudnative-pg.io
     isWALArchiver: true
