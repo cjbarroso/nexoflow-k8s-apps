@@ -23,6 +23,8 @@ app-template:
             WAHA_DASHBOARD_ENABLED: true
             WAHA_DASHBOARD_URL: https://waha.cjbarroso.com/dashboard
             WAHA_DASHBOARD_NO_PASSWORD: true
+            WAHA_API_KEY_PLAIN: changeme
+            WAHA_API_KEY: changeme
           ports:
             - name: http
               containerPort: 3000
