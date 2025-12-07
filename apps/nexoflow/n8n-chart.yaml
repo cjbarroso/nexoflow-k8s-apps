@@ -12,7 +12,7 @@ spec:
       valueFiles:
         - $manifests/manifests/nexoflow/n8n-values-production.yaml
       # - $values/apps/nexoflow/n8n-values-production.yaml
-  - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+  - repoURL: 'ssh://git@192.168.5.80:23231/nexoflow-k8s-apps'
     targetRevision: HEAD
     path: manifests/nexoflow
     ref: manifests
