@@ -2,7 +2,7 @@ apiVersion: hyperspike.io/v1
 kind: Valkey
 metadata:
   name: waha-valkey-db
+  namespace: waha
 spec:
   shards: 1
   platformManagedSecurityContext: true
-  namespace: waha
