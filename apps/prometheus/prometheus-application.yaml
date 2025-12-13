@@ -1,185 +1,185 @@
-# apiVersion: argoproj.io/v1alpha1
-# kind: Application
-# metadata:
-#   name: monitoring
-#   namespace: argocd
-#   annotations:
-#     argocd.argoproj.io/sync-wave: "1"
-# spec:
-#   project: monitoring
-#   source:
-#     repoURL: https://prometheus-community.github.io/helm-charts
-#     chart: kube-prometheus-stack
-#     targetRevision: 65.x.x
-#     helm:
-#       values: |
-#         # ==========================================================
-#         # 1. DISABLE CONTROL PLANE MONITORING (Fix for False Alerts)
-#         # ==========================================================
-#         kubeControllerManager:
-#           enabled: false
-#         kubeScheduler:
-#           enabled: false
-#         kubeProxy:
-#           enabled: false
-#         kubeEtcd:
-#           enabled: false
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: monitoring
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 65.x.x
+    helm:
+      values: |
+        # ==========================================================
+        # 1. DISABLE CONTROL PLANE MONITORING (Fix for False Alerts)
+        # ==========================================================
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        kubeEtcd:
+          enabled: false
 
-#         # ==========================================================
-#         # 2. CUSTOM ALERTS (Disk Space > 90%)
-#         # ==========================================================
-#         additionalPrometheusRulesMap:
-#           custom-node-alerts:
-#             groups:
-#               - name: node-exporters
-#                 rules:
-#                   - alert: HostOutOfDiskSpace
-#                     expr: 100 - (node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"} > 90
-#                     for: 5m
-#                     labels:
-#                       severity: critical
-#                     annotations:
-#                       summary: "Host out of disk space (instance {{ $labels.instance }})"
-#                       description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+        # ==========================================================
+        # 2. CUSTOM ALERTS (Disk Space > 90%)
+        # ==========================================================
+        additionalPrometheusRulesMap:
+          custom-node-alerts:
+            groups:
+              - name: node-exporters
+                rules:
+                  - alert: HostOutOfDiskSpace
+                    expr: 100 - (node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"} > 90
+                    for: 5m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: "Host out of disk space (instance {{ $labels.instance }})"
+                      description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
-#         # ==========================================================
-#         # 3. ALERTMANAGER (Notifications)
-#         # ==========================================================
-#         alertmanager:
-#           alertmanagerSpec:
-#             replicas: 1
-#             resources:
-#               limits: { memory: 200Mi }
-#               requests: { cpu: 50m, memory: 100Mi }
+        # ==========================================================
+        # 3. ALERTMANAGER (Notifications)
+        # ==========================================================
+        alertmanager:
+          alertmanagerSpec:
+            replicas: 1
+            resources:
+              limits: { memory: 200Mi }
+              requests: { cpu: 50m, memory: 100Mi }
 
-#           config:
-#             global:
-#               resolve_timeout: 5m
+          config:
+            global:
+              resolve_timeout: 5m
 
-#             receivers:
-#             - name: 'null'
+            receivers:
+            - name: 'null'
             
-#             # Receiver 1: Healthchecks.io (Heartbeat)
-#             - name: 'deadmansswitch'
-#               webhook_configs:
-#               - url: 'https://hc-ping.com/26daa724-a3cd-41f1-a428-84c4791d35e5' # <--- REPLACE THIS
-#                 send_resolved: false
+            # Receiver 1: Healthchecks.io (Heartbeat)
+            - name: 'deadmansswitch'
+              webhook_configs:
+              - url: 'https://hc-ping.com/26daa724-a3cd-41f1-a428-84c4791d35e5' # <--- REPLACE THIS
+                send_resolved: false
             
-#             # Receiver 2: Telegram (Critical Alerts)
-#             - name: 'telegram-personal'
-#               telegram_configs:
-#               - bot_token: '1978675533:AAFWHVmp-r3ZU0Z7O1qLdykyzxiC2G7Q6fY' # <--- REPLACE THIS
-#                 chat_id: 1142335836                                   # <--- REPLACE THIS
-#                 parse_mode: 'HTML'
+            # Receiver 2: Telegram (Critical Alerts)
+            - name: 'telegram-personal'
+              telegram_configs:
+              - bot_token: '1978675533:AAFWHVmp-r3ZU0Z7O1qLdykyzxiC2G7Q6fY' # <--- REPLACE THIS
+                chat_id: 1142335836                                   # <--- REPLACE THIS
+                parse_mode: 'HTML'
 
-#             route:
-#               group_by: ['alertname']
-#               group_wait: 30s
-#               group_interval: 5m
-#               repeat_interval: 4h
-#               receiver: 'null'
+            route:
+              group_by: ['alertname']
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+              receiver: 'null'
               
-#               routes:
-#               # Route 1: Watchdog -> Healthchecks.io (Every 1m)
-#               - receiver: 'deadmansswitch'
-#                 matchers:
-#                   - alertname = Watchdog
-#                 group_interval: 1m
-#                 repeat_interval: 1m
-#                 continue: false
+              routes:
+              # Route 1: Watchdog -> Healthchecks.io (Every 1m)
+              - receiver: 'deadmansswitch'
+                matchers:
+                  - alertname = Watchdog
+                group_interval: 1m
+                repeat_interval: 1m
+                continue: false
 
-#               # Route 2: Critical -> Telegram (Every 4h)
-#               - receiver: 'telegram-personal'
-#                 matchers:
-#                   - severity = critical
-#                 continue: true
+              # Route 2: Critical -> Telegram (Every 4h)
+              - receiver: 'telegram-personal'
+                matchers:
+                  - severity = critical
+                continue: true
 
-#         # ==========================================================
-#         # 4. PROMETHEUS (Diet Mode + Ingress)
-#         # ==========================================================
-#         prometheus:
-#           prometheusSpec:
-#             replicas: 1
-#             retention: 2d
-#             resources:
-#               limits: { memory: 700Mi }
-#               requests: { cpu: 100m, memory: 250Mi }
-#             serviceMonitorSelectorNilUsesHelmValues: false
-#             podMonitorSelectorNilUsesHelmValues: false
+        # ==========================================================
+        # 4. PROMETHEUS (Diet Mode + Ingress)
+        # ==========================================================
+        prometheus:
+          prometheusSpec:
+            replicas: 1
+            retention: 2d
+            resources:
+              limits: { memory: 700Mi }
+              requests: { cpu: 100m, memory: 250Mi }
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
           
-#           ingress:
-#             enabled: true
-#             annotations:
-#               kubernetes.io/ingress.class: cloudflare-tunnel
-#               argocd.argoproj.io/sync-options: ServerSideApply=false
-#             hosts:
-#               - prometheus.cjbarroso.com
-#             paths:
-#               - /
-#             tls:
-#               - hosts:
-#                   - prometheus.cjbarroso.com
+          ingress:
+            enabled: true
+            annotations:
+              kubernetes.io/ingress.class: cloudflare-tunnel
+              argocd.argoproj.io/sync-options: ServerSideApply=false
+            hosts:
+              - prometheus.cjbarroso.com
+            paths:
+              - /
+            tls:
+              - hosts:
+                  - prometheus.cjbarroso.com
 
-#         # ==========================================================
-#         # 5. GRAFANA (Dashboards + Ingress)
-#         # ==========================================================
-#         grafana:
-#           resources:
-#             limits: { memory: 256Mi }
-#             requests: { cpu: 50m, memory: 100Mi }
+        # ==========================================================
+        # 5. GRAFANA (Dashboards + Ingress)
+        # ==========================================================
+        grafana:
+          resources:
+            limits: { memory: 256Mi }
+            requests: { cpu: 50m, memory: 100Mi }
           
-#           dashboardProviders:
-#             dashboardproviders.yaml:
-#               apiVersion: 1
-#               providers:
-#               - name: 'default'
-#                 orgId: 1
-#                 folder: ''
-#                 type: file
-#                 disableDeletion: false
-#                 editable: true
-#                 options:
-#                   path: /var/lib/grafana/dashboards/default
+          dashboardProviders:
+            dashboardproviders.yaml:
+              apiVersion: 1
+              providers:
+              - name: 'default'
+                orgId: 1
+                folder: ''
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
 
-#           dashboards:
-#             default:
-#               node-exporter-full:
-#                 url: https://grafana.com/api/dashboards/1860/revisions/latest/download
-#                 datasource: Prometheus
+          dashboards:
+            default:
+              node-exporter-full:
+                url: https://grafana.com/api/dashboards/1860/revisions/latest/download
+                datasource: Prometheus
           
-#           sidecar:
-#             dashboards:
-#               enabled: true
-#               label: grafana_dashboard
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
 
-#           ingress:
-#             enabled: true
-#             annotations:
-#               kubernetes.io/ingress.class: cloudflare-tunnel
-#               argocd.argoproj.io/sync-options: ServerSideApply=false
-#             hosts:
-#               - grafana.cjbarroso.com
-#             path: /
-#             tls:
-#               - hosts:
-#                   - grafana.cjbarroso.com
+          ingress:
+            enabled: true
+            annotations:
+              kubernetes.io/ingress.class: cloudflare-tunnel
+              argocd.argoproj.io/sync-options: ServerSideApply=false
+            hosts:
+              - grafana.cjbarroso.com
+            path: /
+            tls:
+              - hosts:
+                  - grafana.cjbarroso.com
 
-#         # ==========================================================
-#         # 6. NODE EXPORTER (Diet Mode)
-#         # ==========================================================
-#         nodeExporter:
-#           enabled: true
-#           resources:
-#             limits: { memory: 50Mi, cpu: 50m }
+        # ==========================================================
+        # 6. NODE EXPORTER (Diet Mode)
+        # ==========================================================
+        nodeExporter:
+          enabled: true
+          resources:
+            limits: { memory: 50Mi, cpu: 50m }
 
-#   destination:
-#     server: https://kubernetes.default.svc
-#     namespace: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
   
-#   syncPolicy:
-#     automated:
-#       prune: true
-#       selfHeal: true
-#     syncOptions:
-#       - CreateNamespace=true
-#       - ServerSideApply=true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
