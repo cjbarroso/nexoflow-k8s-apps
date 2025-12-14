@@ -4,6 +4,7 @@ metadata:
   name: nexoflow-cluster
   namespace: nexoflow  # The namespace where you want your database
 spec:
+  logLevel: info
   instances: 3
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: true
