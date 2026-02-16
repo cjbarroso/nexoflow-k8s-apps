@@ -22,7 +22,7 @@ spec:
         - name: hhccia-front
           image: ghcr.io/irupe-consultores/hhccia-front:093e29899421e9933b23e9e15eeb2c23e3cdebaf
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
 ---
 apiVersion: v1
@@ -37,6 +37,6 @@ spec:
     app: hhccia-front
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 80
+      port: 8080
+      targetPort: 8080
   type: ClusterIP
