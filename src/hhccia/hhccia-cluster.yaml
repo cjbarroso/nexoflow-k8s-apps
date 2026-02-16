@@ -1,16 +1,16 @@
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: hhccia-cluster
-  namespace: hhccia
-spec:
-  instances: 3
-  primaryUpdateStrategy: unsupervised
-  enableSuperuserAccess: true
-  plugins:
-  - name: barman-cloud.cloudnative-pg.io
-    isWALArchiver: true
-    parameters:
-      barmanObjectName: hhccia-object-store
-  storage:
-    size: 10Gi
+# apiVersion: postgresql.cnpg.io/v1
+# kind: Cluster
+# metadata:
+#   name: hhccia-cluster
+#   namespace: hhccia
+# spec:
+#   instances: 3
+#   primaryUpdateStrategy: unsupervised
+#   enableSuperuserAccess: true
+#   plugins:
+#   - name: barman-cloud.cloudnative-pg.io
+#     isWALArchiver: true
+#     parameters:
+#       barmanObjectName: hhccia-object-store
+#   storage:
+#     size: 10Gi

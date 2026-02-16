@@ -1,20 +1,20 @@
-# apiVersion: argoproj.io/v1alpha1
-# kind: Application
-# metadata:
-#   name: hhccia
-#   namespace: argocd
-# spec:
-#   project: hhccia
-#   source:
-#     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
-#     path: src/hhccia
-#     targetRevision: HEAD
-#   destination:
-#     server: https://kubernetes.default.svc
-#     namespace: hhccia
-#   syncPolicy:
-#     automated:
-#       prune: true
-#       selfHeal: true
-#     syncOptions:
-#       - CreateNamespace=true
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hhccia
+  namespace: argocd
+spec:
+  project: hhccia
+  source:
+    repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+    path: src/hhccia
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hhccia
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
