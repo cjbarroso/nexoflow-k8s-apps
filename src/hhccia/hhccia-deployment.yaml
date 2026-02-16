@@ -15,6 +15,7 @@ spec:
       labels:
         app: hhccia-front
     spec:
+      automountServiceAccountToken: false
       imagePullSecrets:
         - name: github-auth
       containers:
