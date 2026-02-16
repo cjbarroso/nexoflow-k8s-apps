@@ -20,7 +20,7 @@ spec:
         - name: github-auth
       containers:
         - name: hhccia-front
-          image: ghcr.io/irupe-consultores/hhccia-front:093e29899421e9933b23e9e15eeb2c23e3cdebaf
+          image: ghcr.io/irupe-consultores/hhccia-front:latest
           ports:
             - containerPort: 8080
               name: http
