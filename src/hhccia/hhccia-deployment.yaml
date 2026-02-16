@@ -24,6 +24,11 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          env:
+            - name: API_URL
+              value: "https://flow.cjbarroso.com/webhook/HHCCIA"
+            - name: CLERK_PUBLISHABLE_KEY
+              value: "pk_test_Z2VudGxlLWZsZWEtMzcuY2xlcmsuYWNjb3VudHMuZGV2JA"
 ---
 apiVersion: v1
 kind: Service
