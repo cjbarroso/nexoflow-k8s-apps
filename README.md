@@ -17,3 +17,7 @@ Here
 
 # Para que ande la conexion al repo
 argocd cert add-ssh --batch --from ~/.ssh/known_hosts
+
+## Docs
+
+- `docs/05-VAULTWARDEN-UPDATE-NOTES.md`: Vaultwarden image update notes, GitOps source of truth, Soft Serve behavior, and verification commands.
