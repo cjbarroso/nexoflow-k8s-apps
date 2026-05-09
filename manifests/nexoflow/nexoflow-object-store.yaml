@@ -4,6 +4,7 @@ metadata:
   name: nexoflow-object-store
   namespace: nexoflow
 spec:
+  retentionPolicy: "7d"
   configuration:
     destinationPath: s3://backups-k8s/nexoflow-cluster
     endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
