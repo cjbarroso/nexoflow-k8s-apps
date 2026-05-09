@@ -9,8 +9,8 @@ metadata:
 spec:
   project: support
   source:
-    repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
-    targetRevision: HEAD
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    targetRevision: master
     path: bootstrap/argocd-config # Points to the folder with the Ingress
   destination:
     server: https://kubernetes.default.svc

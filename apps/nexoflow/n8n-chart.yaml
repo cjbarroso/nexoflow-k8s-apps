@@ -11,11 +11,11 @@ spec:
     helm:
       valueFiles:
         - $manifests/manifests/nexoflow/n8n-values-production.yaml
-  - repoURL: 'ssh://git@192.168.5.80:23231/nexoflow-k8s-apps'
-    targetRevision: HEAD
+  - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    targetRevision: master
     ref: manifests
-  - repoURL: 'ssh://git@192.168.5.80:23231/nexoflow-k8s-apps'
-    targetRevision: HEAD
+  - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    targetRevision: master
     ref: others
     path: manifests/nexoflow
   destination:

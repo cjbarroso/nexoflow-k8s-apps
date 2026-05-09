@@ -22,43 +22,43 @@ image:
   tag: 1.36.0-alpine
 ```
 
-## GitOps Source Of Truth
+## Historical GitOps Source Of Truth Issue
 
-Argo CD does not deploy from the local checkout on this workstation or from GitHub. The root Argo CD app tracks the Soft Serve repository:
+At the time of the Vaultwarden update, Argo CD deployed from the in-cluster Soft Serve repository, not from GitHub. The cluster has since been migrated so GitHub is the source of truth:
 
 ```text
-ssh://192.168.5.80:23231/nexoflow-k8s-apps
+https://github.com/cjbarroso/nexoflow-k8s-apps.git
 ```
 
-The root app tracks `HEAD` in that repository. At the time of the update, the local checkout was behind the Soft Serve branch by many commits, so pushing the local branch directly would have overwritten unrelated cluster changes.
+The root app now tracks `master` in that repository. During the Vaultwarden update, the local checkout was behind Soft Serve by many commits, so pushing the local branch directly would have overwritten unrelated cluster changes.
 
-Safe workflow when the local checkout is stale:
+Safe workflow when the local checkout is stale now:
 
 ```sh
-git fetch softserve master
-git worktree add ../nexoflow-k8s-apps-softserve softserve/master
+git fetch origin master
+git worktree add ../nexoflow-k8s-apps-current origin/master
 ```
 
 Make the change in the temporary worktree, not in the stale checkout. Commit only the intended files.
 
 ## Applying Changes
 
-Directly applying `apps/vaultwarden/vaultwarden-chart.yaml` with `kubectl apply` is not durable when the Git repo differs from the local file. The root app reconciles the child `Application` object back to the version from Soft Serve.
+Directly applying `apps/vaultwarden/vaultwarden-chart.yaml` with `kubectl apply` is not durable when the Git repo differs from the local file. The root app reconciles the child `Application` object back to the version from GitHub.
 
 Observed behavior:
 
 1. `kubectl apply -f apps/vaultwarden/vaultwarden-chart.yaml` was accepted.
 2. Argo CD briefly deployed the changed `vaultwarden` application.
-3. The root app reconciled from Soft Serve and reverted the child app back to the committed Git version.
+3. The root app reconciled from Git and reverted the child app back to the committed Git version.
 
-Durable changes must land in the Soft Serve repository first.
+Durable changes must land in GitHub first.
 
 Normal expected path:
 
 ```sh
 git add apps/vaultwarden/vaultwarden-chart.yaml
 git commit -m "Update Vaultwarden image"
-git push softserve HEAD:master
+git push origin master
 ```
 
 In this update, direct SSH push to Soft Serve from the workstation was denied. The Argo CD repository credentials were also read-only for push. Because cluster admin access was available, the prepared commit was fast-forwarded into the bare Soft Serve repository inside the `soft-serve` pod.
@@ -117,9 +117,9 @@ ghcr.io/dani-garcia/vaultwarden:1.36.0-alpine
 deployment "vaultwarden" successfully rolled out
 ```
 
-## Soft Serve Notes
+## Legacy Soft Serve Notes
 
-Soft Serve runs in the `argocd` namespace:
+Soft Serve was previously used as the in-cluster Git server. It may still exist in the `argocd` namespace as a legacy component:
 
 ```sh
 kubectl get pods -n argocd -l app=soft-serve -o wide
@@ -132,11 +132,10 @@ The bare Git repository is stored in the Soft Serve pod at:
 /soft-serve/repos/nexoflow-k8s-apps.git
 ```
 
-Use direct bare-repo changes only as an operational fallback. Prefer authenticated Git push whenever write access is available.
+Do not use Soft Serve as the GitOps source of truth after the GitHub migration. Prefer normal GitHub commits and pushes.
 
 ## Follow-Up Items
 
-- Configure a workstation SSH key with write access to Soft Serve so future GitOps updates can use normal `git push`.
-- Keep `origin` and `softserve` remotes distinct. `origin` may point to GitHub, but Argo CD tracks Soft Serve.
+- Keep local `origin` pointed at GitHub because Argo CD now tracks GitHub.
 - Move Vaultwarden secrets out of inline Helm values when possible. The manifest currently contains sensitive runtime configuration, which is risky for Git history and local checkouts.
 - Periodically check whether Gabe565 publishes a newer Vaultwarden chart. If the chart updates its `appVersion`, remove the image override only after verifying the chart default matches the desired image tag.

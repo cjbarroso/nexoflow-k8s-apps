@@ -8,16 +8,16 @@ Instalar argocd core
 ```
 
 
-# Instalar https://github.com/charmbracelet/soft-serve
+# Source of truth
 
+GitHub is the GitOps source of truth:
 
-# Para crear el repo
-git remote add origin ssh://192.168.5.80:23231/nexoflow-k8s-apps
-Here
+```sh
+git remote add origin https://github.com/cjbarroso/nexoflow-k8s-apps.git
+```
 
-# Para que ande la conexion al repo
-argocd cert add-ssh --batch --from ~/.ssh/known_hosts
+Argo CD reads the same GitHub repository through `bootstrap/root-app.yaml`.
 
 ## Docs
 
-- `docs/05-VAULTWARDEN-UPDATE-NOTES.md`: Vaultwarden image update notes, GitOps source of truth, Soft Serve behavior, and verification commands.
+- `docs/05-VAULTWARDEN-UPDATE-NOTES.md`: Vaultwarden image update notes and verification commands.

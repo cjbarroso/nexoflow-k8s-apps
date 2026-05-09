@@ -15,13 +15,13 @@ To work with this repository, you should have the following tools installed:
 
 *   **`kubectl`**: For interacting with the Kubernetes cluster.
 *   **`argocd` CLI**: For managing Argo CD applications and settings.
-*   **`ssh`**: Required for accessing the Git repository if not using HTTPS (this repo uses SSH for Argo CD).
+*   **`git`**: For cloning and pushing GitOps changes.
 
 ## Getting Started
 
 1.  **Clone the Repository**:
     ```bash
-    git clone ssh://git@192.168.5.80:23231/nexoflow-k8s-apps
+    git clone https://github.com/cjbarroso/nexoflow-k8s-apps.git
     cd nexoflow-k8s-apps
     ```
 

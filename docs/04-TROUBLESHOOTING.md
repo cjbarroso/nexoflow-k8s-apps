@@ -21,4 +21,4 @@ The following applications are currently **Work In Progress (WIP)** or have know
 ## Common Issues
 
 *   **Argo CD Sync Errors**: If an app fails to sync, check if it relies on a resource in `manifests/` that hasn't been applied or is referenced incorrectly.
-*   **Repository Access**: If Argo CD cannot fetch charts or manifests, verify the SSH key int `bootstrap/repo-secret-v2.yaml` matches the public key deployed to the Git server (`soft-serve`).
+*   **Repository Access**: If Argo CD cannot fetch manifests from GitHub, verify `bootstrap/root-app.yaml` points to `https://github.com/cjbarroso/nexoflow-k8s-apps.git` and that the repository remains publicly readable, or configure credentials in `bootstrap/repo-secret.yaml`.

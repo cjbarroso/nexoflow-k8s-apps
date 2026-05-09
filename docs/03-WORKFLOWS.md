@@ -27,8 +27,9 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
     sources:
       - chart: my-chart
         # ... helm config ...
-      - repoURL: 'ssh://git@...'
+      - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
         path: manifests/my-new-app
+        targetRevision: master
     ```
 
 ## Development Workflow
@@ -38,7 +39,7 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
     ```bash
     git add .
     git commit -m "feat: Add my new app"
-    git push origin main
+    git push origin master
     ```
 3.  **Sync**:
     Argo CD will automatically detect changes (usually within 3 minutes). You can manually sync via the UI or CLI if needed:
@@ -48,5 +49,5 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
 
 ## Secrets
 
-*   **Repository Access**: If you need to update the Git credentials, edit `bootstrap/repo-secret-v2.yaml`.
+*   **Repository Access**: Argo CD reads the public GitHub repository defined in `bootstrap/root-app.yaml`. If the repository becomes private, update `bootstrap/repo-secret.yaml` with GitHub credentials or a deploy key.
 *   **App Secrets**: Do not commit actual secrets (passwords, API keys) to Git unless they are encrypted (e.g., SealedSecrets) or you are using an external secret store.

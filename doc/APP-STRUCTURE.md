@@ -40,8 +40,8 @@ spec:
       helm:
         valueFiles:
           - $values/apps/<app-name>/<app-name>-values-production.yaml
-    - repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
-      targetRevision: HEAD
+    - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+      targetRevision: master
       ref: values
   destination:
     server: 'https://kubernetes.default.svc'

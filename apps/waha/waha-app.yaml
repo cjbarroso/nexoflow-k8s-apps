@@ -6,9 +6,9 @@
 # spec:
 #   project: waha
 #   source:
-#     repoURL: 'ssh://192.168.5.80:23231/nexoflow-k8s-apps'
+#     repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
 #     path: manifests/waha
-#     targetRevision: HEAD
+#     targetRevision: master
 #   destination:
 #     server: https://kubernetes.default.svc
 #     namespace: waha

@@ -22,15 +22,15 @@ This repository follows a specific structure to organize Argo CD applications an
     *   Contains the initial configurations to get the cluster and Argo CD up and running.
     *   Key files:
         *   `root-app.yaml`: The "App of Apps" that points Argo CD to the `apps/` directory.
-        *   `repo-secret-v2.yaml`: The Source of Truth for the Git repository credentials.
+        *   `repo-secret.yaml`: Optional repository registration for Argo CD. The cluster uses the public GitHub repository as the GitOps source of truth.
 
 ## Secrets Management
 
-Secrets are managed explicitly and are **not** stored in plain text in the repository (except for the bootstrap secret which appears to be a private/internal repo artifact).
+Secrets are managed explicitly and should not be stored in plain text in the repository.
 
-*   **Repository Secret**: The credentials for Argo CD to access this Git repository are defined in **`bootstrap/repo-secret-v2.yaml`**.
-    *   This is the **v2** version and is the current source of truth.
-    *   It configures the SSH private key and `sshKnownHosts` for `192.168.5.80:23231`.
+*   **Repository Access**: Argo CD reads `https://github.com/cjbarroso/nexoflow-k8s-apps.git`.
+    *   The repository is publicly readable, so no SSH private key is required for read access.
+    *   `bootstrap/repo-secret.yaml` registers the GitHub URL with Argo CD.
 
 ## Application Pattern
 
