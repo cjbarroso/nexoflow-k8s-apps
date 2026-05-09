@@ -9,14 +9,16 @@ spec:
   # The project this application belongs to
   project: personales
   source:
-    # UPDATED: This is the new, correct Helm repository URL.
     repoURL: https://charts.gabe565.com
     targetRevision: 0.16.1
     # The name of the chart to deploy
     chart: vaultwarden
-    # The targetRevision has been removed to allow Argo CD to use the latest chart version.
     helm:
       values: |
+        image:
+          repository: ghcr.io/dani-garcia/vaultwarden
+          tag: 1.36.0-alpine
+
         # The values structure has been updated to match the new chart.
         env:
           # Set the external domain for Vaultwarden.
