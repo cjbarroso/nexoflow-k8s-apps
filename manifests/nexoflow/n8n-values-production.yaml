@@ -1,8 +1,9 @@
 #small deployment with nodeport for local testing or small deployments
 
+image:
+  tag: "2.20.9"
+
 main:
-  image:
-    tag: "2.20.9"
   podAnnotations:
     backup.velero.io/backup-volumes: data
   persistence:
