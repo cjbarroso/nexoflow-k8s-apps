@@ -43,8 +43,12 @@ spec:
               value: "false"
             - name: AUTHENTIK_ISSUER
               value: "https://auth.cjbarroso.com/application/o/hhccia/"
+            # In-cluster JWKS lookup — going out through the Cloudflare tunnel
+            # gets 403'd because the Python default User-Agent is filtered.
+            # The `iss` claim in the JWT is still checked against AUTHENTIK_ISSUER
+            # (the public URL); JWKS is just how we fetch the signing keys.
             - name: AUTHENTIK_JWKS_URL
-              value: "https://auth.cjbarroso.com/application/o/hhccia/jwks/"
+              value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5
