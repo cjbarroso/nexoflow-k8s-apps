@@ -20,8 +20,13 @@ spec:
         - name: github-auth
       containers:
         - name: hhccia-front
-          image: ghcr.io/irupe-consultores/hhccia-front:latest
-          imagePullPolicy: Always
+          # Pinned to the last commit BEFORE the Clerk -> Authentik migration
+          # (cf86124 = entrypoint forwards CORE_API_URL, still has Clerk).
+          # The v2 deployment in hhccia-v2 ns uses `:latest` and is the place
+          # to validate new front builds. Move v1 forward only when its env
+          # vars (AUTHENTIK_AUTHORITY etc.) are also set on this deployment.
+          image: ghcr.io/irupe-consultores/hhccia-front:cf86124ae14f064e696e3d428733183ffde1ce08
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http
