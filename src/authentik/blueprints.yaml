@@ -1,0 +1,50 @@
+# Declarative configuration of the HHCCIA OIDC application, picked up by
+# Authentik on startup (server + worker mount this at /blueprints/custom).
+# Docs: https://goauthentik.io/docs/customize/blueprints
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-blueprints
+  namespace: authentik
+data:
+  hhccia.yaml: |
+    version: 1
+    metadata:
+      name: HHCCIA OIDC application
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      - model: authentik_providers_oauth2.oauth2provider
+        id: hhccia-provider
+        identifiers:
+          name: hhccia-provider
+        attrs:
+          name: hhccia-provider
+          client_id: hhccia-front
+          client_type: public                       # Angular SPA -> PKCE, no secret stored
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          access_code_validity: minutes=1
+          access_token_validity: hours=1
+          refresh_token_validity: days=30
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          redirect_uris: |
+            https://hhccia-v2.cjbarroso.com/callback
+            https://hhccia-v2.cjbarroso.com/silent-renew
+            http://localhost:4200/callback
+            http://localhost:4200/silent-renew
+          sub_mode: hashed_user_id
+          include_claims_in_id_token: true
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+      - model: authentik_core.application
+        id: hhccia-app
+        identifiers:
+          slug: hhccia
+        attrs:
+          name: HHCCIA
+          slug: hhccia
+          provider: !KeyOf hhccia-provider
+          meta_launch_url: https://hhccia-v2.cjbarroso.com/
+          open_in_new_tab: false

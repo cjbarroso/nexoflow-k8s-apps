@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authentik
+  namespace: argocd
+spec:
+  project: support
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/authentik
+    targetRevision: master
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: authentik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
