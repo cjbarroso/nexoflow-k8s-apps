@@ -31,3 +31,22 @@ sync** while in testing).
 
 Nothing here auto-deploys: the root app tracks `master`, and this Application
 uses manual sync.
+
+## Pulling a freshly built image
+
+CI in `hhccia-core` and `hhccia-adapter-datatech` (`.github/workflows/publish.yml`)
+runs the test suite and, on green, pushes new images to:
+
+- `ghcr.io/irupe-consultores/hhccia-core:latest` + `:<sha>`
+- `ghcr.io/irupe-consultores/hhccia-adapter-datatech:latest` + `:<sha>`
+
+These manifests pin `:latest` with `imagePullPolicy: Always`, **so Argo CD will
+not roll the workload by itself** — the manifest digest in Git didn't change.
+After CI publishes, force the rollout:
+
+```bash
+kubectl -n hhccia-v2 rollout restart deploy/hhccia-core
+kubectl -n hhccia-v2 rollout restart deploy/hhccia-adapter-datatech
+```
+
+(Same pattern as the live `hhccia` app — see the root project notes.)
