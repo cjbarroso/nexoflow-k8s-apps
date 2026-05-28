@@ -37,8 +37,11 @@ spec:
             # The switch that flips ListService -> CoreApiService.
             - name: CORE_API_URL
               value: "https://api-hhccia-v2.cjbarroso.com"
-            - name: CLERK_PUBLISHABLE_KEY
-              value: "pk_test_Z2VudGxlLWZsZWEtMzcuY2xlcmsuYWNjb3VudHMuZGV2JA"
+            # OIDC against self-hosted Authentik (replaces the old Clerk integration).
+            - name: AUTHENTIK_AUTHORITY
+              value: "https://auth.cjbarroso.com/application/o/hhccia/"
+            - name: AUTHENTIK_CLIENT_ID
+              value: "hhccia-front"
 ---
 apiVersion: v1
 kind: Service

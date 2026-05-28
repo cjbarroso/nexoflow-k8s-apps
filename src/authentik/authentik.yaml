@@ -1,5 +1,10 @@
 # Authentik server + worker. Test-grade single replica each.
 # Docs: https://goauthentik.io/docs/installation/kubernetes
+#
+# Note: the OIDC application for HHCCIA is configured AFTER Authentik is up
+# (via the admin UI or API), not via blueprint mount — the kubelet on this
+# k3s node has a persistent ConfigMap-visibility issue for /blueprints/custom
+# that we couldn't work around in the manifest.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,8 +49,6 @@ spec:
               value: "false"
             - name: AUTHENTIK_LOG_LEVEL
               value: info
-          volumeMounts:
-            - { name: blueprints, mountPath: /blueprints/custom, readOnly: true }
           readinessProbe:
             httpGet: { path: /-/health/ready/, port: 9000 }
             initialDelaySeconds: 30
@@ -54,9 +57,6 @@ spec:
             httpGet: { path: /-/health/live/, port: 9000 }
             initialDelaySeconds: 60
             periodSeconds: 30
-      volumes:
-        - name: blueprints
-          configMap: { name: authentik-blueprints }
 ---
 apiVersion: v1
 kind: Service
@@ -111,8 +111,3 @@ spec:
               value: "false"
             - name: AUTHENTIK_LOG_LEVEL
               value: info
-          volumeMounts:
-            - { name: blueprints, mountPath: /blueprints/custom, readOnly: true }
-      volumes:
-        - name: blueprints
-          configMap: { name: authentik-blueprints }
