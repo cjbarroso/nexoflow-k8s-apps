@@ -36,13 +36,15 @@ spec:
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
             - name: GEMINI_API_KEY
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
-            # OIDC enforcement. Start open while Authentik OIDC app is being
-            # configured; flip AUTH_DISABLED to "false" once the front is
-            # issuing valid Authentik tokens.
+            # OIDC enforcement. Authentik is live, the hhccia OIDC app is
+            # configured. Discovery uses /jwks/ (not /.well-known/jwks.json),
+            # so AUTHENTIK_JWKS_URL is pinned explicitly.
             - name: AUTH_DISABLED
-              value: "true"
+              value: "false"
             - name: AUTHENTIK_ISSUER
               value: "https://auth.cjbarroso.com/application/o/hhccia/"
+            - name: AUTHENTIK_JWKS_URL
+              value: "https://auth.cjbarroso.com/application/o/hhccia/jwks/"
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5
