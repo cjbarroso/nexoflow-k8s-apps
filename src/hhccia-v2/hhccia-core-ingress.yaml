@@ -1,0 +1,19 @@
+# Exposes the core API for the front (and for testing) via the Cloudflare tunnel.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hhccia-core-ingress
+  namespace: hhccia-v2
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: "api-hhccia-v2.cjbarroso.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hhccia-core
+                port:
+                  number: 8000

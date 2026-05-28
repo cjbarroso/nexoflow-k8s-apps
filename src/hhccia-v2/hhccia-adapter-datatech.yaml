@@ -1,0 +1,49 @@
+# Datatech source adapter — the only workload with a route/credentials to the
+# clinical DB. No Service (event-driven, no inbound HTTP). Establishing the MSSQL
+# connection (driver, credentials, tunnel/keepalive) is the adapter's job; the
+# cluster only guarantees routing to the MSSQL host exists.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-adapter-datatech
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-adapter-datatech
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhccia-adapter-datatech
+  template:
+    metadata:
+      labels:
+        app: hhccia-adapter-datatech
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: adapter
+          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:latest
+          imagePullPolicy: Always
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SOURCE_SYSTEM
+              value: "datatech"
+            # Start in "sample" to validate the pipeline end-to-end without MSSQL;
+            # switch to "datatech" once connectivity + the v3 query are wired.
+            - name: SOURCE_MODE
+              value: "sample"
+            - name: POLL_INTERVAL_SECONDS
+              value: "0"
+            - name: MSSQL_HOST
+              value: "127.0.0.1"      # set to the routed MSSQL host/tunnel endpoint
+            - name: MSSQL_PORT
+              value: "11433"
+            - name: MSSQL_DATABASE
+              value: "HHCC"
+            - name: MSSQL_USER
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
+            - name: MSSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_PASSWORD } }

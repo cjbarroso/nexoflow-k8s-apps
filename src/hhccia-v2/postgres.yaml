@@ -1,0 +1,66 @@
+# Dedicated Postgres for the AI core store (test-grade, standalone).
+# Production option: use the shared CNPG cluster (nexoflow-cluster) with a
+# dedicated `hhccia_core` database instead of this standalone instance.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hhccia-core-pg
+  namespace: hhccia-v2
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-core-pg
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-core-pg
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app: hhccia-core-pg
+  template:
+    metadata:
+      labels:
+        app: hhccia-core-pg
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - { containerPort: 5432, name: pg }
+          env:
+            - name: POSTGRES_DB
+              value: hhccia_core
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: PG_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: PG_PASSWORD } }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hhccia-core-pg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-core-pg
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-core-pg
+spec:
+  selector:
+    app: hhccia-core-pg
+  ports:
+    - { name: pg, port: 5432, targetPort: 5432 }
+  type: ClusterIP

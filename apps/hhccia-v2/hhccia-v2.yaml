@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hhccia-v2
+  namespace: argocd
+spec:
+  project: hhccia
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/hhccia-v2
+    targetRevision: master
+    directory:
+      recurse: false
+      # The placeholder secret template is never applied by Argo.
+      exclude: 'secrets.example.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hhccia-v2
+  syncPolicy:
+    # Manual sync on purpose while v2 is in testing — flip to automated later.
+    syncOptions:
+      - CreateNamespace=true

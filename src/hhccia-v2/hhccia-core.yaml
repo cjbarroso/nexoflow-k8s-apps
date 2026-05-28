@@ -1,0 +1,56 @@
+# AI Core Service — source-agnostic. Owns its store + REST API; the UI calls it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-core
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhccia-core
+  template:
+    metadata:
+      labels:
+        app: hhccia-core
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: hhccia-core
+          image: ghcr.io/irupe-consultores/hhccia-core:latest
+          imagePullPolicy: Always
+          ports:
+            - { containerPort: 8000, name: http }
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: AI_MODE
+              value: "mock"            # flip to "gemini" once GEMINI_API_KEY is set
+            - name: GEMINI_MODEL
+              value: "gemini-2.5-pro"
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
+            - name: GEMINI_API_KEY
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-core
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-core
+spec:
+  selector:
+    app: hhccia-core
+  ports:
+    - { protocol: TCP, port: 8000, targetPort: 8000 }
+  type: ClusterIP
