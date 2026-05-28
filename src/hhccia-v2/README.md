@@ -17,6 +17,8 @@ sync** while in testing).
 | `hhccia-core.yaml` | AI Core Service (FastAPI) + Service |
 | `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-hhccia-v2.cjbarroso.com` |
 | `hhccia-adapter-datatech.yaml` | Datatech adapter (starts in `sample` mode) |
+| `hhccia-front.yaml` | Angular UI (same image as live v1) flipped to v2 via `CORE_API_URL` env |
+| `hhccia-front-ingress.yaml` | Cloudflare-tunnel ingress → `hhccia-v2.cjbarroso.com` |
 | `secrets.example.yaml` | PLACEHOLDER secret template (excluded from Argo; replace via sealed-secrets) |
 
 ## Before syncing

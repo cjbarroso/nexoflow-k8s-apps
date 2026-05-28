@@ -1,0 +1,21 @@
+# Exposes the v2 frontend at hhccia-v2.cjbarroso.com via the Cloudflare tunnel
+# — fully parallel to the live v1 at hhccia.cjbarroso.com. Different host,
+# different namespace, different container, different backend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hhccia-front-ingress
+  namespace: hhccia-v2
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: "hhccia-v2.cjbarroso.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hhccia-front
+                port:
+                  number: 8080

@@ -1,0 +1,57 @@
+# Frontend (Angular) for HHCCIA v2 — same image as the live v1 front, runtime-
+# switched into v2 mode via CORE_API_URL. The CoreApiService kicks in only when
+# CORE_API_URL is non-empty; with that set, ListService delegates all four
+# endpoints to the core API instead of the legacy n8n webhooks.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-front
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhccia-front
+  template:
+    metadata:
+      labels:
+        app: hhccia-front
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: hhccia-front
+          image: ghcr.io/irupe-consultores/hhccia-front:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Legacy webhook (unused while CORE_API_URL is set — kept consistent
+            # so any leak doesn't accidentally hit the live v1 backend).
+            - name: API_URL
+              value: "https://api-hhccia-v2.cjbarroso.com"
+            # The switch that flips ListService -> CoreApiService.
+            - name: CORE_API_URL
+              value: "https://api-hhccia-v2.cjbarroso.com"
+            - name: CLERK_PUBLISHABLE_KEY
+              value: "pk_test_Z2VudGxlLWZsZWEtMzcuY2xlcmsuYWNjb3VudHMuZGV2JA"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-front
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-front
+spec:
+  selector:
+    app: hhccia-front
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

@@ -70,6 +70,18 @@ tasks:
       - task: rollout:core
       - task: rollout:adapter
 
+  rollout:front:
+    desc: Force a pull of latest for the v2 frontend
+    cmds:
+      - 'kubectl -n {{.V2_NAMESPACE}} rollout restart deploy/hhccia-front'
+
+  rollout:all:
+    desc: Restart core + adapter + front (full v2 namespace)
+    cmds:
+      - task: rollout:core
+      - task: rollout:adapter
+      - task: rollout:front
+
   pods:
     desc: List pods in the v2 namespace
     cmds:
