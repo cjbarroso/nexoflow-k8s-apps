@@ -29,9 +29,9 @@ spec:
             - name: NATS_URL
               value: "nats://nats:4222"
             - name: AI_MODE
-              value: "mock"            # flip to "gemini" once GEMINI_API_KEY is set
+              value: "gemini"          # real Gemini; requires GEMINI_API_KEY in hhccia-core-secrets
             - name: GEMINI_MODEL
-              value: "gemini-2.5-pro"
+              value: "gemini-3.5-flash"
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
             - name: GEMINI_API_KEY
