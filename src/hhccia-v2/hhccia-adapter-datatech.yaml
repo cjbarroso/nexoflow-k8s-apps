@@ -48,15 +48,16 @@ spec:
             # to the max FEC emitted, so it never drops rows).
             - name: SOURCE_MODE
               value: "datatech"
-            # SRNMULETO's newest in-scope row is ~last night (max FEC 2026-05-28
-            # 23:30) while "now" is afternoon, so the window is relative to now:
-            # ~18h reaches back to cover the last ~3h of actual data (~8 records).
+            # Window is relative to "now". SRNMULETO's in-scope CNSRSP data is
+            # from ~midday yesterday (max FEC 2026-05-28 13:11), so ~30h reaches
+            # the CNSRSP cluster; DISCOVERY_LIMIT=10 (earliest-first) caps the
+            # batch to land on it. Operator widens/changes per environment.
             - name: DISCOVERY_LOOKBACK_HOURS
-              value: "21"
+              value: "30"
             - name: DISCOVERY_OVERLAP_MINUTES
               value: "60"
             - name: DISCOVERY_LIMIT
-              value: "25"
+              value: "10"
             - name: POLL_INTERVAL_SECONDS
               value: "300"
             - name: MSSQL_HOST
