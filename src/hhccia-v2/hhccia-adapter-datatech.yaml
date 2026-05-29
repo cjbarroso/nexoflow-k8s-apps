@@ -31,16 +31,24 @@ spec:
               value: "nats://nats:4222"
             - name: SOURCE_SYSTEM
               value: "datatech"
-            # Start in "sample" to validate the pipeline end-to-end without MSSQL;
-            # switch to "datatech" once connectivity + the v3 query are wired.
+            # Real Datatech path. The cluster reaches 192.168.5.132 on the LAN
+            # (homestation node lives in that network); no SSH tunnel sidecar
+            # needed. Discovery scan widened to 12 months because HHCC is a
+            # quiet testing DB; capped to 1 row per poll so the first ingest
+            # doesn't flood /lista-tareas (operator can flip DISCOVERY_LIMIT=0
+            # once they've reviewed the pipeline end-to-end).
             - name: SOURCE_MODE
-              value: "sample"
+              value: "datatech"
+            - name: DISCOVERY_LOOKBACK_HOURS
+              value: "8760"
+            - name: DISCOVERY_LIMIT
+              value: "1"
             - name: POLL_INTERVAL_SECONDS
               value: "0"
             - name: MSSQL_HOST
-              value: "127.0.0.1"      # set to the routed MSSQL host/tunnel endpoint
+              value: "192.168.5.132"
             - name: MSSQL_PORT
-              value: "11433"
+              value: "1433"
             - name: MSSQL_DATABASE
               value: "HHCC"
             - name: MSSQL_USER
