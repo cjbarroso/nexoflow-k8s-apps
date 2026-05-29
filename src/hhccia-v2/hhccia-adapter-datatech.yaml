@@ -11,6 +11,11 @@ metadata:
     app: hhccia-adapter-datatech
 spec:
   replicas: 1
+  # Recreate (not RollingUpdate): the adapter binds durable JetStream consumers
+  # ("adapter-changes", "adapter-refresh"). Two overlapping pods fight over them
+  # and the new one crashes with "consumer is already bound to a subscription".
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: hhccia-adapter-datatech
