@@ -41,15 +41,15 @@ spec:
             # Incremental discovery: a persisted watermark (max FEC, in NATS KV)
             # drives the window, so polls/restarts no longer re-scan everything.
             # LOOKBACK is the *bootstrap-only* window (first run, no watermark
-            # yet) — kept at 12 months because HHCC is a quiet testing DB whose
-            # newest in-scope rows are ~1 year old; lower it for a fresh prod
-            # backfill. OVERLAP re-includes recent rows each poll (idempotency
-            # dedupes). DISCOVERY_LIMIT is a per-poll paging cap (watermark
-            # advances only to the max FEC emitted, so it never drops rows).
+            # yet). SRNMULETO is a pristine SRN copy with data up to ~yesterday,
+            # so 24h backfills ~1 day of realistic load (~90 in-scope records).
+            # OVERLAP re-includes recent rows each poll (idempotency dedupes).
+            # DISCOVERY_LIMIT is a per-poll paging cap (watermark advances only
+            # to the max FEC emitted, so it never drops rows).
             - name: SOURCE_MODE
               value: "datatech"
             - name: DISCOVERY_LOOKBACK_HOURS
-              value: "8760"
+              value: "24"
             - name: DISCOVERY_OVERLAP_MINUTES
               value: "60"
             - name: DISCOVERY_LIMIT
@@ -61,7 +61,7 @@ spec:
             - name: MSSQL_PORT
               value: "1433"
             - name: MSSQL_DATABASE
-              value: "HHCC"
+              value: "SRNMULETO"
             - name: MSSQL_USER
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
             - name: MSSQL_PASSWORD
