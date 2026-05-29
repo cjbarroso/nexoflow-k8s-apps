@@ -48,8 +48,11 @@ spec:
             # to the max FEC emitted, so it never drops rows).
             - name: SOURCE_MODE
               value: "datatech"
+            # SRNMULETO's newest in-scope row is ~last night (max FEC 2026-05-28
+            # 23:30) while "now" is afternoon, so the window is relative to now:
+            # ~18h reaches back to cover the last ~3h of actual data (~8 records).
             - name: DISCOVERY_LOOKBACK_HOURS
-              value: "3"
+              value: "18"
             - name: DISCOVERY_OVERLAP_MINUTES
               value: "60"
             - name: DISCOVERY_LIMIT
