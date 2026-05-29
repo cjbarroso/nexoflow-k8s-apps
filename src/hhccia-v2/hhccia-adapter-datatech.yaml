@@ -49,7 +49,7 @@ spec:
             - name: SOURCE_MODE
               value: "datatech"
             - name: DISCOVERY_LOOKBACK_HOURS
-              value: "24"
+              value: "3"
             - name: DISCOVERY_OVERLAP_MINUTES
               value: "60"
             - name: DISCOVERY_LIMIT
