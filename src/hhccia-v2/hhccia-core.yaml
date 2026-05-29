@@ -8,6 +8,11 @@ metadata:
     app: hhccia-core
 spec:
   replicas: 1
+  # Recreate (not RollingUpdate): the core binds a single durable JetStream
+  # consumer ("core-ingestor"). Two overlapping pods fight over it and the new
+  # one crashes with "consumer is already bound to a subscription".
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: hhccia-core
