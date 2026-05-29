@@ -37,19 +37,25 @@ spec:
             - name: SOURCE_SYSTEM
               value: "datatech"
             # Real Datatech path. The cluster reaches 192.168.5.132 on the LAN
-            # (homestation node lives in that network); no SSH tunnel sidecar
-            # needed. Discovery scan widened to 12 months because HHCC is a
-            # quiet testing DB; capped to 10 rows per poll for review testing
-            # (operator can flip DISCOVERY_LIMIT=0 for the whole in-scope
-            # backlog, and set POLL_INTERVAL_SECONDS>0 for continuous polling).
+            # (homestation node lives in that network); no SSH tunnel sidecar.
+            # Incremental discovery: a persisted watermark (max FEC, in NATS KV)
+            # drives the window, so polls/restarts no longer re-scan everything.
+            # LOOKBACK is the *bootstrap-only* window (first run, no watermark
+            # yet) — kept at 12 months because HHCC is a quiet testing DB whose
+            # newest in-scope rows are ~1 year old; lower it for a fresh prod
+            # backfill. OVERLAP re-includes recent rows each poll (idempotency
+            # dedupes). DISCOVERY_LIMIT is a per-poll paging cap (watermark
+            # advances only to the max FEC emitted, so it never drops rows).
             - name: SOURCE_MODE
               value: "datatech"
             - name: DISCOVERY_LOOKBACK_HOURS
               value: "8760"
+            - name: DISCOVERY_OVERLAP_MINUTES
+              value: "60"
             - name: DISCOVERY_LIMIT
-              value: "10"
+              value: "25"
             - name: POLL_INTERVAL_SECONDS
-              value: "0"
+              value: "300"
             - name: MSSQL_HOST
               value: "192.168.5.132"
             - name: MSSQL_PORT
