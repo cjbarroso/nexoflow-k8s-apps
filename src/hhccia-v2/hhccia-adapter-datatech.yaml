@@ -39,15 +39,15 @@ spec:
             # Real Datatech path. The cluster reaches 192.168.5.132 on the LAN
             # (homestation node lives in that network); no SSH tunnel sidecar
             # needed. Discovery scan widened to 12 months because HHCC is a
-            # quiet testing DB; capped to 1 row per poll so the first ingest
-            # doesn't flood /lista-tareas (operator can flip DISCOVERY_LIMIT=0
-            # once they've reviewed the pipeline end-to-end).
+            # quiet testing DB; capped to 10 rows per poll for review testing
+            # (operator can flip DISCOVERY_LIMIT=0 for the whole in-scope
+            # backlog, and set POLL_INTERVAL_SECONDS>0 for continuous polling).
             - name: SOURCE_MODE
               value: "datatech"
             - name: DISCOVERY_LOOKBACK_HOURS
               value: "8760"
             - name: DISCOVERY_LIMIT
-              value: "1"
+              value: "10"
             - name: POLL_INTERVAL_SECONDS
               value: "0"
             - name: MSSQL_HOST
