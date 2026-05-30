@@ -40,5 +40,5 @@ variable "tags" {
 variable "channels" {
   description = "Integration UUIDs to notify when the check goes down. Empty = no notifications."
   type        = list(string)
-  default     = []
+  default     = ["dc85ffc0-8664-42bf-b764-48bb55144fd8"]
 }
