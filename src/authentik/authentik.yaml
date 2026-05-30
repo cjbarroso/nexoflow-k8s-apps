@@ -1,10 +1,13 @@
 # Authentik server + worker. Test-grade single replica each.
 # Docs: https://goauthentik.io/docs/installation/kubernetes
 #
-# Note: the OIDC application for HHCCIA is configured AFTER Authentik is up
-# (via the admin UI or API), not via blueprint mount — the kubelet on this
-# k3s node has a persistent ConfigMap-visibility issue for /blueprints/custom
-# that we couldn't work around in the manifest.
+# Blueprints: the HHCCIA OIDC application (provider + redirect_uris) is defined
+# declaratively in the `authentik-blueprints` ConfigMap (blueprints.yaml) and
+# mounted at /blueprints/custom on BOTH server and worker as a whole-directory
+# volume (NOT subPath — subPath mounts don't receive ConfigMap updates, which
+# was the original "/blueprints/custom visibility" problem). The worker
+# auto-discovers and applies *.yaml there. After editing the blueprint, restart
+# the worker (or wait for its discovery cycle) to re-apply.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,6 +26,10 @@ spec:
         app: authentik-server
     spec:
       automountServiceAccountToken: false
+      volumes:
+        - name: custom-blueprints
+          configMap:
+            name: authentik-blueprints
       containers:
         - name: server
           image: ghcr.io/goauthentik/server:2024.10.5
@@ -30,6 +37,9 @@ spec:
           ports:
             - { containerPort: 9000, name: http }
             - { containerPort: 9443, name: https }
+          volumeMounts:
+            - name: custom-blueprints
+              mountPath: /blueprints/custom
           envFrom:
             - secretRef: { name: authentik-secrets }
           env:
@@ -88,10 +98,17 @@ spec:
         app: authentik-worker
     spec:
       automountServiceAccountToken: false
+      volumes:
+        - name: custom-blueprints
+          configMap:
+            name: authentik-blueprints
       containers:
         - name: worker
           image: ghcr.io/goauthentik/server:2024.10.5
           args: ["worker"]
+          volumeMounts:
+            - name: custom-blueprints
+              mountPath: /blueprints/custom
           envFrom:
             - secretRef: { name: authentik-secrets }
           env:

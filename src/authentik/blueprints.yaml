@@ -23,17 +23,23 @@ data:
           client_id: hhccia-front
           client_type: public                       # Angular SPA -> PKCE, no secret stored
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           access_code_validity: minutes=1
           access_token_validity: hours=1
           refresh_token_validity: days=30
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
-          redirect_uris: |
-            https://hhccia-v2.cjbarroso.com/callback
-            https://hhccia-v2.cjbarroso.com/silent-renew
-            https://medaudit.irupeconsultores.com/callback
-            https://medaudit.irupeconsultores.com/silent-renew
-            http://localhost:4200/callback
-            http://localhost:4200/silent-renew
+          # Structured form (this instance stores redirect_uris as objects, not a
+          # newline string). Matches the live provider exactly so the first apply
+          # is a no-op. silent-renew URLs are intentionally absent — the SPA runs
+          # silentRenew:false. To add a host, add a {matching_mode, url} entry here
+          # and restart the worker; do NOT edit it in the admin UI anymore.
+          redirect_uris:
+            - matching_mode: strict
+              url: https://hhccia-v2.cjbarroso.com/callback
+            - matching_mode: strict
+              url: http://localhost:4200/callback
+            - matching_mode: strict
+              url: https://medaudit.irupeconsultores.com/callback
           sub_mode: hashed_user_id
           include_claims_in_id_token: true
           property_mappings:
