@@ -30,6 +30,8 @@ data:
           redirect_uris: |
             https://hhccia-v2.cjbarroso.com/callback
             https://hhccia-v2.cjbarroso.com/silent-renew
+            https://medaudit.irupeconsultores.com/callback
+            https://medaudit.irupeconsultores.com/silent-renew
             http://localhost:4200/callback
             http://localhost:4200/silent-renew
           sub_mode: hashed_user_id
