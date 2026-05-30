@@ -77,6 +77,27 @@ serverFiles:
             annotations:
               summary: "High CPU on {{ $labels.instance }}"
               description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }} (>80% for >5m)."
+          # Node memory in use (100 - available%) sustained above 85% for 5 minutes.
+          - alert: NodeHighMemory
+            expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory on {{ $labels.instance }}"
+              description: "Memory usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }} (>85% for >5m)."
+          # Real (non-pseudo, writable) filesystem under 15% free for 10 minutes.
+          - alert: NodeDiskSpaceLow
+            expr: |
+              (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"}
+                / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"} * 100 < 15)
+              and node_filesystem_readonly == 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Low disk on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+              description: "Only {{ $value | printf \"%.1f\" }}% free on {{ $labels.instance }} {{ $labels.mountpoint }} ({{ $labels.fstype }}) — <15% for >10m."
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.

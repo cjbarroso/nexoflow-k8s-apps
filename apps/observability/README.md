@@ -90,6 +90,8 @@ Any rule labelled `severity: warning|critical` routes through Alertmanager to a
 | Alert | Fires when |
 |-------|-----------|
 | `NodeHighCpu` | node CPU > 80% (100 − idle) for > 5 min |
+| `NodeHighMemory` | node memory in use > 85% (100 − available) for > 5 min |
+| `NodeDiskSpaceLow` | a real, writable filesystem has < 15% free for > 10 min |
 
 To add an alert, append a rule with a `severity: warning` (or `critical`) label —
 routing is automatic. The Telegram **bot token** is the sealed Secret
