@@ -13,11 +13,6 @@ vars:
   ARGOCD_LOCAL_PORT: '8080'
   ARGOCD_SERVICE_PORT: '443'
   ARGOCD_USERNAME: admin
-  # HHCCIA Postgres (live v1 namespace — for tooling, NOT for v2 traffic)
-  HHCCIA_NAMESPACE: hhccia
-  HHCCIA_RW_SERVICE: hhccia-cluster-rw
-  HHCCIA_RO_SERVICE: hhccia-cluster-ro
-  HHCCIA_PGADMIN_SERVICE: hhccia-cluster-pgadmin
   # HHCCIA v2
   V2_NAMESPACE: hhccia-v2
   V2_APP: hhccia-v2
@@ -96,22 +91,6 @@ tasks:
     desc: Tail adapter logs
     cmds:
       - 'kubectl -n {{.V2_NAMESPACE}} logs deploy/hhccia-adapter-datatech -f --tail=200'
-
-  # --- live hhccia Postgres port-forwards (mirrors Makefile) ----------- #
-  pg:pf-rw:
-    desc: Port-forward CNPG RW to localhost:8087
-    cmds:
-      - 'kubectl -n {{.HHCCIA_NAMESPACE}} port-forward svc/{{.HHCCIA_RW_SERVICE}} 8087:5432'
-
-  pg:pf-ro:
-    desc: Port-forward CNPG RO to localhost:8088
-    cmds:
-      - 'kubectl -n {{.HHCCIA_NAMESPACE}} port-forward svc/{{.HHCCIA_RO_SERVICE}} 8088:5432'
-
-  pg:pf-web:
-    desc: Port-forward pgAdmin to localhost:8089
-    cmds:
-      - 'kubectl -n {{.HHCCIA_NAMESPACE}} port-forward svc/{{.HHCCIA_PGADMIN_SERVICE}} 8089:80'
 
   kctx:argo:
     desc: Focus kubectl on the argocd namespace
