@@ -59,7 +59,6 @@ datasources:
           maxLines: 1000
       - name: Prometheus
         type: prometheus
-        uid: prometheus            # stable uid referenced by provisioned dashboards
         access: proxy
         url: http://prometheus-server.observability.svc.cluster.local
         isDefault: false
@@ -90,8 +89,8 @@ dashboards:
     # Custom dashboard with exactly the 3 metrics we alert on (CPU/mem/disk),
     # each panel carrying the alert threshold as a marker line. Stable uid
     # `node-alerts` so the Alertmanager Telegram messages can deep-link to it
-    # (https://logs.cjbarroso.com/d/node-alerts). Targets reference the
-    # Prometheus datasource by its fixed uid (set above).
+    # (https://logs.cjbarroso.com/d/node-alerts). Panels reference the
+    # Prometheus datasource by name (resolved by Grafana at load).
     node-alerts:
       json: |
         {
@@ -107,7 +106,7 @@ dashboards:
               "id": 1,
               "type": "timeseries",
               "title": "CPU usage % — alert: NodeHighCpu (> 80% for 5m)",
-              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "datasource": "Prometheus",
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
               "fieldConfig": {
                 "defaults": {
@@ -123,7 +122,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "datasource": "Prometheus",
                   "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
                   "legendFormat": "{{instance}}"
                 }
@@ -133,7 +132,7 @@ dashboards:
               "id": 2,
               "type": "timeseries",
               "title": "Memory usage % — alert: NodeHighMemory (> 85% for 5m)",
-              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "datasource": "Prometheus",
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
               "fieldConfig": {
                 "defaults": {
@@ -149,7 +148,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "datasource": "Prometheus",
                   "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
                   "legendFormat": "{{instance}}"
                 }
@@ -159,7 +158,7 @@ dashboards:
               "id": 3,
               "type": "timeseries",
               "title": "Disk free % — alert: NodeDiskSpaceLow (< 15% for 10m)",
-              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "datasource": "Prometheus",
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
               "fieldConfig": {
                 "defaults": {
@@ -175,7 +174,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "datasource": "Prometheus",
                   "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} * 100 and node_filesystem_readonly == 0",
                   "legendFormat": "{{instance}} {{mountpoint}}"
                 }

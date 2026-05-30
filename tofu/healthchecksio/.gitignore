@@ -1,0 +1,11 @@
+# OpenTofu / Terraform local state contains the secret ping_url — never commit it.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+crash.log
+crash.*.log
+
+# Local variable overrides may hold secrets.
+*.tfvars
+!*.tfvars.example

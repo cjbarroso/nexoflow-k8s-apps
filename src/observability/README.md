@@ -48,8 +48,11 @@ decrypts it into the `grafana-secrets` Secret, and the Grafana pod starts.
 ### 2b. Seal the healthchecks.io ping-URL secret (Prometheus dead-man's switch)
 
 Create a healthchecks.io check first (note its **ping URL**, `https://hc-ping.com/<uuid>`),
-then seal it. Alertmanager mounts this and pings the URL every 5 min while Prometheus
-is alive; if the pings stop, healthchecks.io alerts you.
+then seal it. **You can create that check as code** with the OpenTofu module in
+`tofu/healthchecksio/` — it already encodes the 10m/5m period+grace recommended
+below, and `tofu output -raw ping_url` gives you the URL to seal. Alertmanager
+mounts this and pings the URL every 5 min while Prometheus is alive; if the pings
+stop, healthchecks.io alerts you.
 
 ```bash
 kubectl create secret generic prometheus-hc-ping -n observability \

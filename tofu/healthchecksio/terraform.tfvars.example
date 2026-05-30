@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and edit ONLY if you want to override defaults.
+# terraform.tfvars is gitignored (may hold secrets / env-specific values).
+# The defaults in variables.tf already match the Prometheus dead-man's switch,
+# so for the standard setup you don't need a tfvars file at all.
+
+# check_name      = "nexoflow-prometheus-watchdog"
+# timeout_seconds = 600
+# grace_seconds   = 300
+# tags            = ["nexoflow", "prometheus", "dead-mans-switch"]
+# channels        = ["*"]   # all integrations; or specific integration UUIDs
