@@ -1,7 +1,0 @@
-auth:
-  enabled: true
-  aclUsers:
-    default:
-      permissions: "~* &* +@all"
-      # IMPORTANT: Please change this password to a secure, randomly generated password.
-      password: "please-change-me"

@@ -24,14 +24,8 @@ credentials:
   useSecret: true
   existingSecret: cloud-credentials
 
-schedules:
-  nexoflow-daily:
-    schedule: "0 10 * * *"
-    template:
-      includedNamespaces:
-        - nexoflow
-      defaultVolumesToFsBackup: true
-      ttl: 720h
+# nexoflow-daily schedule removed 2026-05-30: n8n/nexoflow stack decommissioned.
+schedules: {}
 
 upgradeCRDs: false # Do not upgrade CRDs. Fixes installation issues.
 kubectl:
