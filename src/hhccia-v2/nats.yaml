@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: nats
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
       containers:

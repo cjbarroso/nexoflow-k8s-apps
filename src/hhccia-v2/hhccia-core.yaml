@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         app: hhccia-core
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
       imagePullSecrets:

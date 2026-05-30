@@ -29,6 +29,7 @@ spec:
     metadata:
       labels:
         app: hhccia-core-pg
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
       containers:

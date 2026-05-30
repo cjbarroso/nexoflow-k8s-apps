@@ -23,6 +23,7 @@ spec:
     metadata:
       labels:
         app: hhccia-adapter-datatech
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
       imagePullSecrets:
