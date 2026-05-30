@@ -30,6 +30,7 @@ data:
             annotations:
               summary: "CNPG backup failing (hhccia-core-db)"
               description: "The barman-cloud plugin logged errors for hhccia-core-db in the last 10m — a base backup, WAL archive, or retention operation to R2 is failing (e.g. bad/expired R2 credentials or unreachable bucket). Check: kubectl -n hhccia-v2 get backups.postgresql.cnpg.io and the plugin-barman-cloud container logs."
+              logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-6h&to=now"
           - alert: CNPGWalArchiveErrorsLog
             expr: sum(count_over_time({namespace="hhccia-v2", container="postgres"} |= `archive command failed` [10m])) > 0
             labels:
@@ -37,3 +38,4 @@ data:
             annotations:
               summary: "Postgres WAL archiving errors (hhccia-core-db)"
               description: "Postgres logged 'archive command failed' in hhccia-v2 in the last 10m — WAL archiving to R2 is failing. If sustained it breaks PITR/backups (the CNPGWALArchivingFailing metric alert escalates to critical after 15m)."
+              logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-6h&to=now"
