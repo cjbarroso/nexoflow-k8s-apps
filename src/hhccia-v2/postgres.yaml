@@ -29,6 +29,13 @@ spec:
       logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
   affinity:
     enablePodAntiAffinity: false            # single-node: allow both instances on the same node
+  # Continuous WAL archiving to R2 (barman-cloud plugin) → enables PITR.
+  # Base backups are taken by the ScheduledBackup in hhccia-core-db-backup.yaml.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: hhccia-core-db-store
   bootstrap:
     initdb:
       database: hhccia_core

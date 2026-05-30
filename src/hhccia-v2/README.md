@@ -15,6 +15,8 @@ sync** while in testing).
 | `nats.yaml` | NATS + JetStream event bus (test-grade, emptyDir store) |
 | `postgres.yaml` | CNPG operator-managed Postgres `Cluster` (`hhccia-core-db`, 2 instances) + `hhccia-core-pg` ExternalName alias |
 | `hhccia-core-db-app-sealedsecret.yaml` | Sealed app credentials (`hhccia`) for the CNPG cluster |
+| `hhccia-core-db-backup.yaml` | barman-cloud `ObjectStore` (R2) + daily `ScheduledBackup` — WAL archiving + base backups = PITR (30d retention). Restore runbook is in-file. |
+| `hhccia-core-db-backup-creds-sealedsecret.yaml` | Sealed R2 credentials for the barman ObjectStore |
 | `hhccia-core.yaml` | AI Core Service (FastAPI) + Service |
 | `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-hhccia-v2.cjbarroso.com` |
 | `hhccia-adapter-datatech.yaml` | Datatech adapter (starts in `sample` mode) |
