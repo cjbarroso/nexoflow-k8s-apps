@@ -27,6 +27,10 @@ spec:
   inheritedMetadata:
     labels:
       logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    annotations:
+      prometheus.io/scrape: "true"          # scrape CNPG instance metrics (backup/WAL health)
+      prometheus.io/port: "9187"
+      prometheus.io/path: "/metrics"
   affinity:
     enablePodAntiAffinity: false            # single-node: allow both instances on the same node
   # Continuous WAL archiving to R2 (barman-cloud plugin) → enables PITR.
