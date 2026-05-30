@@ -68,9 +68,28 @@ kubectl create secret generic prometheus-hc-ping -n observability \
 Commit the sealed secret, `argocd app sync observability-secrets`, and the
 `prometheus-alertmanager` pod stops pending and starts pinging.
 
+## Running in CI (GitHub Actions)
+
+`.github/workflows/tofu-healthchecksio.yml` runs this module automatically:
+
+- **Pull request** touching `tofu/healthchecksio/**` → `tofu fmt`/`validate`/`plan` (read-only).
+- **Push to `master`** touching the module → `tofu apply`.
+- **Manual** (`workflow_dispatch`) → pick `plan` or `apply`.
+
+It needs one repo secret: **`HEALTHCHECKSIO_API_KEY`** (Settings → Secrets and
+variables → Actions). The provider reads it from the env var of the same name.
+
 ## State
 
 State is **local** and gitignored (it contains the secret `ping_url`). For a
 single check that's fine; just don't delete the `.tfstate`, or `tofu` will lose
 track and try to create a duplicate check on the next apply. The committed
 `.terraform.lock.hcl` pins the provider hashes for reproducible `init`.
+
+**In CI** there's no persistent disk, so the workflow carries `terraform.tfstate`
+between runs via the **Actions cache** (rolling key + a `concurrency` group so
+runs can't race it). It's pragmatic for one check, not bulletproof: if the cache
+is evicted (≈7 days idle) a subsequent `apply` will create a *second* check. For
+anything more, switch to a real remote backend — uncomment the `backend "s3"`
+block in `versions.tf` (the cluster has an S3-compatible object store) and remove
+the cache step from the workflow.

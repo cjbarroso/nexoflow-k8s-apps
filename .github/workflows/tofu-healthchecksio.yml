@@ -1,0 +1,94 @@
+name: tofu — healthchecksio
+
+# Runs the OpenTofu module in tofu/healthchecksio (the healthchecks.io check for
+# the Prometheus dead-man's switch). PRs get a read-only `plan`; pushes to master
+# `apply`; you can also trigger either manually.
+#
+# Requires repo secret HEALTHCHECKSIO_API_KEY (a healthchecks.io project API key,
+# read-write). The provider reads it from the env var of the same name.
+#
+# STATE: this module uses local state. CI has no persistent disk, so state is
+# carried between runs via the Actions cache (rolling key below). Without it, a
+# fresh `apply` would create a DUPLICATE check every time (checks aren't unique by
+# name). The `concurrency` group serializes runs so they can't race the cache.
+# For anything beyond this single check, switch to a real remote backend — see
+# the commented block in tofu/healthchecksio/versions.tf and the module README.
+
+on:
+  push:
+    branches: [master]
+    paths: ["tofu/healthchecksio/**", ".github/workflows/tofu-healthchecksio.yml"]
+  pull_request:
+    paths: ["tofu/healthchecksio/**", ".github/workflows/tofu-healthchecksio.yml"]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Which command to run"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+
+# Serialize: never let two runs apply against the cached state at once.
+concurrency:
+  group: tofu-healthchecksio
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: tofu/healthchecksio
+
+jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    env:
+      HEALTHCHECKSIO_API_KEY: ${{ secrets.HEALTHCHECKSIO_API_KEY }}
+      # Decide the command: manual input wins; pushes apply; PRs plan.
+      TOFU_CMD: >-
+        ${{ github.event_name == 'workflow_dispatch' && inputs.action
+            || (github.event_name == 'push' && 'apply' || 'plan') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Persist OpenTofu state (rolling cache)
+        uses: actions/cache@v4
+        with:
+          # Each run saves under a unique key; restore-keys grabs the latest
+          # previous state. Caches are immutable per key, so we can't reuse one.
+          path: |
+            tofu/healthchecksio/terraform.tfstate
+            tofu/healthchecksio/terraform.tfstate.backup
+          key: tofu-hcio-state-${{ github.run_id }}
+          restore-keys: |
+            tofu-hcio-state-
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.0"
+
+      - name: Guard — API key present
+        run: |
+          if [ -z "$HEALTHCHECKSIO_API_KEY" ]; then
+            echo "::error::Repo secret HEALTHCHECKSIO_API_KEY is not set."
+            exit 1
+          fi
+
+      - name: tofu fmt (check)
+        run: tofu fmt -check -recursive
+
+      - name: tofu init
+        run: tofu init -input=false
+
+      - name: tofu validate
+        run: tofu validate
+
+      - name: tofu plan
+        run: tofu plan -input=false -no-color
+
+      - name: tofu apply
+        if: env.TOFU_CMD == 'apply'
+        run: tofu apply -input=false -auto-approve -no-color
