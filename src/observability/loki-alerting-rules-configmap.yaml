@@ -5,13 +5,14 @@
 # severity=~"warning|critical" to Telegram.
 #
 # These COMPLEMENT the metric alert CNPGWALArchivingFailing (prometheus-values):
-#   - CNPGBaseBackupFailed: catches a failed base/scheduled backup — the gap the
-#     metric can't see, since the barman *plugin* doesn't populate backup-status
-#     metrics. Sourced from the operator log (needs the cnpg operator pod labelled
-#     logs.cjbarroso.com/collect:"true").
-#   - CNPGWalArchiveErrorsLog: fast, log-based early warning on WAL-archive errors
-#     (fires on the first "archive command failed" line; the metric alert escalates
-#     to critical only after 15m sustained).
+#   - CNPGBackupFailed: any error logged by the barman-cloud plugin sidecar — this
+#     is where base-backup, WAL-archive AND retention failures actually surface
+#     (verified by simulating a failed backup 2026-05-30). Catches the gap the
+#     metric can't see (failed base/scheduled backups; the plugin doesn't populate
+#     backup-status metrics). Source: the plugin-barman-cloud container in hhccia-v2
+#     (NOT the operator — the operator only logs backup lifecycle at info level).
+#   - CNPGWalArchiveErrorsLog: complementary postgres-side signal — fires when
+#     Postgres' own archiver logs "archive command failed".
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,13 +23,13 @@ data:
     groups:
       - name: cnpg-backup
         rules:
-          - alert: CNPGBaseBackupFailed
-            expr: sum(count_over_time({namespace="cnpg-system"} |= `"controllerKind":"Backup"` |= `"level":"error"` [10m])) > 0
+          - alert: CNPGBackupFailed
+            expr: sum(count_over_time({namespace="hhccia-v2", container="plugin-barman-cloud"} |= `"level":"error"` [10m])) > 0
             labels:
               severity: critical
             annotations:
-              summary: "CNPG base backup failed (operator log)"
-              description: "The CloudNativePG operator logged an error for a Backup resource in the last 10m — a scheduled/base backup failed. Check: kubectl -n hhccia-v2 get backups.postgresql.cnpg.io, and the operator logs in cnpg-system."
+              summary: "CNPG backup failing (hhccia-core-db)"
+              description: "The barman-cloud plugin logged errors for hhccia-core-db in the last 10m — a base backup, WAL archive, or retention operation to R2 is failing (e.g. bad/expired R2 credentials or unreachable bucket). Check: kubectl -n hhccia-v2 get backups.postgresql.cnpg.io and the plugin-barman-cloud container logs."
           - alert: CNPGWalArchiveErrorsLog
             expr: sum(count_over_time({namespace="hhccia-v2", container="postgres"} |= `archive command failed` [10m])) > 0
             labels:
