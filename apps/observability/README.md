@@ -56,9 +56,11 @@ is ever needed — the opt-in gate lives in `alloy-values.yaml`.
 
 ## Viewing metrics
 
-`https://logs.cjbarroso.com` → **Dashboards → Node Exporter Full** for per-node
-CPU / memory / disk / filesystem / network. Or **Explore** → datasource
-**Prometheus** for ad-hoc PromQL:
+`https://logs.cjbarroso.com` → **Dashboards → Node Exporter Full** for the full
+per-node breakdown, or **Node Alerts — CPU / Memory / Disk**
+(`/d/node-alerts`) for just the three metrics we alert on, each with its
+threshold drawn as a line. Or **Explore** → datasource **Prometheus** for
+ad-hoc PromQL:
 
 ```promql
 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)   # CPU %/node
@@ -97,6 +99,11 @@ To add an alert, append a rule with a `severity: warning` (or `critical`) label 
 routing is automatic. The Telegram **bot token** is the sealed Secret
 `alertmanager-notify` (key `telegram-bot-token`, read via `bot_token_file`); the
 non-secret `chat_id` is in `prometheus-values.yaml`. Bring-up: `../../src/observability/README.md` §2c.
+
+Each Telegram message includes the alert description and a **deep-link to the
+`node-alerts` dashboard** (the relevant panel, last 3h). The link comes from each
+rule's `dashboard` annotation, rendered by the custom `message` template on the
+`notify` receiver — add a `dashboard` annotation to new rules to get the same.
 
 ## First-time bring-up
 
