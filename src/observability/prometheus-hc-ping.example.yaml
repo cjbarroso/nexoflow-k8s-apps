@@ -1,0 +1,17 @@
+# PLACEHOLDER — DO NOT APPLY, DO NOT COMMIT REAL VALUES.
+# Excluded from the `observability-secrets` Argo app (*.example.yaml). Copy this
+# key, fill the real healthchecks.io ping URL, seal with kubeseal, and commit the
+# output as prometheus-hc-ping-sealedsecret.yaml (see README.md).
+#
+# Alertmanager mounts this Secret at /etc/hc and reads the URL via `url_file`
+# (apps/observability/prometheus-values.yaml). The URL is the heartbeat target;
+# keep it secret (anyone with it can spoof the "alive" ping).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-hc-ping
+  namespace: observability
+type: Opaque
+stringData:
+  # The full healthchecks.io ping URL, e.g. https://hc-ping.com/<uuid>
+  url: CHANGE_ME

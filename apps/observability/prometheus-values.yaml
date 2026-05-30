@@ -9,8 +9,6 @@
 # are safe across minor chart drift.
 
 # --- Trim the optional sub-charts ---
-alertmanager:
-  enabled: false
 prometheus-pushgateway:
   enabled: false
 # Cluster-object metrics (deployment desired/available, etc). OFF to save a pod;
@@ -51,3 +49,62 @@ server:
     limits:
       memory: 700Mi
   replicaCount: 1
+
+# --- Alerting rules: a single always-firing Watchdog (dead-man's switch) ---
+# `vector(1)` is true forever, so this alert fires continuously while Prometheus
+# is evaluating rules. Alertmanager (below) turns that steady firing into a
+# periodic ping to healthchecks.io; if Prometheus dies, the rule stops, the
+# alert resolves, the pings stop, and healthchecks.io alerts you.
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: meta
+        rules:
+          - alert: Watchdog
+            expr: vector(1)
+            labels:
+              severity: none
+            annotations:
+              summary: "Prometheus + Alertmanager are alive — heartbeat to healthchecks.io."
+
+# --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
+# Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
+# The healthchecks.io ping URL is a credential, so it is NOT in Git: it is mounted
+# from the sealed Secret `prometheus-hc-ping` (key `url`) and referenced via
+# `url_file`. Until that Secret exists this pod stays pending — that's expected
+# (same model as grafana-secrets; see src/observability/README.md).
+alertmanager:
+  enabled: true
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      memory: 48Mi
+  extraSecretMounts:
+    - name: hc-ping
+      mountPath: /etc/hc
+      secretName: prometheus-hc-ping
+      readOnly: true
+  config:
+    route:
+      # Default: blackhole everything. We only care about the Watchdog.
+      receiver: "null"
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m
+      routes:
+        - matchers:
+            - alertname="Watchdog"
+          receiver: healthchecks
+          group_wait: 0s
+          repeat_interval: 5m       # ping healthchecks.io every 5 min while alive
+    receivers:
+      - name: "null"
+      - name: healthchecks
+        webhook_configs:
+          # url_file keeps the secret URL off disk-in-Git; the file is the mounted Secret.
+          - url_file: /etc/hc/url
+            send_resolved: false    # only heartbeat while firing; silence == outage

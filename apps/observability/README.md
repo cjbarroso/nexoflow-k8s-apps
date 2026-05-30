@@ -11,7 +11,7 @@ metrics are scraped cluster-wide.
 |------|-----------------|-------|
 | `loki.yaml` + `loki-values.yaml` | **Grafana Loki** | Monolithic mode, filesystem storage, 1 replica, **30-day** retention. The log store. |
 | `alloy.yaml` + `alloy-values.yaml` | **Grafana Alloy** | DaemonSet collector (Promtail's successor — Promtail is EOL). Tails `/var/log/pods`, ships **only opt-in pods**. |
-| `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, 8Gi PVC, **15-day** retention. Bundled **node-exporter** DaemonSet (node CPU/mem/disk) + kubelet/cAdvisor scrape (per-pod). Alertmanager/Pushgateway/kube-state-metrics **off** to stay light. Internal-only (no ingress). |
+| `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, 8Gi PVC, **15-day** retention. Bundled **node-exporter** DaemonSet (node CPU/mem/disk) + kubelet/cAdvisor scrape (per-pod). Pushgateway/kube-state-metrics **off** to stay light. A minimal **Alertmanager** (no PVC) runs only to drive the healthchecks.io heartbeat (below). Internal-only (no ingress). |
 | `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** datasources pre-wired; auto-imports the **Node Exporter Full** dashboard. |
 | `observability-secrets.yaml` | Argo **directory app** → `src/observability/` | Applies the sealed `grafana-secrets`. |
 
@@ -70,6 +70,16 @@ sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="hhccia-v2"}[5m])
 
 Prometheus has **no ingress** — query it through Grafana. For raw access:
 `kubectl -n observability port-forward svc/prometheus-server 9090:80`.
+
+## Uptime alerting (healthchecks.io dead-man's switch)
+
+An always-firing `Watchdog` rule (`vector(1)`) feeds Alertmanager, which pings a
+healthchecks.io check every 5 min. If Prometheus or Alertmanager stops, the pings
+stop and healthchecks.io alerts you. The ping URL is a credential, kept in the
+sealed Secret `prometheus-hc-ping` (key `url`) and read by Alertmanager via
+`url_file` — never in Git. Set it up (and the healthchecks.io check) per
+`../../src/observability/README.md` §2b. The `prometheus-alertmanager` pod stays
+pending until that Secret is sealed — expected.
 
 ## First-time bring-up
 
