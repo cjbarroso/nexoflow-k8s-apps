@@ -13,7 +13,8 @@ sync** while in testing).
 | File | Workload |
 |------|----------|
 | `nats.yaml` | NATS + JetStream event bus (test-grade, emptyDir store) |
-| `postgres.yaml` | Standalone Postgres for the core store (prod option: shared CNPG) |
+| `postgres.yaml` | CNPG operator-managed Postgres `Cluster` (`hhccia-core-db`, 2 instances) + `hhccia-core-pg` ExternalName alias |
+| `hhccia-core-db-app-sealedsecret.yaml` | Sealed app credentials (`hhccia`) for the CNPG cluster |
 | `hhccia-core.yaml` | AI Core Service (FastAPI) + Service |
 | `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-hhccia-v2.cjbarroso.com` |
 | `hhccia-adapter-datatech.yaml` | Datatech adapter (starts in `sample` mode) |
