@@ -8,6 +8,8 @@ Applied by the `observability-secrets` Argo app (`apps/observability/observabili
 | `grafana-secrets-sealedsecret.yaml` | The real, **sealed** secret. **You create this** (steps below). Safe to commit. |
 | `prometheus-hc-ping.example.yaml` | PLACEHOLDER template (excluded from Argo). The healthchecks.io ping URL for the Prometheus dead-man's switch. |
 | `prometheus-hc-ping-sealedsecret.yaml` | The real, **sealed** ping-URL secret. **You create this** (steps below). Safe to commit. |
+| `alertmanager-notify.example.yaml` | PLACEHOLDER template (excluded from Argo). The Telegram bot token for the `notify` receiver. |
+| `alertmanager-notify-sealedsecret.yaml` | The real, **sealed** bot-token secret. **You create this** (steps below). Safe to commit. |
 
 ## First-time bring-up
 
@@ -63,6 +65,25 @@ missing Secret mount — expected. On the **healthchecks.io** side, set the chec
 **period** a bit above the 5-min ping (e.g. period `10m`, grace `5m`) so a single
 delayed ping doesn't false-alarm but a real outage surfaces within ~15 min.
 
+### 2c. Seal the Telegram bot token (alert notifications)
+
+Create a bot via **@BotFather**, copy its token, then seal it. The chat to alert
+(`chat_id`) is non-secret and already set in `prometheus-values.yaml`.
+
+```bash
+kubectl create secret generic alertmanager-notify -n observability \
+  --from-literal=telegram-bot-token='123456789:AA...' \
+  --dry-run=client -o yaml \
+| kubeseal --controller-name sealed-secrets-controller \
+    --controller-namespace kube-system -o yaml \
+> src/observability/alertmanager-notify-sealedsecret.yaml
+```
+
+Commit it. Until it exists, `prometheus-alertmanager` stays pending on the missing
+mount. **The bot must have a chat open with you** (message it once) or it can't
+deliver. Alerts labelled `severity: warning|critical` (e.g. `NodeHighCpu`) route
+to this Telegram chat.
+
 ### 3. (done) Chart versions
 
 Already pinned + validated: loki `7.0.0`, alloy `1.8.2`, grafana `10.5.15`.
@@ -73,4 +94,5 @@ then re-template with the values file before changing `targetRevision`.
 
 ```bash
 argocd app sync loki alloy grafana prometheus observability-secrets
+# after sealing prometheus-hc-ping / alertmanager-notify, sync again to mount them
 ```

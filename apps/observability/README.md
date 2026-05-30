@@ -81,6 +81,21 @@ sealed Secret `prometheus-hc-ping` (key `url`) and read by Alertmanager via
 `../../src/observability/README.md` §2b. The `prometheus-alertmanager` pod stays
 pending until that Secret is sealed — expected.
 
+## Alerts → Telegram
+
+Alerting rules live in `prometheus-values.yaml` under `serverFiles.alerting_rules.yml`.
+Any rule labelled `severity: warning|critical` routes through Alertmanager to a
+**Telegram** chat (receiver `notify`). Currently defined:
+
+| Alert | Fires when |
+|-------|-----------|
+| `NodeHighCpu` | node CPU > 80% (100 − idle) for > 5 min |
+
+To add an alert, append a rule with a `severity: warning` (or `critical`) label —
+routing is automatic. The Telegram **bot token** is the sealed Secret
+`alertmanager-notify` (key `telegram-bot-token`, read via `bot_token_file`); the
+non-secret `chat_id` is in `prometheus-values.yaml`. Bring-up: `../../src/observability/README.md` §2c.
+
 ## First-time bring-up
 
 See `../../src/observability/README.md` for the out-of-band prerequisites

@@ -1,0 +1,17 @@
+# PLACEHOLDER — DO NOT APPLY, DO NOT COMMIT REAL VALUES.
+# Excluded from the `observability-secrets` Argo app (*.example.yaml). The
+# credential Alertmanager's `notify` receiver reads via bot_token_file. Copy this
+# key, fill the real value, seal with kubeseal, and commit the output as
+# alertmanager-notify-sealedsecret.yaml (see README.md).
+#
+# The non-secret telegram chat_id is NOT here — it lives in
+# apps/observability/prometheus-values.yaml.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-notify
+  namespace: observability
+type: Opaque
+stringData:
+  # Telegram bot token from @BotFather, e.g. 123456789:AAExxxxxxxxxxxxxxxxxxxxxxxx
+  telegram-bot-token: CHANGE_ME

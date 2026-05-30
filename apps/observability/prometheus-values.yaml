@@ -66,6 +66,17 @@ serverFiles:
               severity: none
             annotations:
               summary: "Prometheus + Alertmanager are alive — heartbeat to healthchecks.io."
+      - name: nodes
+        rules:
+          # Node CPU busy (100 - idle%) sustained above 80% for 5 minutes.
+          - alert: NodeHighCpu
+            expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU on {{ $labels.instance }}"
+              description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }} (>80% for >5m)."
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
@@ -88,9 +99,16 @@ alertmanager:
       mountPath: /etc/hc
       secretName: prometheus-hc-ping
       readOnly: true
+    # Telegram bot token for the `notify` receiver. Sealed; read via bot_token_file
+    # (see receivers below). Until this Secret exists the alertmanager pod stays
+    # pending. (The non-secret chat_id lives in this values file, below.)
+    - name: am-notify
+      mountPath: /etc/am-notify
+      secretName: alertmanager-notify
+      readOnly: true
   config:
     route:
-      # Default: blackhole everything. We only care about the Watchdog.
+      # Default: blackhole. Alerts reach a channel only via an explicit route.
       receiver: "null"
       group_wait: 0s
       group_interval: 5m
@@ -101,6 +119,14 @@ alertmanager:
           receiver: healthchecks
           group_wait: 0s
           repeat_interval: 5m       # ping healthchecks.io every 5 min while alive
+        # Real alerts (NodeHighCpu et al.) → Telegram + email.
+        - matchers:
+            - severity=~"warning|critical"
+          receiver: notify
+          group_by: ['alertname', 'instance']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h       # re-notify every 4h while still firing
     receivers:
       - name: "null"
       - name: healthchecks
@@ -108,3 +134,9 @@ alertmanager:
           # url_file keeps the secret URL off disk-in-Git; the file is the mounted Secret.
           - url_file: /etc/hc/url
             send_resolved: false    # only heartbeat while firing; silence == outage
+      - name: notify
+        telegram_configs:
+          - bot_token_file: /etc/am-notify/telegram-bot-token
+            chat_id: 1142335836
+            parse_mode: HTML
+            send_resolved: true
