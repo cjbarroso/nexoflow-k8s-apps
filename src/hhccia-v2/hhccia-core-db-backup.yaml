@@ -1,0 +1,79 @@
+# Backups for the hhccia-core-db CNPG cluster (barman-cloud plugin → Cloudflare R2).
+#
+# Architecture: continuous WAL archiving (configured on the Cluster via the
+# `barman-cloud.cloudnative-pg.io` plugin with isWALArchiver) + a daily base
+# backup (ScheduledBackup below). Together these give point-in-time recovery
+# (PITR) — restore to any moment within the retention window, not just to a
+# nightly snapshot.
+#
+# Object store: R2 bucket `velero-backups`, prefix `cnpg/hhccia-core-db`
+# (the reused Velero R2 token is scoped to that bucket). Credentials come from
+# the sealed secret `hhccia-core-db-backup-creds`.
+#
+# Restore runbook lives at the bottom of this file.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: hhccia-core-db-store
+  namespace: hhccia-v2
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://velero-backups/cnpg/hhccia-core-db
+    endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: hhccia-core-db-backup-creds
+        key: accessKeyId
+      secretAccessKey:
+        name: hhccia-core-db-backup-creds
+        key: secretAccessKey
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: hhccia-core-db-daily
+  namespace: hhccia-v2
+spec:
+  # 6-field CNPG cron (sec min hour dom mon dow): 03:00:00 every day.
+  schedule: "0 0 3 * * *"
+  backupOwnerReference: self
+  immediate: true            # take one base backup as soon as this is created
+  cluster:
+    name: hhccia-core-db
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+#
+# ── Restore runbook ──────────────────────────────────────────────────────────
+# CNPG restores by bootstrapping a NEW cluster from the object store (you do not
+# restore in-place). Outline:
+#
+# 1. Define an ObjectStore pointing at the same path (read-only is fine) — e.g.
+#    reuse this one, or a copy named `hhccia-core-db-store-restore`.
+# 2. Create a new Cluster with `bootstrap.recovery` referencing it:
+#
+#      spec:
+#        bootstrap:
+#          recovery:
+#            source: hhccia-core-db
+#            # for PITR add:
+#            # recoveryTarget:
+#            #   targetTime: "2026-05-30 14:00:00.00000+00"
+#        externalClusters:
+#          - name: hhccia-core-db
+#            plugin:
+#              name: barman-cloud.cloudnative-pg.io
+#              parameters:
+#                barmanObjectName: hhccia-core-db-store
+#                serverName: hhccia-core-db
+#
+# 3. Once the recovered cluster is healthy, repoint the `hhccia-core-pg`
+#    ExternalName service to the new cluster's `-rw` service.
+#
+# Verify backups exist:  kubectl -n hhccia-v2 get backups.postgresql.cnpg.io
+# Inspect object store:  objects under s3://velero-backups/cnpg/hhccia-core-db/
