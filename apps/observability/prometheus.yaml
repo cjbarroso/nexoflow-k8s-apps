@@ -1,0 +1,36 @@
+# Prometheus — the metric store (the node/cluster analogue of Loki). Single
+# server, filesystem-backed PVC, 15-day retention: the lightest viable metrics
+# backend for this small meta-monitoring stack. Scrapes node-exporter (node
+# CPU/mem/disk) + kubelet/cAdvisor (per-pod) out of the chart's default jobs.
+#
+# Multi-source pattern (see doc/APP-STRUCTURE.md): the upstream Helm chart +
+# this repo as `ref: values` so Argo loads prometheus-values.yaml from Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus
+      # Pinned + validated with `helm template` (2026-05-30). app v3.12.0.
+      # Alertmanager/Pushgateway/kube-state-metrics disabled in values to stay light.
+      targetRevision: "29.9.0"
+      helm:
+        valueFiles:
+          - $values/apps/observability/prometheus-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

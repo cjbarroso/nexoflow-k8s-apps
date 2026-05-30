@@ -44,7 +44,8 @@ envValueFrom:
       name: grafana-secrets
       key: oidc-client-secret
 
-# Pre-provisioned Loki datasource (in-cluster, gateway disabled → svc `loki`).
+# Pre-provisioned datasources (in-cluster). Loki stays default so existing log
+# workflows are unchanged; Prometheus is the metric store (svc prometheus-server).
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -56,6 +57,35 @@ datasources:
         isDefault: true
         jsonData:
           maxLines: 1000
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.observability.svc.cluster.local
+        isDefault: false
+        jsonData:
+          timeInterval: 60s        # match Prometheus scrape_interval
+
+# Auto-provision the "Node Exporter Full" dashboard (grafana.com id 1860) so node
+# CPU/memory/disk is visible out of the box. The chart's download-dashboards init
+# container fetches it from grafana.com (Grafana already has egress for OIDC).
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+dashboards:
+  default:
+    node-exporter-full:
+      gnetId: 1860
+      revision: 45               # pinned (latest as of 2026-05-30)
+      datasource: Prometheus
 
 ingress:
   enabled: true

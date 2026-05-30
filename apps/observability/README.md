@@ -1,7 +1,9 @@
-# observability — lightweight log aggregator
+# observability — lightweight logs + metrics
 
-A simple, light log-aggregation stack for the cluster. Logs are **opt-in per
-component**: nothing is collected unless you ask for it.
+A simple, light meta-monitoring stack for the cluster: **logs** (Loki + Alloy)
+and **metrics** (Prometheus + node-exporter), viewed through one Grafana. Logs
+are **opt-in per component** (nothing collected unless you ask); node/cluster
+metrics are scraped cluster-wide.
 
 ## Stack
 
@@ -9,12 +11,18 @@ component**: nothing is collected unless you ask for it.
 |------|-----------------|-------|
 | `loki.yaml` + `loki-values.yaml` | **Grafana Loki** | Monolithic mode, filesystem storage, 1 replica, **30-day** retention. The log store. |
 | `alloy.yaml` + `alloy-values.yaml` | **Grafana Alloy** | DaemonSet collector (Promtail's successor — Promtail is EOL). Tails `/var/log/pods`, ships **only opt-in pods**. |
-| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO, Loki datasource pre-wired. |
+| `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, 8Gi PVC, **15-day** retention. Bundled **node-exporter** DaemonSet (node CPU/mem/disk) + kubelet/cAdvisor scrape (per-pod). Alertmanager/Pushgateway/kube-state-metrics **off** to stay light. Internal-only (no ingress). |
+| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** datasources pre-wired; auto-imports the **Node Exporter Full** dashboard. |
 | `observability-secrets.yaml` | Argo **directory app** → `src/observability/` | Applies the sealed `grafana-secrets`. |
 
-All three Helm apps live in project `support`, namespace `observability`,
-auto-synced. Chart versions are **pinned and validated with `helm template`**
-(2026-05-29): loki `7.0.0`, alloy `1.8.2`, grafana `10.5.15`.
+All Helm apps live in project `support`, namespace `observability`,
+auto-synced. Chart versions are **pinned and validated with `helm template`**:
+loki `7.0.0`, alloy `1.8.2`, grafana `10.5.15` (2026-05-29); prometheus `29.9.0`
+(2026-05-30). Prometheus needs **no secret** — internal, no auth.
+
+> **Want per-workload / cluster-object metrics** (deployment desired vs available,
+> etc.)? Set `kube-state-metrics.enabled: true` in `prometheus-values.yaml` — it's
+> one pod. node-exporter + cAdvisor already cover host + per-pod CPU/memory.
 
 ## How to aggregate a component's logs (the one knob)
 
@@ -45,6 +53,23 @@ is ever needed — the opt-in gate lives in `alloy-values.yaml`.
 {namespace="hhccia-v2", app="hhccia-core"}   # just the core
 {namespace="hhccia-v2"} |= "error"           # text filter
 ```
+
+## Viewing metrics
+
+`https://logs.cjbarroso.com` → **Dashboards → Node Exporter Full** for per-node
+CPU / memory / disk / filesystem / network. Or **Explore** → datasource
+**Prometheus** for ad-hoc PromQL:
+
+```promql
+100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)   # CPU %/node
+100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)            # mem %/node
+100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}                    # disk %/mount
+       / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})
+sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="hhccia-v2"}[5m]))  # per-pod CPU (cAdvisor)
+```
+
+Prometheus has **no ingress** — query it through Grafana. For raw access:
+`kubectl -n observability port-forward svc/prometheus-server 9090:80`.
 
 ## First-time bring-up
 

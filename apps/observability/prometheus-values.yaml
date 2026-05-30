@@ -1,0 +1,53 @@
+# Prometheus Helm values — the metric store. Deliberately minimal, to match the
+# light log stack alongside it (Loki SingleBinary + Alloy). It scrapes node +
+# cluster metrics and keeps 15 days; nothing here is HA.
+#
+# Footprint trims: Alertmanager, Pushgateway and kube-state-metrics are all OFF.
+# Node CPU/mem/disk comes from the node-exporter DaemonSet; per-pod CPU/mem comes
+# from the kubelet/cAdvisor scrape (already wired by the chart's default
+# scrape_configs — no extra pod). Helm ignores unknown keys, so the disable-flags
+# are safe across minor chart drift.
+
+# --- Trim the optional sub-charts ---
+alertmanager:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+# Cluster-object metrics (deployment desired/available, etc). OFF to save a pod;
+# flip to true if you later want per-workload dashboards. node-exporter + cAdvisor
+# already cover host + per-pod CPU/memory without it.
+kube-state-metrics:
+  enabled: false
+
+# --- Node metrics: the source of node_cpu_*, node_memory_*, node_filesystem_* ---
+# Tiny DaemonSet, one pod per node. Auto-discovered by the server's
+# kubernetes-service-endpoints job via the subchart's prometheus.io annotations.
+prometheus-node-exporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 24Mi
+    limits:
+      memory: 64Mi
+
+# --- The single Prometheus server ---
+# Service `prometheus-server` :80 is the query entrypoint (release name = the Argo
+# app name `prometheus`). Datasource URL used by Grafana:
+#   http://prometheus-server.observability.svc.cluster.local
+server:
+  retention: "15d"
+  global:
+    scrape_interval: 60s          # 60s keeps sample volume (RAM + disk) low
+    scrape_timeout: 15s
+    evaluation_interval: 60s
+  persistentVolume:
+    enabled: true
+    size: 8Gi                     # default storage class (same as Loki)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 700Mi
+  replicaCount: 1
