@@ -1,58 +1,46 @@
-# Dedicated Postgres for the AI core store (test-grade, standalone).
-# Production option: use the shared CNPG cluster (nexoflow-cluster) with a
-# dedicated `hhccia_core` database instead of this standalone instance.
-apiVersion: v1
-kind: PersistentVolumeClaim
+# AI core store — CloudNativePG operator-managed cluster.
+#
+# Migrated 2026-05-30 from a hand-rolled `postgres:16-alpine` Deployment to a
+# CNPG `Cluster` (operator: cnpg-operator). `instances: 2` = 1 primary + 1 hot
+# standby with streaming replication.
+#
+# NOTE: the k3s cluster is currently single-node (`homestation`), so both
+# instances schedule on the same physical node — this gives replication +
+# fast failover readiness, but the node itself is still a single point of
+# failure. Pod anti-affinity is disabled so the standby can schedule alongside
+# the primary; re-enable it once a second node exists for real HA.
+#
+# Credentials (role `hhccia`, db `hhccia_core`) come from the sealed secret
+# `hhccia-core-db-app` and intentionally match the values already baked into
+# `hhccia-core-secrets` / `DATABASE_URL`. The ExternalName Service below keeps
+# the host `hhccia-core-pg` resolving to the cluster's `-rw` endpoint, so the
+# app's `DATABASE_URL` does not change.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
 metadata:
-  name: hhccia-core-pg
+  name: hhccia-core-db
   namespace: hhccia-v2
 spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 2Gi
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  primaryUpdateStrategy: unsupervised
+  inheritedMetadata:
+    labels:
+      logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+  affinity:
+    enablePodAntiAffinity: false            # single-node: allow both instances on the same node
+  bootstrap:
+    initdb:
+      database: hhccia_core
+      owner: hhccia
+      secret:
+        name: hhccia-core-db-app
+  storage:
+    size: 5Gi
+    storageClass: local-path
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hhccia-core-pg
-  namespace: hhccia-v2
-  labels:
-    app: hhccia-core-pg
-spec:
-  replicas: 1
-  strategy: { type: Recreate }
-  selector:
-    matchLabels:
-      app: hhccia-core-pg
-  template:
-    metadata:
-      labels:
-        app: hhccia-core-pg
-        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
-    spec:
-      automountServiceAccountToken: false
-      containers:
-        - name: postgres
-          image: postgres:16-alpine
-          ports:
-            - { containerPort: 5432, name: pg }
-          env:
-            - name: POSTGRES_DB
-              value: hhccia_core
-            - name: POSTGRES_USER
-              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: PG_USER } }
-            - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: PG_PASSWORD } }
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
-          volumeMounts:
-            - { name: data, mountPath: /var/lib/postgresql/data }
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: hhccia-core-pg
----
+# Stable alias: keeps `hhccia-core-pg` pointing at the cluster's RW (primary)
+# service so the app's existing DATABASE_URL host keeps working across failover.
 apiVersion: v1
 kind: Service
 metadata:
@@ -61,8 +49,7 @@ metadata:
   labels:
     app: hhccia-core-pg
 spec:
-  selector:
-    app: hhccia-core-pg
+  type: ExternalName
+  externalName: hhccia-core-db-rw.hhccia-v2.svc.cluster.local
   ports:
     - { name: pg, port: 5432, targetPort: 5432 }
-  type: ClusterIP
