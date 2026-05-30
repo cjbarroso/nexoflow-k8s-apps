@@ -101,6 +101,28 @@ serverFiles:
               summary: "Low disk on {{ $labels.instance }}:{{ $labels.mountpoint }}"
               description: "Only {{ $value | printf \"%.1f\" }}% free on {{ $labels.instance }} {{ $labels.mountpoint }} ({{ $labels.fstype }}) — <15% for >10m."
               dashboard: "https://logs.cjbarroso.com/d/node-alerts?viewPanel=3&from=now-3h&to=now"
+      # CloudNativePG backup health. Backups = continuous WAL archiving to R2
+      # (barman-cloud plugin) + daily base backups → PITR. The plugin does NOT
+      # populate CNPG's base-backup *status* metrics (last_available/last_failed
+      # backup stay 0), so the reliable signal is the native pg_stat_archiver view
+      # on the primary: if its most recent WAL-archive attempt failed and hasn't
+      # succeeded since, archiving — and therefore backups/PITR — is broken.
+      # (CNPG forces a WAL switch on archive_timeout, so a healthy primary archives
+      # regularly even when idle; a sustained failure is a real problem.)
+      - name: cnpg
+        rules:
+          - alert: CNPGWALArchivingFailing
+            expr: |
+              (cnpg_pg_stat_archiver_seconds_since_last_failure{cnpg_io_instanceRole="primary"} >= 0)
+              and
+              (cnpg_pg_stat_archiver_seconds_since_last_failure{cnpg_io_instanceRole="primary"}
+                 < ignoring(__name__) cnpg_pg_stat_archiver_seconds_since_last_archival{cnpg_io_instanceRole="primary"})
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Postgres WAL archiving / backups failing ({{ $labels.cnpg_io_cluster }})"
+              description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): the primary's latest WAL-archive attempt to R2 failed and has not succeeded for >15m — backups & point-in-time recovery are at risk. Check the R2 credentials (sealed secret hhccia-core-db-backup-creds) and the barman ObjectStore."
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
