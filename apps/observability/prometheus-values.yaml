@@ -123,6 +123,7 @@ serverFiles:
             annotations:
               summary: "Postgres WAL archiving / backups failing ({{ $labels.cnpg_io_cluster }})"
               description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): the primary's latest WAL-archive attempt to R2 failed and has not succeeded for >15m — backups & point-in-time recovery are at risk. Check the R2 credentials (sealed secret hhccia-core-db-backup-creds) and the barman ObjectStore."
+              logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-3h&to=now"
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
@@ -193,4 +194,5 @@ alertmanager:
               {{ range .Alerts }}<b>{{ .Labels.alertname }}</b> — {{ .Status | toUpper }}
               {{ .Annotations.description }}
               {{ with .Annotations.dashboard }}📊 <a href="{{ . }}">Open dashboard</a>
+              {{ end }}{{ with .Annotations.logs }}📋 <a href="{{ . }}">View logs</a>
               {{ end }}{{ end }}

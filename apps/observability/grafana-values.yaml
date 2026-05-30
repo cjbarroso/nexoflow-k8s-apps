@@ -182,6 +182,68 @@ dashboards:
             }
           ]
         }
+    # Curated log view for the CNPG backup alerts. Stable uid `cnpg-backup-logs`
+    # so the Alertmanager Telegram messages deep-link to it via the alerts'
+    # `logs` annotation (https://logs.cjbarroso.com/d/cnpg-backup-logs). Panels
+    # reference the Loki datasource by name (resolved by Grafana at load).
+    cnpg-backup-logs:
+      json: |
+        {
+          "uid": "cnpg-backup-logs",
+          "title": "CNPG Backups — hhccia-core-db logs",
+          "tags": ["cnpg", "backup", "logs"],
+          "schemaVersion": 39,
+          "refresh": "1m",
+          "time": { "from": "now-6h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1,
+              "type": "logs",
+              "title": "Barman plugin errors — backup / WAL / retention (alert: CNPGBackupFailed)",
+              "datasource": "Loki",
+              "gridPos": { "h": 11, "w": 24, "x": 0, "y": 0 },
+              "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+              "targets": [
+                {
+                  "refId": "A",
+                  "datasource": "Loki",
+                  "expr": "{namespace=\"hhccia-v2\", container=\"plugin-barman-cloud\"} | json | level=\"error\""
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "logs",
+              "title": "Postgres WAL archiver failures (alert: CNPGWalArchiveErrorsLog)",
+              "datasource": "Loki",
+              "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
+              "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+              "targets": [
+                {
+                  "refId": "A",
+                  "datasource": "Loki",
+                  "expr": "{namespace=\"hhccia-v2\", container=\"postgres\"} |= \"archive command failed\""
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "logs",
+              "title": "All hhccia-core-db logs (context)",
+              "datasource": "Loki",
+              "gridPos": { "h": 10, "w": 24, "x": 0, "y": 19 },
+              "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+              "targets": [
+                {
+                  "refId": "A",
+                  "datasource": "Loki",
+                  "expr": "{namespace=\"hhccia-v2\", pod=~\"hhccia-core-db-.*\"}"
+                }
+              ]
+            }
+          ]
+        }
 
 ingress:
   enabled: true
