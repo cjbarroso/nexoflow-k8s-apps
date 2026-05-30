@@ -31,12 +31,14 @@ variable "tags" {
   default     = ["nexoflow", "prometheus", "dead-mans-switch"]
 }
 
-# Which healthchecks.io integrations notify you when the check goes down (email,
-# Telegram, etc.). "*" assigns ALL integrations configured in the project, so you
-# actually get alerted. Set to a specific list of integration UUIDs to narrow it,
-# or [] to assign none. Integrations themselves are configured in the HC.io UI.
+# Which healthchecks.io integrations notify you when the check goes down. This
+# provider requires real integration **UUIDs** here (it rejects the API's "*"
+# wildcard). Leave empty to assign none, or pass UUIDs directly. The simplest way
+# to get a UUID without hardcoding it is the healthchecksio_channel data source —
+# see the commented example in main.tf. Empty default keeps `apply` working out of
+# the box; set channels (or enable the data source) so you actually get alerted.
 variable "channels" {
-  description = "Integration UUIDs to notify, or [\"*\"] for all configured integrations."
+  description = "Integration UUIDs to notify when the check goes down. Empty = no notifications."
   type        = list(string)
-  default     = ["*"]
+  default     = []
 }
