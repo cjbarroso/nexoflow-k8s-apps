@@ -1,0 +1,97 @@
+# Alloy Helm values — DaemonSet that file-tails /var/log/pods and forwards
+# ONLY opt-in pods to Loki.
+#
+# THE SELECTION KNOB: a pod's logs are collected if and only if its pod
+# template carries the label  logs.cjbarroso.com/collect: "true".
+# Onboarding a component = adding that one label (see README.md). Nothing is
+# collected by default.
+
+controller:
+  type: daemonset
+
+# Mount the host log dir so file-based tailing works without API-server load
+# (file tailing needs no pods/log RBAC — the chart's default ClusterRole only
+# grants pod list/watch, which discovery.kubernetes below uses for labels).
+# k3s/containerd write CRI-format logs under /var/log/pods.
+alloy:
+  mounts:
+    varlog: true            # mounts host /var/log (covers /var/log/pods)
+  # Pod log files under /var/log/pods are root-owned; read them as root.
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  configMap:
+    content: |-
+      // ---- Discover pods (for labels + which files to tail) ----
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // ---- Opt-in gate + label mapping + path to the on-disk log files ----
+      discovery.relabel "pod_logs" {
+        targets = discovery.kubernetes.pods.targets
+
+        // KEEP only pods labelled logs.cjbarroso.com/collect: "true".
+        // ('.' and '/' in the label key become '_' in the meta label name.)
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_logs_cjbarroso_com_collect"]
+          regex         = "true"
+          action        = "keep"
+        }
+
+        // Loki stream labels.
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          target_label  = "app"
+        }
+
+        // Resolve the on-disk path: /var/log/pods/<uid>/<container>/*.log
+        rule {
+          source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+          separator     = "/"
+          action        = "replace"
+          replacement   = "/var/log/pods/*$1/*.log"
+          target_label  = "__path__"
+        }
+      }
+
+      // ---- Tail the matched files ----
+      local.file_match "pod_logs" {
+        path_targets = discovery.relabel.pod_logs.output
+      }
+
+      loki.source.file "pod_logs" {
+        targets    = local.file_match.pod_logs.targets
+        forward_to = [loki.process.pod_logs.receiver]
+      }
+
+      // ---- Strip the CRI envelope, then write to Loki ----
+      loki.process "pod_logs" {
+        stage.cri {}
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }

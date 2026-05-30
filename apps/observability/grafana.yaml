@@ -1,0 +1,30 @@
+# Grafana — the log-browsing UI. Loki datasource pre-provisioned, exposed at
+# logs.cjbarroso.com via the Cloudflare tunnel, login through Authentik (OIDC).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      # Pinned + validated with `helm template` (2026-05-29). app Grafana 12.3.1.
+      targetRevision: "10.5.15"
+      helm:
+        valueFiles:
+          - $values/apps/observability/grafana-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

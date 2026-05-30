@@ -1,0 +1,31 @@
+# Grafana Alloy — the log collector (Promtail's official successor; Promtail
+# went EOL March 2026). Runs as a DaemonSet, tails container logs from the
+# host's /var/log/pods, and ships ONLY opt-in pods to Loki.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      # Pinned + validated with `helm template` (2026-05-29). app v1.16.1.
+      targetRevision: "1.8.2"
+      helm:
+        valueFiles:
+          - $values/apps/observability/alloy-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

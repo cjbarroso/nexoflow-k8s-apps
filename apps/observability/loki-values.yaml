@@ -1,0 +1,82 @@
+# Loki Helm values — Monolithic (SingleBinary), filesystem, 30-day retention.
+# Kept deliberately minimal/light. Extra disable-flags are over-specified on
+# purpose: Helm ignores unknown value keys, so this survives minor chart drift.
+
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false           # single-tenant; no X-Scope-OrgID needed
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  # tsdb schema is mandatory in chart 6.x (no built-in default).
+  schemaConfig:
+    configs:
+      - from: "2024-04-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  # 30-day retention (720h), enforced by the compactor.
+  limits_config:
+    retention_period: 720h
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    max_query_lookback: 720h
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+  # Disable the experimental pattern ingester — not needed, extra moving part.
+  pattern_ingester:
+    enabled: false
+
+# The single Loki process. Service `loki` :3100 is the read/write entrypoint
+# (gateway disabled below). Push URL used by Alloy + Grafana datasource:
+#   http://loki.observability.svc.cluster.local:3100
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 40Gi          # ~30d headroom for this stack; bump if it fills
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+# Force every scalable/microservices component off — Monolithic only.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# Trim the heavy/optional extras to stay light.
+gateway:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+minio:
+  enabled: false          # we use filesystem, never the bundled MinIO
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  serviceMonitor:
+    enabled: false
+  rules:
+    enabled: false
+  dashboards:
+    enabled: false

@@ -1,0 +1,36 @@
+# Grafana Loki — the log store. Monolithic (SingleBinary) mode, filesystem
+# storage, single replica: the lightest viable deployment for a small
+# meta-monitoring stack (Grafana's own recommendation for monolithic).
+#
+# Multi-source pattern (see doc/APP-STRUCTURE.md): the upstream Helm chart +
+# this repo as `ref: values` so Argo loads loki-values.yaml from Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: loki
+      # Pinned + validated with `helm template` (2026-05-29). 7.0.0 still accepts
+      # `deploymentMode: SingleBinary` (verified); the community fork renames it to
+      # `Monolithic` only at 12.x — if you bump past the fork, switch the values key.
+      targetRevision: "7.0.0"
+      helm:
+        valueFiles:
+          - $values/apps/observability/loki-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
