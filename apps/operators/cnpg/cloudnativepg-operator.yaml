@@ -9,6 +9,13 @@ spec:
     repoURL: https://cloudnative-pg.github.io/charts
     chart: cloudnative-pg
     targetRevision: "0.26.1" # Use a specific chart version
+    helm:
+      valuesObject:
+        # Ship the operator's logs to Loki so the CNPGBaseBackupFailed log alert
+        # can see base/scheduled backup failures (which the barman plugin does not
+        # expose as metrics). Alloy collects pods carrying this label.
+        podLabels:
+          logs.cjbarroso.com/collect: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system

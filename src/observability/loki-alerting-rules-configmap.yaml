@@ -1,0 +1,38 @@
+# Loki ruler alerting rules — log-based backup-failure alerts for CNPG.
+# Mounted into the Loki pod at /rules/fake (tenant `fake`, single-tenant Loki)
+# via singleBinary.extraVolume* in apps/observability/loki-values.yaml; the ruler
+# evaluates them and pushes to the Prometheus Alertmanager, which routes
+# severity=~"warning|critical" to Telegram.
+#
+# These COMPLEMENT the metric alert CNPGWALArchivingFailing (prometheus-values):
+#   - CNPGBaseBackupFailed: catches a failed base/scheduled backup — the gap the
+#     metric can't see, since the barman *plugin* doesn't populate backup-status
+#     metrics. Sourced from the operator log (needs the cnpg operator pod labelled
+#     logs.cjbarroso.com/collect:"true").
+#   - CNPGWalArchiveErrorsLog: fast, log-based early warning on WAL-archive errors
+#     (fires on the first "archive command failed" line; the metric alert escalates
+#     to critical only after 15m sustained).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-alerting-rules
+  namespace: observability
+data:
+  cnpg-backup.yaml: |
+    groups:
+      - name: cnpg-backup
+        rules:
+          - alert: CNPGBaseBackupFailed
+            expr: sum(count_over_time({namespace="cnpg-system"} |= `"controllerKind":"Backup"` |= `"level":"error"` [10m])) > 0
+            labels:
+              severity: critical
+            annotations:
+              summary: "CNPG base backup failed (operator log)"
+              description: "The CloudNativePG operator logged an error for a Backup resource in the last 10m — a scheduled/base backup failed. Check: kubectl -n hhccia-v2 get backups.postgresql.cnpg.io, and the operator logs in cnpg-system."
+          - alert: CNPGWalArchiveErrorsLog
+            expr: sum(count_over_time({namespace="hhccia-v2", container="postgres"} |= `archive command failed` [10m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "Postgres WAL archiving errors (hhccia-core-db)"
+              description: "Postgres logged 'archive command failed' in hhccia-v2 in the last 10m — WAL archiving to R2 is failing. If sustained it breaks PITR/backups (the CNPGWALArchivingFailing metric alert escalates to critical after 15m)."

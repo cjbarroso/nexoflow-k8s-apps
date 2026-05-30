@@ -32,6 +32,24 @@ loki:
   # Disable the experimental pattern ingester — not needed, extra moving part.
   pattern_ingester:
     enabled: false
+  # Ruler: evaluate LogQL alerting rules and push to the Prometheus Alertmanager
+  # (so log-based alerts share the same Telegram pipeline as the metric alerts).
+  # Rules are read from a local dir; single-tenant Loki (auth_enabled:false) uses
+  # the tenant id `fake`, so rule files live under <directory>/fake/ — mounted
+  # from the `loki-alerting-rules` ConfigMap via singleBinary.extraVolume* below.
+  rulerConfig:
+    wal:
+      dir: /var/loki/ruler-wal
+    storage:
+      type: local
+      local:
+        directory: /rules
+    rule_path: /var/loki/ruler-temp
+    alertmanager_url: http://prometheus-alertmanager.observability.svc.cluster.local:9093
+    enable_alertmanager_v2: true
+    enable_api: true
+    evaluation_interval: 1m
+    poll_interval: 1m
 
 # The single Loki process. Service `loki` :3100 is the read/write entrypoint
 # (gateway disabled below). Push URL used by Alloy + Grafana datasource:
@@ -47,6 +65,16 @@ singleBinary:
       memory: 256Mi
     limits:
       memory: 1Gi
+  # Mount the ruler rule files (tenant `fake`) from the ConfigMap. Matches
+  # rulerConfig.storage.local.directory=/rules above.
+  extraVolumes:
+    - name: loki-alerting-rules
+      configMap:
+        name: loki-alerting-rules
+  extraVolumeMounts:
+    - name: loki-alerting-rules
+      mountPath: /rules/fake
+      readOnly: true
 
 # Force every scalable/microservices component off — Monolithic only.
 read:
