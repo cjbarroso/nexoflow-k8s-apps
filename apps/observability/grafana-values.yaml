@@ -11,6 +11,14 @@ persistence:
   enabled: true
   size: 2Gi
 
+# The chart's init-chown-data container runs `chown -R` as uid 0 but with all
+# caps dropped except CHOWN — so it can't traverse the 472-owned png/pdf/csv
+# dirs (no DAC_OVERRIDE) and dies with "Permission denied" on pod re-create.
+# fsGroup: 472 already fixes volume ownership at mount and the data is already
+# 472:472, so the chown is redundant. Disable it.
+initChownData:
+  enabled: false
+
 resources:
   requests:
     cpu: 50m
