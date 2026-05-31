@@ -83,3 +83,38 @@ data:
           # branding_favicon left untouched (still the authentik default icon).
           # Add a small icon to the authentik-branding ConfigMap and point here
           # if you want a custom favicon too.
+  # Per-application access control for HHCCIA. The idiomatic authentik pattern:
+  # a PolicyBinding ON THE APPLICATION (not a separate login flow), so other
+  # apps on this instance are unaffected. Binds the hhccia-users group to the
+  # HHCCIA app -> only members may use it.
+  #
+  # STAGED ON PURPOSE: the binding ships `enabled: false`, so committing this
+  # changes nothing (app stays open to all authenticated users). To turn it on:
+  #   1. add the clinicians to the `hhccia-users` group in the admin UI
+  #      (membership is identity data -> managed in the UI/DB, NOT in Git)
+  #   2. flip `enabled: true` below (or toggle the binding in the UI) and let
+  #      the worker re-apply.
+  # Even at worst there's no hard lockout: admins reach the admin UI regardless
+  # of this app binding.
+  access.yaml: |
+    version: 1
+    metadata:
+      name: HHCCIA access control
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      - model: authentik_core.group
+        identifiers:
+          name: hhccia-users
+        attrs:
+          is_superuser: false
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, hhccia]]
+          group: !Find [authentik_core.group, [name, hhccia-users]]
+          order: 0
+        attrs:
+          enabled: false        # <-- flip to true once hhccia-users is populated
+          negate: false
+          timeout: 30
+          failure_result: false
