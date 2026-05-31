@@ -159,9 +159,9 @@ data:
       - model: authentik_stages_prompt.prompt
         id: signup-field-username
         identifiers:
-          field_key: username
-          label: Usuario (HHCCIA signup)
+          name: hhccia-signup-username
         attrs:
+          name: hhccia-signup-username
           field_key: username
           label: Usuario (HHCCIA signup)
           type: username
@@ -170,9 +170,9 @@ data:
       - model: authentik_stages_prompt.prompt
         id: signup-field-name
         identifiers:
-          field_key: name
-          label: Nombre completo (HHCCIA signup)
+          name: hhccia-signup-name
         attrs:
+          name: hhccia-signup-name
           field_key: name
           label: Nombre completo (HHCCIA signup)
           type: text
@@ -181,9 +181,9 @@ data:
       - model: authentik_stages_prompt.prompt
         id: signup-field-email
         identifiers:
-          field_key: email
-          label: Email (HHCCIA signup)
+          name: hhccia-signup-email
         attrs:
+          name: hhccia-signup-email
           field_key: email
           label: Email (HHCCIA signup)
           type: email
