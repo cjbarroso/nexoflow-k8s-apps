@@ -38,6 +38,10 @@ spec:
               value: "gemini"          # real Gemini; requires GEMINI_API_KEY in hhccia-core-secrets
             - name: GEMINI_MODEL
               value: "gemini-3.5-flash"
+            # Small/fast model for the /text-edit voice editor (reuses GEMINI_API_KEY).
+            # Bump to a 3.x flash-lite if/when preferred; this GA id is known-good.
+            - name: VOICE_EDIT_MODEL
+              value: "gemini-2.5-flash-lite"
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
             - name: GEMINI_API_KEY
