@@ -17,6 +17,13 @@ spec:
     server: https://kubernetes.default.svc
     namespace: hhccia-v2
   syncPolicy:
-    # Manual sync on purpose while v2 is in testing — flip to automated later.
+    # v2 is the only live stack now — automated like every other app in this repo.
+    # selfHeal reverts manual drift; prune removes resources dropped from Git.
+    # Note: deployments pin :latest, so Argo won't auto-deploy new images (the
+    # manifest digest is unchanged) — a code rollout still needs a
+    # `kubectl -n hhccia-v2 rollout restart`.
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
