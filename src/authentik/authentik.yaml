@@ -30,6 +30,11 @@ spec:
         - name: custom-blueprints
           configMap:
             name: authentik-blueprints
+        # Custom login/flow assets (logo, favicon). Served unauthenticated from
+        # /media/public. Whole-dir mount (not subPath) so Argo updates propagate.
+        - name: branding
+          configMap:
+            name: authentik-branding
       containers:
         - name: server
           image: ghcr.io/goauthentik/server:2024.10.5
@@ -40,6 +45,8 @@ spec:
           volumeMounts:
             - name: custom-blueprints
               mountPath: /blueprints/custom
+            - name: branding
+              mountPath: /media/public
           envFrom:
             - secretRef: { name: authentik-secrets }
           env:
