@@ -1,0 +1,55 @@
+# Consistent SQLite backup of the Vaultwarden vault, for Velero to capture.
+#
+# Why: the Vaultwarden image has no `sqlite3`, runs non-root, and the gabe565
+# chart can't host a sidecar — so a Velero pre-hook can't dump the DB. This
+# CronJob mounts the same `vaultwarden-data` PVC (RWO, same single node) and uses
+# SQLite's online backup API to write a guaranteed-consistent `db.backup.sqlite3`
+# onto the volume. The Velero `stateful-daily` schedule (02:00) then backs it up;
+# this runs at 01:30 so the consistent copy is fresh in each Velero backup.
+#
+# Online `.backup` is safe against the live Vaultwarden process (it's the SQLite
+# backup API, designed for concurrent access) and only READS the live DB.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vaultwarden-sqlite-backup
+  namespace: vaultwarden
+spec:
+  schedule: "30 1 * * *"          # 01:30, before the 02:00 Velero backup
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: vaultwarden-sqlite-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 0            # root: install sqlite + read the nobody-owned DB
+          containers:
+            - name: sqlite-backup
+              image: alpine:3.20
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache sqlite >/dev/null
+                  if [ ! -f /data/db.sqlite3 ]; then echo "no db.sqlite3 — nothing to back up"; exit 0; fi
+                  # Consistent online backup → single self-contained file (no -wal).
+                  sqlite3 /data/db.sqlite3 ".backup '/data/db.backup.sqlite3'"
+                  # Fail loudly if the backup is corrupt.
+                  sqlite3 /data/db.backup.sqlite3 'PRAGMA integrity_check;'
+                  echo "vaultwarden sqlite backup OK ($(date -u +%FT%TZ)) size=$(wc -c </data/db.backup.sqlite3)"
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: vaultwarden-data
