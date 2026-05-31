@@ -9,6 +9,10 @@ spec:
     repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     path: src/authentik
     targetRevision: master
+    directory:
+      # The OIDC config export is documentation/backup, not a deployable manifest —
+      # keep Argo from trying to apply it.
+      exclude: 'authentik-oidc-export.*'
   destination:
     server: https://kubernetes.default.svc
     namespace: authentik
