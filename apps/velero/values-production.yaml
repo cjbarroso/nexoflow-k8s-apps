@@ -45,6 +45,25 @@ schedules:
         - default
       defaultVolumesToFsBackup: true
       ttl: 720h                     # 30 days
+      hooks:
+        resources:
+          # Logically-clean dump of the Authentik DB (SSO/OIDC config) just before
+          # the file-system backup, written onto the backed-up data PVC. Gives a
+          # restorable `pg_dumpall` alongside the crash-consistent data dir.
+          - name: authentik-pg-dump
+            includedNamespaces: [authentik]
+            labelSelector:
+              matchLabels:
+                app: authentik-pg
+            pre:
+              - exec:
+                  container: postgres
+                  command:
+                    - /bin/sh
+                    - -c
+                    - 'pg_dumpall -U "$POSTGRES_USER" -f /var/lib/postgresql/data/velero-dump.sql'
+                  onError: Continue   # never let a hook failure abort the FS backup
+                  timeout: 10m
 
 upgradeCRDs: false # Do not upgrade CRDs. Fixes installation issues.
 kubectl:
