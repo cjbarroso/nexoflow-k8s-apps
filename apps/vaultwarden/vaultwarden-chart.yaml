@@ -23,8 +23,14 @@ spec:
         env:
           # Set the external domain for Vaultwarden.
           DOMAIN: "https://vaultwarden.cjbarroso.com"
-          # ADMIN_TOKEN (argon2 hash protecting /admin) is no longer inline — it
-          # comes from the sealed secret `vaultwarden-smtp` via envFrom below.
+          # ADMIN_TOKEN (argon2 hash protecting /admin) from the sealed secret.
+          # Must be an explicit env valueFrom: the chart defaults ADMIN_TOKEN to ""
+          # which would override envFrom and disable the admin page.
+          ADMIN_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: vaultwarden-smtp
+                key: ADMIN_TOKEN
           SIGNUPS_ALLOWED: false
           # Outbound email via Gmail SMTP. Non-secret settings only — the
           # sensitive SMTP_FROM / SMTP_USERNAME / SMTP_PASSWORD come from the
