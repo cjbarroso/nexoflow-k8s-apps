@@ -232,7 +232,12 @@ data:
           user_creation_mode: always_create
           create_users_as_inactive: false
           user_type: internal
-          # NO create_users_group on purpose -> new users land with ZERO access.
+          # Auto-enroll new sign-ups into hhccia-users so they get HHCCIA access
+          # on their next Google login WITHOUT a manual group-add. This makes the
+          # invitation link itself the authorization gate -- guard/rotate it
+          # accordingly. !Find (not !KeyOf): the group is declared in access.yaml,
+          # a separate blueprint.
+          create_users_group: !Find [authentik_core.group, [name, hhccia-users]]
       # ----- flow -----
       - model: authentik_flows.flow
         id: signup-flow
