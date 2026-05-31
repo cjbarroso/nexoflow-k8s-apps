@@ -189,6 +189,21 @@ data:
           type: email
           required: true
           order: 2
+      - model: authentik_stages_prompt.prompt
+        id: signup-field-prf
+        identifiers:
+          name: hhccia-signup-prf
+        attrs:
+          name: hhccia-signup-prf
+          # field_key prefixed with "attributes." -> user_write stores it in
+          # user.attributes.prf, queryable later and emittable as an OIDC claim
+          # via a custom scope mapping if the app ever needs it.
+          field_key: attributes.prf
+          label: Matrícula profesional (PRF)
+          type: text          # text, not number: preserves leading zeros / alphanumerics
+          required: true
+          placeholder: "N° de matrícula"
+          order: 3
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
         id: signup-invitation-stage
@@ -207,6 +222,7 @@ data:
             - !KeyOf signup-field-username
             - !KeyOf signup-field-name
             - !KeyOf signup-field-email
+            - !KeyOf signup-field-prf
       - model: authentik_stages_user_write.userwritestage
         id: signup-write-stage
         identifiers:
