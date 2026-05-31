@@ -108,6 +108,20 @@ data:
           name: hhccia-users
         attrs:
           is_superuser: false
+      # Role group for HHCCIA admins. No policy binding here -- it exists so the
+      # app can branch on it: authentik's default `profile` scope mapping emits
+      # the user's DIRECT group names in the `groups` claim, so a member shows
+      # up as {"groups": ["hhccia-admins", ...]} in the ID token / userinfo.
+      # NOTE: this group does NOT grant HHCCIA access on its own. If you later
+      # set the hhccia-users binding above to enabled:true, admins must ALSO be
+      # in hhccia-users (or make hhccia-admins a child of hhccia-users via
+      # `parent: !Find [authentik_core.group, [name, hhccia-users]]`, since
+      # authentik group membership cascades to parents) or they'll be locked out.
+      - model: authentik_core.group
+        identifiers:
+          name: hhccia-admins
+        attrs:
+          is_superuser: false
       - model: authentik_policies.policybinding
         identifiers:
           target: !Find [authentik_core.application, [slug, hhccia]]
