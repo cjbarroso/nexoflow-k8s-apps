@@ -6,6 +6,25 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
+    # Primary auth domain for the HHCCIA/medaudit app. The cloudflared ingress
+    # controller auto-creates the CNAME in the irupeconsultores.com zone (same
+    # CF account/token as cjbarroso.com — proven by medaudit.irupeconsultores.com
+    # already resolving). Authentik's OAuth2 issuer is host-derived (issuer_mode
+    # global), so logging in via this host yields iss
+    # https://auth.irupeconsultores.com/application/o/<slug>/ — keep the app's
+    # AUTHENTIK_AUTHORITY / core AUTHENTIK_ISSUER pointed here.
+    - host: "auth.irupeconsultores.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80
+    # Retained for Grafana's OIDC (logs.cjbarroso.com → auth.cjbarroso.com).
+    # Do not remove until Grafana's OIDC config is migrated off this host.
     - host: "auth.cjbarroso.com"
       http:
         paths:

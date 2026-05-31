@@ -52,7 +52,7 @@ spec:
             - name: AUTH_DISABLED
               value: "false"
             - name: AUTHENTIK_ISSUER
-              value: "https://auth.cjbarroso.com/application/o/hhccia/"
+              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
             # In-cluster JWKS lookup — going out through the Cloudflare tunnel
             # gets 403'd because the Python default User-Agent is filtered.
             # The `iss` claim in the JWT is still checked against AUTHENTIK_ISSUER

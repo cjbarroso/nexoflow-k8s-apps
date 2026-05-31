@@ -1,10 +1,13 @@
 # Authentik OIDC config export (`authentik-oidc-export.json`)
 
 A **sanitized, point-in-time export** of Authentik's OIDC **providers** and
-**applications** — the SSO config that is otherwise only in the Authentik
-Postgres DB and is configured **by hand** (the in-repo `blueprints.yaml` is not
-applied; see the `project_authentik_config_manual` note). This file makes that
-config **documented and reproducible**, so it isn't a single copy in the DB.
+**applications** — the SSO config that otherwise lives only in the Authentik
+Postgres DB. The in-repo `blueprints.yaml` **is applied** (mounted whole-dir at
+`/blueprints/custom`; provider redirect_uris + brand are declarative — see the
+corrected `project_authentik_config_manual` note, 2026-05-31), so it is the
+source of truth for the fields it manages. This export still serves as a
+documented, reproducible snapshot of the full live config (including fields the
+blueprint doesn't set), so it isn't a single copy in the DB.
 
 ## What's captured
 - **Providers** (`authentik_providers_oauth2.oauth2provider`): `client_id`,
@@ -12,10 +15,12 @@ config **documented and reproducible**, so it isn't a single copy in the DB.
   `sub_mode`, `signing_key` (a UUID reference, not key material), etc.
 - **Applications** (`authentik_core.application`): name, slug, launch URL.
 
-Current contents (2026-05-30): provider `hhccia-front` (public/PKCE — front v2,
-redirect URIs for `hhccia-v2.cjbarroso.com`, `medaudit.irupeconsultores.com`,
-`localhost:4200`) and the Grafana provider (confidential, redirect
-`logs.cjbarroso.com/login/generic_oauth`); apps `HHCCIA` and `Grafana`.
+Current contents (2026-05-31, post domain migration): provider `hhccia-front`
+(public/PKCE — front v2, redirect URIs for `medaudit.irupeconsultores.com` and
+`localhost:4200`; the legacy `hhccia-v2.cjbarroso.com` callback was removed) and
+the Grafana provider (confidential, redirect `logs.cjbarroso.com/login/generic_oauth`
+— still on cjbarroso, intentionally not migrated); apps `HHCCIA`
+(launch `https://medaudit.irupeconsultores.com/`) and `Grafana`.
 
 ## Secrets
 `client_secret` is **REDACTED** — it is not stored in Git. The real values live in:

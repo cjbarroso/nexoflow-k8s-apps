@@ -7,7 +7,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: "api-hhccia-v2.cjbarroso.com"
+    - host: "api-medaudit.irupeconsultores.com"
       http:
         paths:
           - path: /

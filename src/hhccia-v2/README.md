@@ -18,10 +18,10 @@ sync** while in testing).
 | `hhccia-core-db-backup.yaml` | barman-cloud `ObjectStore` (R2) + daily `ScheduledBackup` — WAL archiving + base backups = PITR (30d retention). Restore runbook is in-file. |
 | `hhccia-core-db-backup-creds-sealedsecret.yaml` | Sealed R2 credentials for the barman ObjectStore |
 | `hhccia-core.yaml` | AI Core Service (FastAPI) + Service |
-| `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-hhccia-v2.cjbarroso.com` |
+| `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-medaudit.irupeconsultores.com` |
 | `hhccia-adapter-datatech.yaml` | Datatech adapter (starts in `sample` mode) |
 | `hhccia-front.yaml` | Angular UI (same image as live v1) flipped to v2 via `CORE_API_URL` env |
-| `hhccia-front-ingress.yaml` | Cloudflare-tunnel ingress → `hhccia-v2.cjbarroso.com` |
+| `hhccia-front-ingress.yaml` | Cloudflare-tunnel ingress → `medaudit.irupeconsultores.com` |
 | `secrets.example.yaml` | PLACEHOLDER secret template (excluded from Argo; replace via sealed-secrets) |
 
 ## Before syncing

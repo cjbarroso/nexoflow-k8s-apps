@@ -34,13 +34,13 @@ spec:
             # Legacy webhook (unused while CORE_API_URL is set — kept consistent
             # so any leak doesn't accidentally hit the live v1 backend).
             - name: API_URL
-              value: "https://api-hhccia-v2.cjbarroso.com"
+              value: "https://api-medaudit.irupeconsultores.com"
             # The switch that flips ListService -> CoreApiService.
             - name: CORE_API_URL
-              value: "https://api-hhccia-v2.cjbarroso.com"
+              value: "https://api-medaudit.irupeconsultores.com"
             # OIDC against self-hosted Authentik (replaces the old Clerk integration).
             - name: AUTHENTIK_AUTHORITY
-              value: "https://auth.cjbarroso.com/application/o/hhccia/"
+              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
             - name: AUTHENTIK_CLIENT_ID
               value: "hhccia-front"
 ---

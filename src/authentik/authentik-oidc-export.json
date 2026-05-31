@@ -8,15 +8,11 @@
       "client_secret": "REDACTED - in the Velero Authentik-DB backup; regenerate if recreating",
       "_redirect_uris": [
         {
-          "url": "https://hhccia-v2.cjbarroso.com/callback",
+          "url": "https://medaudit.irupeconsultores.com/callback",
           "matching_mode": "strict"
         },
         {
           "url": "http://localhost:4200/callback",
-          "matching_mode": "strict"
-        },
-        {
-          "url": "https://medaudit.irupeconsultores.com/callback",
           "matching_mode": "strict"
         }
       ],
@@ -63,7 +59,7 @@
       "slug": "hhccia",
       "group": "",
       "provider": 1,
-      "meta_launch_url": "https://hhccia-v2.cjbarroso.com/",
+      "meta_launch_url": "https://medaudit.irupeconsultores.com/",
       "open_in_new_tab": false,
       "meta_icon": "",
       "meta_description": "",
