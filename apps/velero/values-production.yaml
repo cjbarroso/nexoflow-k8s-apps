@@ -12,6 +12,12 @@ configuration:
     - name: default
       provider: aws
       bucket: velero-backups
+      # Store Velero data under a `velero/` prefix. The CNPG barman backups share
+      # this bucket under `cnpg/` (the R2 token is bucket-scoped), and Velero's BSL
+      # validation rejects unexpected top-level dirs ("invalid top-level
+      # directories: [cnpg]") — so confining Velero to its own prefix keeps the BSL
+      # Available while the two backup systems coexist.
+      prefix: velero
       config:
         s3Url: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
         region: auto
