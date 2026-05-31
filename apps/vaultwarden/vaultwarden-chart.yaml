@@ -23,12 +23,8 @@ spec:
         env:
           # Set the external domain for Vaultwarden.
           DOMAIN: "https://vaultwarden.cjbarroso.com"
-          # It is critical to set a secure admin token to protect the /admin page.
-          # This is a placeholder. You MUST generate your own secure hashed token.
-          # Run the following command in your terminal, replacing "YourSuperSecretPassword".
-          # echo -n "YourSuperSecretPassword" | argon2 "$(openssl rand -base64 32)" -e -id -k 19456 -t 2 -p 1
-          # YourSuperSecretPassword obio pai
-          ADMIN_TOKEN: "$argon2id$v=19$m=19456,t=2,p=1$eS93V1cwVEJJZnJQU1pmRnNlSk56UG9SVFBSUnU5WWJ0YmpoM09tWU83RT0$hBWgl1UeIYuNWewU7F3AsomDNQrWOGq1+BKdda7iN6M"
+          # ADMIN_TOKEN (argon2 hash protecting /admin) is no longer inline — it
+          # comes from the sealed secret `vaultwarden-smtp` via envFrom below.
           SIGNUPS_ALLOWED: false
           # Outbound email via Gmail SMTP. Non-secret settings only — the
           # sensitive SMTP_FROM / SMTP_USERNAME / SMTP_PASSWORD come from the
