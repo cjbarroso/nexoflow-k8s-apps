@@ -133,3 +133,123 @@ data:
           negate: false
           timeout: 30
           failure_result: false
+  # Self-service signup for physicians. Creates an Authentik user and NOTHING
+  # else: the new account is NOT added to any group, so the hhccia app policy
+  # binding above ("only hhccia-users may use HHCCIA") leaves it with zero
+  # access until an admin adds it to `hhccia-users` in the UI. Physicians log
+  # in afterwards via Google; the source's `email_link` matching mode links the
+  # Google identity to the account created here (matching on email), so no
+  # password is collected.
+  #
+  # HARDENED WITH AN INVITATION STAGE: the bare flow URL
+  #   https://auth.irupeconsultores.com/if/flow/hhccia-signup/
+  # is a dead end on its own (continue_flow_without_invitation: false). It only
+  # proceeds with a valid ?itoken=<uuid>. The reusable invitation TOKEN is
+  # runtime data (a shareable secret link) and is intentionally NOT stored in
+  # Git -- it is created out-of-band against the live instance.
+  enrollment.yaml: |
+    version: 1
+    metadata:
+      name: HHCCIA physician self-signup
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      # ----- prompt fields. Unique labels keep these distinct from the
+      # default-source-enrollment prompt fields that share these field_keys. -----
+      - model: authentik_stages_prompt.prompt
+        id: signup-field-username
+        identifiers:
+          field_key: username
+          label: Usuario (HHCCIA signup)
+        attrs:
+          field_key: username
+          label: Usuario (HHCCIA signup)
+          type: username
+          required: true
+          order: 0
+      - model: authentik_stages_prompt.prompt
+        id: signup-field-name
+        identifiers:
+          field_key: name
+          label: Nombre completo (HHCCIA signup)
+        attrs:
+          field_key: name
+          label: Nombre completo (HHCCIA signup)
+          type: text
+          required: true
+          order: 1
+      - model: authentik_stages_prompt.prompt
+        id: signup-field-email
+        identifiers:
+          field_key: email
+          label: Email (HHCCIA signup)
+        attrs:
+          field_key: email
+          label: Email (HHCCIA signup)
+          type: email
+          required: true
+          order: 2
+      # ----- stages -----
+      - model: authentik_stages_invitation.invitationstage
+        id: signup-invitation-stage
+        identifiers:
+          name: hhccia-signup-invitation
+        attrs:
+          name: hhccia-signup-invitation
+          continue_flow_without_invitation: false   # bare URL is dead without a valid token
+      - model: authentik_stages_prompt.promptstage
+        id: signup-prompt-stage
+        identifiers:
+          name: hhccia-signup-prompt
+        attrs:
+          name: hhccia-signup-prompt
+          fields:
+            - !KeyOf signup-field-username
+            - !KeyOf signup-field-name
+            - !KeyOf signup-field-email
+      - model: authentik_stages_user_write.userwritestage
+        id: signup-write-stage
+        identifiers:
+          name: hhccia-signup-write
+        attrs:
+          name: hhccia-signup-write
+          user_creation_mode: always_create
+          create_users_as_inactive: false
+          user_type: internal
+          # NO create_users_group on purpose -> new users land with ZERO access.
+      # ----- flow -----
+      - model: authentik_flows.flow
+        id: signup-flow
+        identifiers:
+          slug: hhccia-signup
+        attrs:
+          name: HHCCIA - Solicitar acceso
+          title: Registro de profesionales — HHCCIA
+          slug: hhccia-signup
+          designation: enrollment
+          authentication: require_unauthenticated
+      # ----- bindings: invitation (5) -> prompt (10) -> user_write (20) -----
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf signup-flow
+          order: 5
+        attrs:
+          stage: !KeyOf signup-invitation-stage
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf signup-flow
+          order: 10
+        attrs:
+          stage: !KeyOf signup-prompt-stage
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf signup-flow
+          order: 20
+        attrs:
+          stage: !KeyOf signup-write-stage
+          evaluate_on_plan: true
+          re_evaluate_policies: false
