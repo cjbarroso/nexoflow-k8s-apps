@@ -1,0 +1,88 @@
+[
+  {
+    "model": "authentik_providers_oauth2.oauth2provider",
+    "pk": 1,
+    "fields": {
+      "client_type": "public",
+      "client_id": "hhccia-front",
+      "client_secret": "REDACTED - in the Velero Authentik-DB backup; regenerate if recreating",
+      "_redirect_uris": [
+        {
+          "url": "https://hhccia-v2.cjbarroso.com/callback",
+          "matching_mode": "strict"
+        },
+        {
+          "url": "http://localhost:4200/callback",
+          "matching_mode": "strict"
+        },
+        {
+          "url": "https://medaudit.irupeconsultores.com/callback",
+          "matching_mode": "strict"
+        }
+      ],
+      "include_claims_in_id_token": true,
+      "access_code_validity": "minutes=1",
+      "access_token_validity": "hours=1",
+      "refresh_token_validity": "days=30",
+      "sub_mode": "hashed_user_id",
+      "issuer_mode": "per_provider",
+      "signing_key": "36e5dc64-f4d4-4c97-a6fe-f88874713f0b",
+      "encryption_key": null,
+      "jwks_sources": []
+    }
+  },
+  {
+    "model": "authentik_providers_oauth2.oauth2provider",
+    "pk": 3,
+    "fields": {
+      "client_type": "confidential",
+      "client_id": "rQFaae3ZNFijg7YwpNP41fKG7jhT0bHESuDpyp5T",
+      "client_secret": "REDACTED - in the Velero Authentik-DB backup; regenerate if recreating",
+      "_redirect_uris": [
+        {
+          "url": "https://logs.cjbarroso.com/login/generic_oauth",
+          "matching_mode": "strict"
+        }
+      ],
+      "include_claims_in_id_token": true,
+      "access_code_validity": "minutes=1",
+      "access_token_validity": "minutes=5",
+      "refresh_token_validity": "days=30",
+      "sub_mode": "hashed_user_id",
+      "issuer_mode": "per_provider",
+      "signing_key": "36e5dc64-f4d4-4c97-a6fe-f88874713f0b",
+      "encryption_key": null,
+      "jwks_sources": []
+    }
+  },
+  {
+    "model": "authentik_core.application",
+    "pk": "35ceefeb-9a9f-40d7-b5bc-9871ff6f75ba",
+    "fields": {
+      "name": "HHCCIA",
+      "slug": "hhccia",
+      "group": "",
+      "provider": 1,
+      "meta_launch_url": "https://hhccia-v2.cjbarroso.com/",
+      "open_in_new_tab": false,
+      "meta_icon": "",
+      "meta_description": "",
+      "meta_publisher": ""
+    }
+  },
+  {
+    "model": "authentik_core.application",
+    "pk": "dd50723c-a5c7-47c3-854d-89a8012be1f3",
+    "fields": {
+      "name": "Grafana",
+      "slug": "grafana",
+      "group": "",
+      "provider": 3,
+      "meta_launch_url": "",
+      "open_in_new_tab": false,
+      "meta_icon": "",
+      "meta_description": "",
+      "meta_publisher": ""
+    }
+  }
+]
