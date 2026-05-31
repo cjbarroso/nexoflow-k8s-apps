@@ -104,6 +104,7 @@ data:
         blueprints.goauthentik.io/instantiate: "true"
     entries:
       - model: authentik_core.group
+        id: hhccia-users-group
         identifiers:
           name: hhccia-users
         attrs:
@@ -112,16 +113,18 @@ data:
       # app can branch on it: authentik's default `profile` scope mapping emits
       # the user's DIRECT group names in the `groups` claim, so a member shows
       # up as {"groups": ["hhccia-admins", ...]} in the ID token / userinfo.
-      # NOTE: this group does NOT grant HHCCIA access on its own. If you later
-      # set the hhccia-users binding above to enabled:true, admins must ALSO be
-      # in hhccia-users (or make hhccia-admins a child of hhccia-users via
-      # `parent: !Find [authentik_core.group, [name, hhccia-users]]`, since
-      # authentik group membership cascades to parents) or they'll be locked out.
+      #
+      # `parent: hhccia-users` makes admins a CHILD of the users group. authentik
+      # group membership cascades UP the tree for policy/access checks, so an
+      # admin automatically satisfies the hhccia-users access binding (no need to
+      # double-add them) -- WITHOUT the `groups` claim listing hhccia-users
+      # (the claim reports direct memberships only).
       - model: authentik_core.group
         identifiers:
           name: hhccia-admins
         attrs:
           is_superuser: false
+          parent: !KeyOf hhccia-users-group
       - model: authentik_policies.policybinding
         identifiers:
           target: !Find [authentik_core.application, [slug, hhccia]]
