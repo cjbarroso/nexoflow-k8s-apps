@@ -7,30 +7,6 @@ metadata:
     app.kubernetes.io/name: argocd-cm
     app.kubernetes.io/part-of: argocd
 data:
-  # Custom health check for Atlas-managed schema resources.
-  resource.customizations: |
-    db.atlasgo.io/AtlasSchema:
-      health.lua: |
-        hs = {}
-        if obj.status ~= nil then
-          if obj.status.conditions ~= nil then
-            for i, condition in ipairs(obj.status.conditions) do
-              if condition.type == "Ready" and condition.status == "False" then
-                hs.status = "Degraded"
-                hs.message = condition.message
-                return hs
-              end
-              if condition.type == "Ready" and condition.status == "True" then
-                hs.status = "Healthy"
-                hs.message = condition.message
-                return hs
-              end
-            end
-          end
-        end
-        hs.status = "Progressing"
-        hs.message = "Waiting for reconciliation"
-        return hs
   # Stop Argo CD from tracking Velero's runtime-generated CRs. The Velero Helm
   # chart labels its Schedule with app.kubernetes.io/instance=velero, and Velero
   # copies that label onto every Backup it creates from the schedule. Argo's
