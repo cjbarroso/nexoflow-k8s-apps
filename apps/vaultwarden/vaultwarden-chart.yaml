@@ -30,12 +30,17 @@ spec:
           # YourSuperSecretPassword obio pai
           ADMIN_TOKEN: "$argon2id$v=19$m=19456,t=2,p=1$eS93V1cwVEJJZnJQU1pmRnNlSk56UG9SVFBSUnU5WWJ0YmpoM09tWU83RT0$hBWgl1UeIYuNWewU7F3AsomDNQrWOGq1+BKdda7iN6M"
           SIGNUPS_ALLOWED: false
-          SMTP_HOST: mail.smtp2go.com
-          SMTP_PORT: 465
-          SMTP_SECURITY: force_tls
-          SMTP_FROM: carlos@cjbarroso.com
-          SMTP_USERNAME: cjbarroso
-          SMTP_PASSWORD: BmZJzHIrI5oCNEvp
+          # Outbound email via Gmail SMTP. Non-secret settings only — the
+          # sensitive SMTP_FROM / SMTP_USERNAME / SMTP_PASSWORD come from the
+          # sealed secret `vaultwarden-smtp` via envFrom below (no creds in Git).
+          # Gmail needs an App Password (account must have 2-Step Verification);
+          # it rewrites From to the authed address unless it's a verified alias.
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+          SMTP_SECURITY: starttls
+        envFrom:
+          - secretRef:
+              name: vaultwarden-smtp   # SMTP_FROM, SMTP_USERNAME, SMTP_PASSWORD
         ingress:
           # The ingress configuration is now under the 'main' key.
           main:
