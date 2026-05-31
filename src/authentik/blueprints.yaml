@@ -14,6 +14,21 @@ data:
       labels:
         blueprints.goauthentik.io/instantiate: "true"
     entries:
+      # Custom scope mapping: emit the physician's PRF (matrícula) as a `prf`
+      # claim. Attached to the `profile` scope, which the SPA already requests,
+      # so no front change is needed -- the claim appears in the ID token /
+      # userinfo alongside name/email. Sourced from user.attributes.prf (set by
+      # the hhccia-signup enrollment flow).
+      - model: authentik_providers_oauth2.scopemapping
+        id: hhccia-prf-mapping
+        identifiers:
+          name: hhccia-prf-claim
+        attrs:
+          name: hhccia-prf-claim
+          scope_name: profile
+          description: "HHCCIA: PRF (matrícula) del profesional, sobre el scope profile."
+          expression: |
+            return {"prf": user.attributes.get("prf")}
       - model: authentik_providers_oauth2.oauth2provider
         id: hhccia-provider
         identifiers:
@@ -44,11 +59,16 @@ data:
           # (useRefreshToken:true). Without this mapping Authentik silently drops
           # the scope and issues no refresh token, capping sessions at the 1h
           # access-token lifetime.
+          # Built-ins referenced by `managed` (unique): adding hhccia-prf-claim
+          # with scope_name `profile` makes a !Find by [scope_name, profile]
+          # ambiguous (UUID PKs -> non-deterministic .first()), which could drop
+          # the built-in profile claims. `managed` is stable and unique.
           property_mappings:
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
+            - !KeyOf hhccia-prf-mapping
       - model: authentik_core.application
         id: hhccia-app
         identifiers:
