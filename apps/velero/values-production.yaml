@@ -32,15 +32,17 @@ credentials:
 
 # Daily file-system backup of the cluster's stateful namespaces → R2 (bucket
 # `velero-backups`), 30-day retention. Covers the irreproducible state that is
-# NOT in Git: Authentik Postgres (SSO/OIDC config), Vaultwarden (password vault),
-# and the `default` namespace (Gitea repos + DB). Everything else is redeployable
-# from Git, so it's intentionally out of scope (see
-# `Reference/Disaster Preparedness - full backup coverage plan.md`).
+# NOT in Git: Authentik Postgres (SSO/OIDC config) and Vaultwarden (password
+# vault). Everything else is redeployable from Git, so it's intentionally out of
+# scope (see `Reference/Disaster Preparedness - full backup coverage plan.md`).
 #
-# NOTE: these are CRASH-CONSISTENT file-system backups of live volumes (Postgres
-# replays WAL on restart; fine for the accepted 1–2 day RTO). Hardening follow-up:
-# add pre-backup hooks (pg_dump / `sqlite3 .backup` for Vaultwarden) for logically
-# clean dumps.
+# NOTE: `default` (Gitea) was dropped 2026-05-31 — Gitea is decommissioned (no
+# running pods; only orphaned PVCs remain), so there's no live volume data to
+# FS-back-up there. Re-add it here if Gitea is ever redeployed.
+#
+# Volumes are FS-backed-up via the node-agent. The Authentik DB also gets a
+# logical `pg_dumpall` via the pre-hook below; Vaultwarden gets a consistent
+# `sqlite3 .backup` from its own CronJob (src/vaultwarden/) before this runs.
 schedules:
   stateful-daily:
     schedule: "0 2 * * *"          # 02:00 daily
@@ -48,7 +50,6 @@ schedules:
       includedNamespaces:
         - authentik
         - vaultwarden
-        - default
       defaultVolumesToFsBackup: true
       ttl: 720h                     # 30 days
       hooks:
