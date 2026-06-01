@@ -237,12 +237,10 @@ data:
           # via a custom scope mapping if the app ever needs it.
           field_key: attributes.prf
           label: Matrícula profesional (PRF)
-          type: number        # numeric input; server-side validation below enforces integer > 0
+          type: number        # numeric input; stage-level validation policy enforces integer > 0
           required: true
           placeholder: "N° de matrícula"
           order: 3
-          validation_policies:
-            - !KeyOf prf-positive-int-policy
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
         id: signup-invitation-stage
@@ -257,6 +255,11 @@ data:
           name: hhccia-signup-prompt
         attrs:
           name: hhccia-signup-prompt
+          # Stage-level validation: the policy scopes itself to the PRF field via
+          # prompt_data["attributes.prf"]. (Validation policies bind to the stage,
+          # not to individual prompt fields.)
+          validation_policies:
+            - !KeyOf prf-positive-int-policy
           fields:
             - !KeyOf signup-field-username
             - !KeyOf signup-field-name
