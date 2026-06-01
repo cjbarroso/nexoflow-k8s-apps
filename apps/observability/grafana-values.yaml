@@ -71,6 +71,11 @@ datasources:
     deleteDatasources:
       - name: GeminiCost
         orgId: 1
+      # Same reason as GeminiCost: pin uid=prometheus (so the pipeline-backlog
+      # alert rule can reference it) without colliding with the auto-uid copy
+      # persisted on the PVC.
+      - name: Prometheus
+        orgId: 1
     datasources:
       - name: Loki
         type: loki
@@ -80,6 +85,7 @@ datasources:
         jsonData:
           maxLines: 1000
       - name: Prometheus
+        uid: prometheus
         type: prometheus
         access: proxy
         url: http://prometheus-server.observability.svc.cluster.local
@@ -218,6 +224,99 @@ dashboards:
                   "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} * 100 and node_filesystem_readonly == 0",
                   "legendFormat": "{{instance}} {{mountpoint}}"
                 }
+              ]
+            }
+          ]
+        }
+    # HHCCIA pipeline backlog: JetStream consumer metrics from nats-exporter
+    # (src/hhccia-v2/nats-exporter.yaml). num_pending = mensajes que el core
+    # todavía no procesó (se atrasa); num_ack_pending = en vuelo; num_redelivered
+    # = reintentos/poison. Stable uid `pipeline-backlog` so the backlog alert can
+    # deep-link to it. Panels reference the Prometheus datasource by name.
+    pipeline-backlog:
+      json: |
+        {
+          "uid": "pipeline-backlog",
+          "title": "HHCCIA — Backlog del ingestor (NATS JetStream)",
+          "tags": ["hhccia", "pipeline", "nats"],
+          "schemaVersion": 39,
+          "refresh": "30s",
+          "time": { "from": "now-6h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1,
+              "type": "stat",
+              "title": "Backlog ahora (num_pending) — alerta > 10",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "decimals": 0,
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 10 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "stat",
+              "title": "En vuelo (num_ack_pending)",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "stat",
+              "title": "Reintentos (num_redelivered)",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+              ]
+            },
+            {
+              "id": 4,
+              "type": "timeseries",
+              "title": "Backlog del ingestor en el tiempo — línea de alerta en 10",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 10, "w": 24, "x": 0, "y": 5 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 15, "thresholdsStyle": { "mode": "line" } },
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 10 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus", "legendFormat": "num_pending (backlog)",
+                  "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
+                { "refId": "B", "datasource": "Prometheus", "legendFormat": "num_ack_pending (en vuelo)",
+                  "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
+                { "refId": "C", "datasource": "Prometheus", "legendFormat": "num_redelivered (reintentos)",
+                  "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             }
           ]
@@ -451,6 +550,70 @@ alerting:
                     - evaluator:
                         type: gt
                         params: [6]
+      # Pipeline backlog: the ingestor is falling behind if JetStream has > 10
+      # messages pending for the core-ingestor consumer. Queries Prometheus (the
+      # nats-exporter metric). Routes via the same default policy -> Telegram.
+      - orgId: 1
+        name: pipeline-backlog
+        folder: HHCCIA
+        interval: 1m
+        rules:
+          - uid: pipeline-ingestor-backlog-gt10
+            title: "Pipeline: backlog del ingestor > 10"
+            condition: C
+            for: 5m
+            noDataState: NoData
+            execErrState: Error
+            labels:
+              severity: warning
+              purpose: pipeline-backlog
+            annotations:
+              summary: "El ingestor del core acumula >10 mensajes sin procesar."
+              description: "jetstream_consumer_num_pending del consumer core-ingestor (stream HHCCIA) superó 10 por 5m — el core se está atrasando frente al adaptador. Ver https://logs.cjbarroso.com/d/pipeline-backlog"
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  expr: 'max(jetstream_consumer_num_pending{stream_name="HHCCIA", consumer_name="core-ingestor"})'
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+              - refId: B
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: B
+                  type: reduce
+                  reducer: last
+                  expression: A
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+              - refId: C
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: B
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [10]
 
 ingress:
   enabled: true
