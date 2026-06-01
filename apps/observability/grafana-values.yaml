@@ -373,10 +373,13 @@ alerting:
         receivers:
           - uid: gemini_cost_tg
             type: telegram
+            # File-based provisioning expects secret fields under `settings`
+            # (Grafana encrypts them); `secureSettings` is an API-only concept and
+            # is ignored here, which made validation fail ("could not find Bot
+            # Token"). $__env{} is interpolated at file read.
             settings:
-              chatid: "1142335836"
-            secureSettings:
               bottoken: $__env{GF_TELEGRAM_BOT_TOKEN}
+              chatid: "1142335836"
   policies.yaml:
     apiVersion: 1
     policies:
