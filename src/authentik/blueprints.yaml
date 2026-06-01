@@ -188,7 +188,7 @@ data:
                 return True
             text = str(value).strip()
             if not text.isdigit() or int(text) <= 0:
-                ak_message("La matrícula (PRF) debe ser un número entero mayor que 0.")
+                ak_message("El número de profesional debe ser un número entero mayor que 0.")
                 return False
             return True
       # ----- prompt fields. Unique labels keep these distinct from the
@@ -236,10 +236,13 @@ data:
           # user.attributes.prf, queryable later and emittable as an OIDC claim
           # via a custom scope mapping if the app ever needs it.
           field_key: attributes.prf
-          label: Matrícula profesional (PRF)
+          # Datatech "professional number" — the internal Datatech ID used to link
+          # the Google user to the clinical-system record. Stored as user.attributes.prf
+          # (key kept as `prf` so the OIDC claim + validation policy keep working).
+          label: Número de profesional
           type: number        # numeric input; stage-level validation policy enforces integer > 0
           required: true
-          placeholder: "N° de matrícula"
+          placeholder: "N° de profesional (Datatech)"
           order: 3
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
