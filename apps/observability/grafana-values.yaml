@@ -65,6 +65,12 @@ envValueFrom:
 datasources:
   datasources.yaml:
     apiVersion: 1
+    # GeminiCost was first provisioned (PR #22) with an auto-generated uid and is
+    # persisted on the PVC; pinning uid=geminicost (for the alert rule to
+    # reference) collides with that name unless we delete the old one first.
+    deleteDatasources:
+      - name: GeminiCost
+        orgId: 1
     datasources:
       - name: Loki
         type: loki
