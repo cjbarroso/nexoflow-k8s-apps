@@ -614,6 +614,65 @@ alerting:
                     - evaluator:
                         type: gt
                         params: [10]
+          # Sustained redeliveries = the AI keeps failing (Gemini/dependency
+          # outage) or poison messages cycling before the dead-letter kicks in.
+          # Healthy steady state is ~0; > 5 for 10m means real churn.
+          - uid: pipeline-ingestor-redelivered
+            title: "Pipeline: reintentos sostenidos del ingestor"
+            condition: C
+            for: 10m
+            noDataState: NoData
+            execErrState: Error
+            labels:
+              severity: warning
+              purpose: pipeline-redelivered
+            annotations:
+              summary: "El ingestor del core acumula reintentos sostenidos (num_redelivered)."
+              description: "jetstream_consumer_num_redelivered del consumer core-ingestor (stream HHCCIA) superó 5 por 10m — fallas sostenidas (p. ej. Gemini/dependencia caída) o poison reciclando antes del dead-letter. Ver https://logs.cjbarroso.com/d/pipeline-backlog"
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  expr: 'max(jetstream_consumer_num_redelivered{stream_name="HHCCIA", consumer_name="core-ingestor"})'
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+              - refId: B
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: B
+                  type: reduce
+                  reducer: last
+                  expression: A
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+              - refId: C
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: B
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [5]
 
 ingress:
   enabled: true
