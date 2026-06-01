@@ -43,6 +43,14 @@ envValueFrom:
     secretKeyRef:
       name: grafana-secrets
       key: oidc-client-secret
+  # Read-only Postgres password for the Gemini-cost datasource. Lives in the
+  # PLAIN (un-sealed) Secret `gemini-cost-ro` in this namespace — recreate it by
+  # hand if the cluster is rebuilt (see Reports/2026-05-17 Estimacion de costos
+  # API Gemini.md §9). No GF_ prefix so Grafana doesn't map it onto grafana.ini.
+  GEMINI_COST_DB_PASSWORD:
+    secretKeyRef:
+      name: gemini-cost-ro
+      key: postgres-password
 
 # Pre-provisioned datasources (in-cluster). Loki stays default so existing log
 # workflows are unchanged; Prometheus is the metric store (svc prometheus-server).
@@ -64,6 +72,23 @@ datasources:
         isDefault: false
         jsonData:
           timeInterval: 60s        # match Prometheus scrape_interval
+      # Gemini cost ledger (v2 core DB). Read-only role `grafana_ro` over the
+      # READ-ONLY CNPG service; it can SELECT only the sanitized view
+      # `gemini_usage_report` (cost + service code, NO clinical text). Password
+      # from the gemini-cost-ro Secret via env (see envValueFrom). Used by the
+      # "Gemini — Costo" dashboard.
+      - name: GeminiCost
+        type: postgres
+        access: proxy
+        url: hhccia-core-db-ro.hhccia-v2.svc.cluster.local:5432
+        database: hhccia_core
+        user: grafana_ro
+        isDefault: false
+        jsonData:
+          sslmode: require
+          postgresVersion: 1600
+        secureJsonData:
+          password: $__env{GEMINI_COST_DB_PASSWORD}
 
 # Auto-provision the "Node Exporter Full" dashboard (grafana.com id 1860) so node
 # CPU/memory/disk is visible out of the box. The chart's download-dashboards init
@@ -241,6 +266,81 @@ dashboards:
                   "expr": "{namespace=\"hhccia-v2\", pod=~\"hhccia-core-db-.*\"}"
                 }
               ]
+            }
+          ]
+        }
+    # Gemini API cost (tokens + derived USD), per interaction. Reads the sanitized
+    # view `gemini_usage_report` via the read-only GeminiCost datasource (no PII).
+    # Stat panels use fixed windows (today UTC / 7d / 30d); the time-series + table
+    # + pie honor the dashboard time picker. Service breakdown comes from SER in the
+    # canonical source_ref; voice edits have no record -> "sin servicio". uid stable
+    # `gemini-cost` (https://logs.cjbarroso.com/d/gemini-cost).
+    gemini-cost:
+      json: |
+        {
+          "uid": "gemini-cost",
+          "title": "Gemini — Costo (tokens + USD)",
+          "tags": ["gemini", "cost", "hhccia"],
+          "schemaVersion": 39,
+          "refresh": "30m",
+          "time": { "from": "now-30d", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1, "type": "stat", "title": "Costo hoy (UTC)", "datasource": "GeminiCost",
+              "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= date_trunc('day', now())" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Costo últimos 7 días", "datasource": "GeminiCost",
+              "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '7 days'" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Costo últimos 30 días", "datasource": "GeminiCost",
+              "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
+            },
+            {
+              "id": 4, "type": "stat", "title": "Interacciones (30 días)", "datasource": "GeminiCost",
+              "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
+            },
+            {
+              "id": 5, "type": "timeseries", "title": "Costo diario por tipo (evaluation vs voice_edit)", "datasource": "GeminiCost",
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70, "lineWidth": 0 } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "time_series", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, kind AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, kind ORDER BY 1" } ]
+            },
+            {
+              "id": 6, "type": "timeseries", "title": "Costo diario por servicio", "datasource": "GeminiCost",
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70, "lineWidth": 0 } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "time_series", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, 2 ORDER BY 1" } ]
+            },
+            {
+              "id": 7, "type": "piechart", "title": "Costo por servicio (rango seleccionado)", "datasource": "GeminiCost",
+              "gridPos": { "h": 9, "w": 10, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true } },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 2 DESC" } ]
+            },
+            {
+              "id": 8, "type": "table", "title": "Costo por modelo y tipo (rango seleccionado)", "datasource": "GeminiCost",
+              "gridPos": { "h": 9, "w": 14, "x": 10, "y": 22 },
+              "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "costo_usd" }, "properties": [ { "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 } ] } ] },
+              "options": { "showHeader": true },
+              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT model, kind, count(*) AS interacciones, coalesce(sum(total_tokens),0) AS tokens, round(coalesce(sum(cost_usd),0)::numeric,4) AS costo_usd FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY model, kind ORDER BY costo_usd DESC" } ]
             }
           ]
         }
