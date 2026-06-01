@@ -401,60 +401,60 @@ dashboards:
           "templating": { "list": [] },
           "panels": [
             {
-              "id": 1, "type": "stat", "title": "Costo hoy (UTC)", "datasource": "GeminiCost",
+              "id": 1, "type": "stat", "title": "Costo hoy (UTC)", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= date_trunc('day', now())" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= date_trunc('day', now())" } ]
             },
             {
-              "id": 2, "type": "stat", "title": "Costo últimos 7 días", "datasource": "GeminiCost",
+              "id": 2, "type": "stat", "title": "Costo últimos 7 días", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '7 days'" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '7 days'" } ]
             },
             {
-              "id": 3, "type": "stat", "title": "Costo últimos 30 días", "datasource": "GeminiCost",
+              "id": 3, "type": "stat", "title": "Costo últimos 30 días", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
             },
             {
-              "id": 4, "type": "stat", "title": "Interacciones (30 días)", "datasource": "GeminiCost",
+              "id": 4, "type": "stat", "title": "Interacciones (30 días)", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM gemini_usage_report WHERE created_at >= now() - interval '30 days'" } ]
             },
             {
-              "id": 5, "type": "timeseries", "title": "Costo diario por tipo (evaluation vs voice_edit)", "datasource": "GeminiCost",
+              "id": 5, "type": "timeseries", "title": "Costo diario por tipo (evaluation vs voice_edit)", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70, "lineWidth": 0 } }, "overrides": [] },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "time_series", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, kind AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, kind ORDER BY 1" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, kind AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, kind ORDER BY 1" } ]
             },
             {
-              "id": 6, "type": "timeseries", "title": "Costo diario por servicio", "datasource": "GeminiCost",
+              "id": 6, "type": "timeseries", "title": "Costo diario por servicio", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70, "lineWidth": 0 } }, "overrides": [] },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "time_series", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, 2 ORDER BY 1" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1, 2 ORDER BY 1" } ]
             },
             {
-              "id": 7, "type": "piechart", "title": "Costo por servicio (rango seleccionado)", "datasource": "GeminiCost",
+              "id": 7, "type": "piechart", "title": "Costo por servicio (rango seleccionado)", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 9, "w": 10, "x": 0, "y": 22 },
               "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
               "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true } },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 2 DESC" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(service_code,'sin servicio') AS metric, sum(cost_usd) AS value FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 2 DESC" } ]
             },
             {
-              "id": 8, "type": "table", "title": "Costo por modelo y tipo (rango seleccionado)", "datasource": "GeminiCost",
+              "id": 8, "type": "table", "title": "Costo por modelo y tipo (rango seleccionado)", "datasource": { "type": "postgres", "uid": "geminicost" },
               "gridPos": { "h": 9, "w": 14, "x": 10, "y": 22 },
               "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "costo_usd" }, "properties": [ { "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 } ] } ] },
               "options": { "showHeader": true },
-              "targets": [ { "refId": "A", "datasource": "GeminiCost", "format": "table", "rawQuery": true, "rawSql": "SELECT model, kind, count(*) AS interacciones, coalesce(sum(total_tokens),0) AS tokens, round(coalesce(sum(cost_usd),0)::numeric,4) AS costo_usd FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY model, kind ORDER BY costo_usd DESC" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "geminicost" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT model, kind, count(*) AS interacciones, coalesce(sum(total_tokens),0) AS tokens, round(coalesce(sum(cost_usd),0)::numeric,4) AS costo_usd FROM gemini_usage_report WHERE $__timeFilter(created_at) GROUP BY model, kind ORDER BY costo_usd DESC" } ]
             }
           ]
         }
