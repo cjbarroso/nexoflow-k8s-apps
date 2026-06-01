@@ -51,6 +51,14 @@ envValueFrom:
     secretKeyRef:
       name: gemini-cost-ro
       key: postgres-password
+  # Telegram bot token for the Gemini-cost alert contact point. REUSES the
+  # existing `alertmanager-notify` Secret (same bot Alertmanager uses), so the
+  # token is never duplicated — only referenced. chat_id is non-secret (in the
+  # contact point below; same chat as the Alertmanager `notify` receiver).
+  GF_TELEGRAM_BOT_TOKEN:
+    secretKeyRef:
+      name: alertmanager-notify
+      key: telegram-bot-token
 
 # Pre-provisioned datasources (in-cluster). Loki stays default so existing log
 # workflows are unchanged; Prometheus is the metric store (svc prometheus-server).
@@ -78,6 +86,7 @@ datasources:
       # from the gemini-cost-ro Secret via env (see envValueFrom). Used by the
       # "Gemini — Costo" dashboard.
       - name: GeminiCost
+        uid: geminicost
         type: postgres
         access: proxy
         url: hhccia-core-db-ro.hhccia-v2.svc.cluster.local:5432
@@ -344,6 +353,95 @@ dashboards:
             }
           ]
         }
+
+# Grafana-managed alerting: notify on Gemini daily spend > 6 USD. Queries the
+# GeminiCost (Postgres) datasource — Prometheus can't see the cost, it lives only
+# in the DB. Notifies via Telegram, REUSING the existing alertmanager-notify bot
+# token (env above) and the same chat as the Alertmanager `notify` receiver.
+alerting:
+  contactpoints.yaml:
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: gemini-cost-telegram
+        receivers:
+          - uid: gemini_cost_tg
+            type: telegram
+            settings:
+              chatid: "1142335836"
+            secureSettings:
+              bottoken: $__env{GF_TELEGRAM_BOT_TOKEN}
+  policies.yaml:
+    apiVersion: 1
+    policies:
+      - orgId: 1
+        receiver: gemini-cost-telegram
+        group_by: ["grafana_folder", "alertname"]
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+  rules.yaml:
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: gemini-cost
+        folder: Gemini
+        interval: 30m
+        rules:
+          - uid: gemini-cost-daily-6usd
+            title: "Gemini: gasto diario > 6 USD"
+            condition: C
+            for: 0m
+            noDataState: OK
+            execErrState: OK
+            labels:
+              severity: warning
+              purpose: gemini-cost
+            annotations:
+              summary: "El gasto de Gemini hoy superó 6 USD."
+              description: "La suma de cost_usd del día (UTC) en gemini_usage_report superó el umbral de 6 USD. Ver https://logs.cjbarroso.com/d/gemini-cost"
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: geminicost
+                model:
+                  refId: A
+                  datasource:
+                    type: postgres
+                    uid: geminicost
+                  format: table
+                  rawSql: "SELECT coalesce(sum(cost_usd),0) AS value FROM gemini_usage_report WHERE created_at >= date_trunc('day', now())"
+              - refId: B
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: B
+                  type: reduce
+                  reducer: last
+                  expression: A
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+              - refId: C
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: B
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [6]
 
 ingress:
   enabled: true
