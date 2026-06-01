@@ -174,6 +174,23 @@ data:
       labels:
         blueprints.goauthentik.io/instantiate: "true"
     entries:
+      # Validation policy bound to the PRF prompt field: accept only a positive
+      # integer (digits, > 0). Empty is left to the field's `required` flag.
+      - model: authentik_policies_expression.expressionpolicy
+        id: prf-positive-int-policy
+        identifiers:
+          name: hhccia-prf-positive-int
+        attrs:
+          name: hhccia-prf-positive-int
+          expression: |
+            value = request.context.get("prompt_data", {}).get("attributes.prf")
+            if value in (None, ""):
+                return True
+            text = str(value).strip()
+            if not text.isdigit() or int(text) <= 0:
+                ak_message("La matrícula (PRF) debe ser un número entero mayor que 0.")
+                return False
+            return True
       # ----- prompt fields. Unique labels keep these distinct from the
       # default-source-enrollment prompt fields that share these field_keys. -----
       - model: authentik_stages_prompt.prompt
@@ -220,10 +237,12 @@ data:
           # via a custom scope mapping if the app ever needs it.
           field_key: attributes.prf
           label: Matrícula profesional (PRF)
-          type: text          # text, not number: preserves leading zeros / alphanumerics
+          type: number        # numeric input; server-side validation below enforces integer > 0
           required: true
           placeholder: "N° de matrícula"
           order: 3
+          validation_policies:
+            - !KeyOf prf-positive-int-policy
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
         id: signup-invitation-stage
