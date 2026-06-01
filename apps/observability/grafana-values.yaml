@@ -106,6 +106,10 @@ datasources:
         user: grafana_ro
         isDefault: false
         jsonData:
+          # Grafana 12 reads the DB name from jsonData.database for the SQL query
+          # editor/scene rendering; the top-level `database` is legacy and leaving
+          # jsonData.database empty causes "no default database configured".
+          database: hhccia_core
           sslmode: require
           postgresVersion: 1600
         secureJsonData:
