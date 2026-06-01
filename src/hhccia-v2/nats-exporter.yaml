@@ -1,0 +1,45 @@
+# NATS Prometheus exporter — translates the NATS monitoring endpoint
+# (svc nats:8222, JSON /varz + /jsz) into Prometheus metrics, including the
+# JetStream stream/consumer stats we care about (jetstream_consumer_num_pending,
+# num_ack_pending, num_redelivered for the `core-ingestor` consumer on stream
+# HHCCIA). Prometheus auto-discovers this pod via the prometheus.io/scrape
+# annotation (the cluster-wide `kubernetes-pods` scrape job). Feeds the
+# "Pipeline — Backlog del ingestor" Grafana dashboard + the backlog alert.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-exporter
+  namespace: hhccia-v2
+  labels:
+    app: nats-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-exporter
+  template:
+    metadata:
+      labels:
+        app: nats-exporter
+        logs.cjbarroso.com/collect: "true"   # ship its logs to Loki too
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7777"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: exporter
+          image: natsio/prometheus-nats-exporter:0.16.0
+          # -jsz=all exposes JetStream stream + consumer metrics; the positional
+          # arg is the NATS monitoring URL (port 8222, not the 4222 client port).
+          args: ["-port=7777", "-jsz=all", "http://nats:8222"]
+          ports:
+            - name: metrics
+              containerPort: 7777
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
