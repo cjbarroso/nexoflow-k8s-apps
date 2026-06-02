@@ -1,8 +1,18 @@
-# Loki ruler alerting rules — log-based backup-failure alerts for CNPG.
+# Loki ruler alerting rules — log-based alerts.
 # Mounted into the Loki pod at /rules/fake (tenant `fake`, single-tenant Loki)
 # via singleBinary.extraVolume* in apps/observability/loki-values.yaml; the ruler
 # evaluates them and pushes to the Prometheus Alertmanager, which routes
-# severity=~"warning|critical" to Telegram.
+# severity=~"warning|critical" to Telegram. Each ConfigMap data key becomes a
+# rule file the ruler picks up, so a new group = a new data key below.
+#
+# Two rule sets:
+#   - cnpg-backup.yaml  — CNPG backup/WAL failures (see comments inline).
+#   - gemini-access.yaml — Gemini API access health for the AI core (added after
+#     the 2026-06-01 incident, where a GCP billing block then a 503 spike stalled
+#     ingestion for ~6h and NO existing alert fired — the NATS-backlog/redelivery
+#     alerts never tripped because only 4 records were ever in flight, below their
+#     >10 / >5 thresholds). This watches the core's own Gemini HTTP results so an
+#     access problem pages within ~1-2 min regardless of backlog size.
 #
 # These COMPLEMENT the metric alert CNPGWALArchivingFailing (prometheus-values):
 #   - CNPGBackupFailed: any error logged by the barman-cloud plugin sidecar — this
@@ -39,3 +49,40 @@ data:
               summary: "Postgres WAL archiving errors (hhccia-core-db)"
               description: "Postgres logged 'archive command failed' in hhccia-v2 in the last 10m — WAL archiving to R2 is failing. If sustained it breaks PITR/backups (the CNPGWALArchivingFailing metric alert escalates to critical after 15m)."
               logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-6h&to=now"
+  gemini-access.yaml: |
+    groups:
+      - name: gemini-access
+        rules:
+          # WARNING (fast heads-up): the core's calls to Gemini are returning
+          # HTTP 4xx/5xx. Catches 403 (billing/permission — the "Lightning
+          # dunning decision is deny" block seen on 2026-06-01), 429 (quota) and
+          # 503 (model overload). httpx logs one line per call:
+          #   httpx HTTP Request: POST https://generativelanguage.googleapis.com/...:generateContent "HTTP/1.1 403 Forbidden"
+          # so we match the Gemini host + a 4xx/5xx status. Threshold > 3 in 5m
+          # (not > 0) so a single transient 503 that auto-recovers on retry does
+          # NOT page — a real access problem produces dozens/min and still fires
+          # within ~1-2 min. Lower to > 0 if you want every blip. (Validated
+          # 2026-06-01: the billing+503 incident logged ~100 errors/h.)
+          - alert: GeminiAccessErrors
+            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `generativelanguage.googleapis.com` |~ `HTTP/1.1 [45]` [5m])) > 3
+            labels:
+              severity: warning
+            annotations:
+              summary: "Errores de acceso a Gemini (hhccia-core)"
+              description: "El core recibió >3 respuestas HTTP 4xx/5xx desde generativelanguage.googleapis.com en los últimos 5m — falla de acceso a Gemini (403 billing/permiso, 429 cuota, 503 sobrecarga). Si se sostiene, el procesamiento IA se detiene y los registros caen a dead-letter (ver alerta GeminiRecordsDeadLettered)."
+              dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+              logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+          # CRITICAL (real impact): the core exhausted its retries and sent
+          # records to hhccia.records.discovered.deadletter. Ingestion is losing
+          # records right now (typically sustained Gemini failure). The adapter
+          # re-discovers from Datatech every 5m so it self-heals when Gemini
+          # recovers, but nothing persists meanwhile.
+          - alert: GeminiRecordsDeadLettered
+            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `dead-lettering` [10m])) > 0
+            labels:
+              severity: critical
+            annotations:
+              summary: "Registros enviados a dead-letter — ingesta IA detenida (hhccia-core)"
+              description: "El core agotó los reintentos y envió registros a hhccia.records.discovered.deadletter en los últimos 10m: la ingesta IA está perdiendo registros, casi siempre por falla sostenida de Gemini. El adaptador re-descubre desde Datatech cada 5m (se recupera solo al volver Gemini), pero mientras tanto no se persiste nada en clinical_record."
+              dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+              logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"

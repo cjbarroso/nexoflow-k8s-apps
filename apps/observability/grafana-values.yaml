@@ -462,6 +462,71 @@ dashboards:
             }
           ]
         }
+    # Gemini API ACCESS health (availability, not cost) — log-derived from the
+    # hhccia-core Gemini HTTP results in Loki. Companion to the Loki alerts
+    # GeminiAccessErrors (warning) + GeminiRecordsDeadLettered (critical); their
+    # Telegram messages deep-link here via the `dashboard` annotation. Stable uid
+    # `gemini-health`. Panels reference the Loki datasource by name. Error series
+    # match the Gemini host + a 4xx/5xx status; success = "200 OK".
+    gemini-health:
+      json: |
+        {
+          "uid": "gemini-health",
+          "title": "Gemini — Salud de acceso (errores / éxitos / dead-letter)",
+          "tags": ["gemini", "hhccia", "logs", "alerts"],
+          "schemaVersion": 39,
+          "refresh": "1m",
+          "time": { "from": "now-6h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1, "type": "stat", "title": "Errores Gemini 4xx/5xx (15m) — alerta: GeminiAccessErrors", "datasource": "Loki",
+              "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [15m]))" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Registros a dead-letter (1h) — alerta: GeminiRecordsDeadLettered", "datasource": "Loki",
+              "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\" [1h]))" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Llamadas Gemini OK (15m)", "datasource": "Loki",
+              "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [15m]))" } ]
+            },
+            {
+              "id": 4, "type": "timeseries", "title": "Gemini: errores 4xx/5xx vs éxitos en el tiempo", "datasource": "Loki",
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "stacking": { "mode": "none" } } },
+                "overrides": [
+                  { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "displayName", "value": "errores 4xx/5xx" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+                  { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "displayName", "value": "éxitos (200)" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+                ]
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": "Loki", "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [$__auto]))" },
+                { "refId": "B", "datasource": "Loki", "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [$__auto]))" }
+              ]
+            },
+            {
+              "id": 5, "type": "logs", "title": "Errores de acceso a Gemini + dead-letters (recientes)", "datasource": "Loki",
+              "gridPos": { "h": 11, "w": 24, "x": 0, "y": 13 },
+              "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+              "targets": [
+                { "refId": "A", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\"" },
+                { "refId": "B", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\"" }
+              ]
+            }
+          ]
+        }
 
 # Grafana-managed alerting: notify on Gemini daily spend > 6 USD. Queries the
 # GeminiCost (Postgres) datasource — Prometheus can't see the cost, it lives only
