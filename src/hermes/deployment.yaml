@@ -74,6 +74,14 @@ spec:
             # in config.yaml (seeded into the PVC); base_url + key come from here.
             - name: OPENAI_BASE_URL
               value: "https://api.deepseek.com/v1"
+            # Telegram messaging gateway (long-polling — outbound only, no ingress).
+            # TELEGRAM_BOT_TOKEN arrives via the envFrom secret below; token + this
+            # allowlist together activate the platform on `gateway run`. We inject
+            # via env (not `hermes gateway setup`) so the config survives pod
+            # restarts — interactive setup writes to the exec session's HOME, not
+            # the PVC. Allowlist is REQUIRED: without it the gateway denies everyone.
+            - name: TELEGRAM_ALLOWED_USERS
+              value: "1142335836"
           envFrom:
             - secretRef:
                 name: hermes-secrets        # OPENAI_API_KEY (DeepSeek)
