@@ -278,17 +278,28 @@ data:
         attrs:
           name: hhccia-signup-service
           # Stored in user.attributes.service and emitted as the `service` OIDC
-          # claim by hhccia-service-mapping. Datatech Service code(s) (SER) the
-          # physician belongs to — the core scopes the worklist to these. A
-          # comma-separated list is accepted for doctors in more than one service.
+          # claim by hhccia-service-mapping. Datatech Service code (SER) the
+          # physician belongs to — the core scopes the worklist to it.
           field_key: attributes.service
-          label: Servicio(s) (código Datatech)
-          type: text
-          # Optional at signup: the core fails closed (sees nothing) until the
-          # attribute is set, so admin can populate it later in the UI without
-          # blocking enrollment. Set it promptly to avoid an empty worklist.
-          required: false
-          placeholder: "Código(s) SER, ej: IN, TI"
+          label: Servicio
+          # Constrained single-choice picker: the physician selects exactly one
+          # of the two in-scope services. radio-button-group + a fixed choice set
+          # means only "IN" or "TI" can ever be submitted (no free text), so the
+          # stored attribute always matches a real Datatech SER. The stored value
+          # is the tuple's first element ("IN"/"TI"); the second is the UI label.
+          type: radio-button-group
+          required: true
+          # placeholder holds the choice list, evaluated as an expression because
+          # placeholder_expression is true. Returns (value, label) tuples — value
+          # is what lands in user.attributes.service and the `service` claim.
+          # A doctor covering both services is handled by an admin editing the
+          # attribute to a list/CSV later (the claim mapping accepts both).
+          placeholder_expression: true
+          placeholder: |
+            return [
+                ("IN", "IN — Internación General"),
+                ("TI", "TI — Terapia Intensiva"),
+            ]
           order: 4
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
