@@ -30,11 +30,15 @@ data:
           expression: |
             return {"prf": user.attributes.get("prf")}
       # Custom scope mapping: emit the physician's authorized Service(s) (Datatech
-      # SER codes) as a `service` claim (always a list) plus a `service_admin`
-      # boolean (true for members of the hhccia-admins group, who see/edit every
-      # service). The core enforces visibility/editing from these claims. Sourced
-      # from user.attributes.service (a list, or a comma-separated string from the
-      # signup form). Rides the `profile` scope, so no front change is needed.
+      # SER codes) as a `service` claim (always a list) plus two admin booleans:
+      #   - `service_admin` (members of hhccia-admins): see/edit every service AND
+      #     may approve.
+      #   - `audit_admin` (members of hhccia-admin): see every record but may ONLY
+      #     reject — never approve (a supervisor/auditor; reject has no effect on the
+      #     origin clinical DB).
+      # The core enforces visibility/editing from these claims. Sourced from
+      # user.attributes.service (a list, or a comma-separated string from the signup
+      # form). Rides the `profile` scope, so no front change is needed.
       - model: authentik_providers_oauth2.scopemapping
         id: hhccia-service-mapping
         identifiers:
@@ -54,6 +58,7 @@ data:
             return {
                 "service": services,
                 "service_admin": ak_is_group_member(user, name="hhccia-admins"),
+                "audit_admin": ak_is_group_member(user, name="hhccia-admin"),
             }
       - model: authentik_providers_oauth2.oauth2provider
         id: hhccia-provider
@@ -167,6 +172,18 @@ data:
       - model: authentik_core.group
         identifiers:
           name: hhccia-admins
+        attrs:
+          is_superuser: false
+          parent: !KeyOf hhccia-users-group
+      # Role group for HHCCIA AUDIT admins (supervisors). Members see every record
+      # but may ONLY reject — never approve (the core enforces this; approve -> 403).
+      # The `hhccia-service-claim` scope mapping emits audit_admin = member-of this
+      # group. Like hhccia-admins it is a CHILD of hhccia-users, so an audit admin
+      # automatically satisfies the hhccia-users app-access binding. Distinct from
+      # hhccia-admins (who additionally may approve / write back to the clinical DB).
+      - model: authentik_core.group
+        identifiers:
+          name: hhccia-admin
         attrs:
           is_superuser: false
           parent: !KeyOf hhccia-users-group
