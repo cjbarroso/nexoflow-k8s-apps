@@ -1,0 +1,99 @@
+# Hermes Agent gateway + web dashboard. Both run as one s6-supervised process
+# tree in a single container (HERMES_DASHBOARD=1), so a single replica is correct
+# and there's no concurrent-writer problem against /opt/data.
+#
+# Recreate (not RollingUpdate): the PVC is ReadWriteOnce and Hermes owns exclusive
+# state under /opt/data — two overlapping pods would contend for the same volume.
+#
+# Auth: the dashboard has NO native auth and reads/writes API keys. We run it with
+# HERMES_DASHBOARD_INSECURE=1 (disables Hermes' own OAuth gate) and put Authentik's
+# embedded outpost in front (see src/authentik). The dashboard must therefore never
+# be exposed without that proxy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes
+  namespace: hermes
+  labels:
+    app: hermes
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes
+  template:
+    metadata:
+      labels:
+        app: hermes
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hermes-data
+        - name: config-seed
+          configMap:
+            name: hermes-config-seed
+      # Seed config.yaml into the PVC on first start only. Leaves the file
+      # writable so the dashboard can later edit settings; never clobbers an
+      # existing config.
+      initContainers:
+        - name: seed-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - '[ -f /data/config.yaml ] || cp /seed/config.yaml /data/config.yaml'
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config-seed
+              mountPath: /seed
+      containers:
+        - name: hermes
+          image: nousresearch/hermes-agent:latest
+          imagePullPolicy: Always
+          args: ["gateway", "run"]
+          env:
+            # Run the bundled web dashboard alongside the gateway.
+            - name: HERMES_DASHBOARD
+              value: "1"
+            - name: HERMES_DASHBOARD_HOST
+              value: "0.0.0.0"
+            - name: HERMES_DASHBOARD_PORT
+              value: "9119"
+            # Disable Hermes' native OAuth gate — Authentik enforces auth at the
+            # edge (embedded outpost, proxy mode). Safe ONLY because the dashboard
+            # is never reachable except through that authenticated proxy.
+            - name: HERMES_DASHBOARD_INSECURE
+              value: "1"
+            # DeepSeek via its OpenAI-compatible endpoint. The default model is set
+            # in config.yaml (seeded into the PVC); base_url + key come from here.
+            - name: OPENAI_BASE_URL
+              value: "https://api.deepseek.com/v1"
+          envFrom:
+            - secretRef:
+                name: hermes-secrets        # OPENAI_API_KEY (DeepSeek)
+          ports:
+            - name: api
+              containerPort: 8642
+              protocol: TCP
+            - name: dashboard
+              containerPort: 9119
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # dashboard writes at runtime
