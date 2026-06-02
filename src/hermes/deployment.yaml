@@ -52,6 +52,25 @@ spec:
               mountPath: /data
             - name: config-seed
               mountPath: /seed
+        # Enable the Telegram platform. Token + TELEGRAM_ALLOWED_USERS via env are
+        # necessary but not sufficient — the gateway only starts a platform that is
+        # enabled in config.yaml. yq sets just this key (idempotent, merge — does
+        # NOT clobber model config or anything the dashboard writes). Runs as root;
+        # the main container's s6 fix-attrs re-chowns /opt/data to the hermes user
+        # on boot. To turn Telegram off, change this in Git, not the dashboard
+        # (the init re-asserts it every start).
+        - name: enable-telegram
+          image: mikefarah/yq:4
+          command: ["yq"]
+          args:
+            - -i
+            - .platforms.telegram.enabled = true
+            - /data/config.yaml
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: hermes
           image: nousresearch/hermes-agent:latest
