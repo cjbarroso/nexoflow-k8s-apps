@@ -1,14 +1,19 @@
-# Hermes Agent gateway + web dashboard. Both run as one s6-supervised process
-# tree in a single container (HERMES_DASHBOARD=1), so a single replica is correct
-# and there's no concurrent-writer problem against /opt/data.
+# Hermes Agent gateway + web dashboard (one s6-supervised process tree).
 #
-# Recreate (not RollingUpdate): the PVC is ReadWriteOnce and Hermes owns exclusive
-# state under /opt/data — two overlapping pods would contend for the same volume.
+# Source of truth = the PVC (/opt/data). Hermes owns its own config.yaml, .env
+# (API keys, bot tokens), sessions, memory and skills there, managed via the
+# dashboard / `hermes gateway setup`. Git only defines the WORKLOAD — we do not
+# inject app config or secrets via env/ConfigMap/Secret (that fought Hermes'
+# own config and left secrets duplicated). Bootstrap on a fresh PVC is a one-time
+# `hermes gateway setup`; the PVC is backed up by Velero.
 #
-# Auth: the dashboard has NO native auth and reads/writes API keys. We run it with
-# HERMES_DASHBOARD_INSECURE=1 (disables Hermes' own OAuth gate) and put Authentik's
-# embedded outpost in front (see src/authentik). The dashboard must therefore never
-# be exposed without that proxy.
+# Recreate (not RollingUpdate): RWO PVC, single owner of /opt/data.
+#
+# Auth: the dashboard has NO native auth and exposes API keys, so it runs with
+# HERMES_DASHBOARD_INSECURE=1 (native gate off) and Authentik's embedded outpost
+# authenticates in front of it (see src/authentik). It must never be exposed
+# without that proxy. These HERMES_DASHBOARD_* vars are container-runtime toggles
+# (how we expose it in k8s), not app config — hence they stay in Git, not the PVC.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,76 +39,22 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: hermes-data
-        - name: config-seed
-          configMap:
-            name: hermes-config-seed
-      # Seed config.yaml into the PVC on first start only. Leaves the file
-      # writable so the dashboard can later edit settings; never clobbers an
-      # existing config.
-      initContainers:
-        - name: seed-config
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - '[ -f /data/config.yaml ] || cp /seed/config.yaml /data/config.yaml'
-          volumeMounts:
-            - name: data
-              mountPath: /data
-            - name: config-seed
-              mountPath: /seed
-        # Enable the Telegram platform. Token + TELEGRAM_ALLOWED_USERS via env are
-        # necessary but not sufficient — the gateway only starts a platform that is
-        # enabled in config.yaml. yq sets just this key (idempotent, merge — does
-        # NOT clobber model config or anything the dashboard writes). Runs as root;
-        # the main container's s6 fix-attrs re-chowns /opt/data to the hermes user
-        # on boot. To turn Telegram off, change this in Git, not the dashboard
-        # (the init re-asserts it every start).
-        - name: enable-telegram
-          image: mikefarah/yq:4
-          command: ["yq"]
-          args:
-            - -i
-            - .platforms.telegram.enabled = true
-            - /data/config.yaml
-          securityContext:
-            runAsUser: 0
-          volumeMounts:
-            - name: data
-              mountPath: /data
       containers:
         - name: hermes
           image: nousresearch/hermes-agent:latest
           imagePullPolicy: Always
           args: ["gateway", "run"]
           env:
-            # Run the bundled web dashboard alongside the gateway.
+            # Run the bundled web dashboard alongside the gateway, bound on all
+            # interfaces with its native OAuth gate OFF (Authentik fronts it).
             - name: HERMES_DASHBOARD
               value: "1"
             - name: HERMES_DASHBOARD_HOST
               value: "0.0.0.0"
             - name: HERMES_DASHBOARD_PORT
               value: "9119"
-            # Disable Hermes' native OAuth gate — Authentik enforces auth at the
-            # edge (embedded outpost, proxy mode). Safe ONLY because the dashboard
-            # is never reachable except through that authenticated proxy.
             - name: HERMES_DASHBOARD_INSECURE
               value: "1"
-            # DeepSeek via its OpenAI-compatible endpoint. The default model is set
-            # in config.yaml (seeded into the PVC); base_url + key come from here.
-            - name: OPENAI_BASE_URL
-              value: "https://api.deepseek.com/v1"
-            # Telegram messaging gateway (long-polling — outbound only, no ingress).
-            # TELEGRAM_BOT_TOKEN arrives via the envFrom secret below; token + this
-            # allowlist together activate the platform on `gateway run`. We inject
-            # via env (not `hermes gateway setup`) so the config survives pod
-            # restarts — interactive setup writes to the exec session's HOME, not
-            # the PVC. Allowlist is REQUIRED: without it the gateway denies everyone.
-            - name: TELEGRAM_ALLOWED_USERS
-              value: "1142335836"
-          envFrom:
-            - secretRef:
-                name: hermes-secrets        # OPENAI_API_KEY (DeepSeek)
           ports:
             - name: api
               containerPort: 8642
@@ -123,4 +74,4 @@ spec:
               memory: 2Gi
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false   # dashboard writes at runtime
+            readOnlyRootFilesystem: false   # dashboard + gateway write at runtime
