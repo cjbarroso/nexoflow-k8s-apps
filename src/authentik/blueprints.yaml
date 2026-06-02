@@ -29,6 +29,32 @@ data:
           description: "HHCCIA: PRF (matrícula) del profesional, sobre el scope profile."
           expression: |
             return {"prf": user.attributes.get("prf")}
+      # Custom scope mapping: emit the physician's authorized Service(s) (Datatech
+      # SER codes) as a `service` claim (always a list) plus a `service_admin`
+      # boolean (true for members of the hhccia-admins group, who see/edit every
+      # service). The core enforces visibility/editing from these claims. Sourced
+      # from user.attributes.service (a list, or a comma-separated string from the
+      # signup form). Rides the `profile` scope, so no front change is needed.
+      - model: authentik_providers_oauth2.scopemapping
+        id: hhccia-service-mapping
+        identifiers:
+          name: hhccia-service-claim
+        attrs:
+          name: hhccia-service-claim
+          scope_name: profile
+          description: "HHCCIA: Service(s) (SER) del profesional + flag admin, sobre el scope profile."
+          expression: |
+            raw = user.attributes.get("service")
+            if raw is None:
+                services = []
+            elif isinstance(raw, list):
+                services = [str(s).strip() for s in raw if str(s).strip()]
+            else:
+                services = [s.strip() for s in str(raw).split(",") if s.strip()]
+            return {
+                "service": services,
+                "service_admin": ak_is_group_member(user, name="hhccia-admins"),
+            }
       - model: authentik_providers_oauth2.oauth2provider
         id: hhccia-provider
         identifiers:
@@ -69,6 +95,7 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
             - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
             - !KeyOf hhccia-prf-mapping
+            - !KeyOf hhccia-service-mapping
       - model: authentik_core.application
         id: hhccia-app
         identifiers:
@@ -244,6 +271,25 @@ data:
           required: true
           placeholder: "N° de profesional (Datatech)"
           order: 3
+      - model: authentik_stages_prompt.prompt
+        id: signup-field-service
+        identifiers:
+          name: hhccia-signup-service
+        attrs:
+          name: hhccia-signup-service
+          # Stored in user.attributes.service and emitted as the `service` OIDC
+          # claim by hhccia-service-mapping. Datatech Service code(s) (SER) the
+          # physician belongs to — the core scopes the worklist to these. A
+          # comma-separated list is accepted for doctors in more than one service.
+          field_key: attributes.service
+          label: Servicio(s) (código Datatech)
+          type: text
+          # Optional at signup: the core fails closed (sees nothing) until the
+          # attribute is set, so admin can populate it later in the UI without
+          # blocking enrollment. Set it promptly to avoid an empty worklist.
+          required: false
+          placeholder: "Código(s) SER, ej: IN, TI"
+          order: 4
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
         id: signup-invitation-stage
@@ -268,6 +314,7 @@ data:
             - !KeyOf signup-field-name
             - !KeyOf signup-field-email
             - !KeyOf signup-field-prf
+            - !KeyOf signup-field-service
       - model: authentik_stages_user_write.userwritestage
         id: signup-write-stage
         identifiers:
