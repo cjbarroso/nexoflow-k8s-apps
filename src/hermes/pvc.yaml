@@ -1,0 +1,15 @@
+# Durable state for Hermes Agent. Everything lives under /opt/data: config.yaml,
+# .env (API keys), sessions, memory, skills, logs. Without this volume every
+# pod restart wipes credentials and memory.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-data
+  namespace: hermes
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

@@ -35,3 +35,19 @@ spec:
                 name: authentik-server
                 port:
                   number: 80
+    # Hermes Agent dashboard, fronted by Authentik. Hermes itself has no auth, so
+    # the public host is routed to authentik-server (the EMBEDDED OUTPOST), which
+    # matches the `hermes-proxy` proxy provider by Host (external_host
+    # https://hermes.cjbarroso.com) and reverse-proxies to the in-cluster Hermes
+    # service after authenticating. Provider + access policy live in blueprints.yaml.
+    # The cloudflared controller auto-creates the CNAME in the cjbarroso.com zone.
+    - host: "hermes.cjbarroso.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentik-server
+                port:
+                  number: 80

@@ -377,3 +377,73 @@ data:
           stage: !KeyOf signup-write-stage
           evaluate_on_plan: true
           re_evaluate_policies: false
+  # Hermes Agent — Authentik fronts the dashboard (Hermes has no native auth and
+  # exposes API keys). A PROXY provider in "proxy" mode makes the EMBEDDED OUTPOST
+  # reverse-proxy to the in-cluster Hermes service after authenticating. The public
+  # host hermes.cjbarroso.com is routed to authentik-server (the embedded outpost)
+  # in src/authentik/ingress.yaml; the outpost matches this provider by external_host.
+  #
+  # Access is gated to the `hermes-users` group (policy binding, ENABLED below).
+  # ⚠ Group MEMBERSHIP is identity data managed in the UI/DB, NOT in Git — add your
+  # own account to `hermes-users` in the admin UI or the app is inaccessible to all.
+  # (Admins still reach the admin UI regardless of this app binding.)
+  #
+  # After editing, restart the authentik worker (or wait for its discovery cycle).
+  hermes-proxy.yaml: |
+    version: 1
+    metadata:
+      name: Hermes proxy access
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      - model: authentik_providers_proxy.proxyprovider
+        id: hermes-proxy-provider
+        identifiers:
+          name: hermes-proxy
+        attrs:
+          name: hermes-proxy
+          mode: proxy
+          external_host: https://hermes.cjbarroso.com
+          internal_host: http://hermes.hermes.svc.cluster.local:9119
+          internal_host_ssl_validation: false
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      - model: authentik_core.application
+        id: hermes-app
+        identifiers:
+          slug: hermes
+        attrs:
+          name: Hermes
+          slug: hermes
+          provider: !KeyOf hermes-proxy-provider
+          meta_launch_url: https://hermes.cjbarroso.com
+          open_in_new_tab: false
+      # Assign the proxy provider to the built-in embedded outpost so it actually
+      # serves hermes.cjbarroso.com. NOTE: this sets the embedded outpost's provider
+      # list — confirm it has no other proxy providers before applying (currently
+      # none; hhccia uses OIDC, which needs no outpost).
+      - model: authentik_outposts.outpost
+        identifiers:
+          name: authentik Embedded Outpost
+        attrs:
+          providers:
+            - !KeyOf hermes-proxy-provider
+      # Access control: only `hermes-users` members may reach Hermes. Mirrors the
+      # hhccia-users binding. Hermes can execute code/terminal/browser tools, so keep
+      # this enabled and the group membership tight.
+      - model: authentik_core.group
+        id: hermes-users-group
+        identifiers:
+          name: hermes-users
+        attrs:
+          is_superuser: false
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, hermes]]
+          group: !Find [authentik_core.group, [name, hermes-users]]
+          order: 0
+        attrs:
+          enabled: true
+          negate: false
+          timeout: 30
+          failure_result: false
