@@ -30,7 +30,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: exporter
-          image: natsio/prometheus-nats-exporter:0.16.0
+          image: natsio/prometheus-nats-exporter:0.19.1
           # -jsz=all exposes JetStream stream + consumer metrics; the positional
           # arg is the NATS monitoring URL (port 8222, not the 4222 client port).
           args: ["-port=7777", "-jsz=all", "http://nats:8222"]
