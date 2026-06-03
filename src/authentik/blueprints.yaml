@@ -465,3 +465,95 @@ data:
           negate: false
           timeout: 30
           failure_result: false
+  # Google-only login. Repoints the brand's *authentication* (login) flow to a
+  # dedicated flow whose identification stage exposes ONLY the Google source —
+  # no username/email field, so there is no password path. The login screen
+  # shows just a "Sign in with Google" button for every consumer of this
+  # Authentik (the medaudit SPA AND the auth.irupeconsultores.com admin UI; one
+  # brand serves both).
+  #
+  # The stock `default-authentication-flow` ("Irupé Apps") is LEFT INTACT and
+  # still reachable by direct URL as an admin BREAK-GLASS for password login if
+  # Google is ever unavailable:
+  #   https://auth.irupeconsultores.com/if/flow/default-authentication-flow/
+  # Normal users never see it — the brand default is the Google-only flow below.
+  #
+  # ⚠ PREREQ before this bites: every admin must already have a linked Google
+  # identity (the Google source links accounts by email). Verify in the admin UI
+  # (Directory → Users → <user> → linked sources) BEFORE the worker applies this,
+  # or admins lose UI access and must recover via the break-glass URL above.
+  #
+  # The Google OAuth source (slug `google`) is runtime config in the DB —
+  # intentionally NOT in Git because it carries a client_secret — so it is
+  # referenced here by !Find, never redefined.
+  google-only-login.yaml: |
+    version: 1
+    metadata:
+      name: HHCCIA Google-only login
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      # Identification stage: social-login-only. Empty user_fields => no
+      # username/email textbox => the bound source renders as the only option.
+      - model: authentik_stages_identification.identificationstage
+        id: google-identification
+        identifiers:
+          name: hhccia-google-identification
+        attrs:
+          name: hhccia-google-identification
+          user_fields: []                    # no username/email entry => no password path
+          password_stage: null
+          case_insensitive_matching: true
+          show_source_labels: true
+          pretend_user_exists: false
+          sources:
+            - !Find [authentik_sources_oauth.oauthsource, [slug, google]]
+      # Session-creating stage. The Google source flow creates its own session on
+      # the social path; this is the stock-equivalent finalizer for completeness.
+      # session_duration "seconds=0" = session cookie, matching default-authentication-login.
+      - model: authentik_stages_user_login.userloginstage
+        id: google-login
+        identifiers:
+          name: hhccia-google-login
+        attrs:
+          name: hhccia-google-login
+          session_duration: "seconds=0"
+      # The Google-only authentication (login) flow.
+      - model: authentik_flows.flow
+        id: google-auth-flow
+        identifiers:
+          slug: hhccia-google-auth
+        attrs:
+          name: Irupé Apps — Ingreso con Google
+          title: Ingresá con Google
+          slug: hhccia-google-auth
+          designation: authentication
+          authentication: require_unauthenticated
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf google-auth-flow
+          order: 10
+        attrs:
+          stage: !KeyOf google-identification
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf google-auth-flow
+          order: 30
+        attrs:
+          stage: !KeyOf google-login
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+      # Repoint ONLY the brand's login flow at the Google-only flow. This is a
+      # partial update of the SAME brand managed in brand.yaml: that file owns
+      # branding_title/branding_logo, this owns flow_authentication — disjoint
+      # fields, so the two state:present entries never clobber each other.
+      # !KeyOf (same blueprint) guarantees the flow exists before this resolves;
+      # using !Find from a separate file could race on first apply.
+      - model: authentik_brands.brand
+        identifiers:
+          domain: authentik-default
+        state: present
+        attrs:
+          flow_authentication: !KeyOf google-auth-flow
