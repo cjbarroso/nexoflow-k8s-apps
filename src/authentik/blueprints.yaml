@@ -434,7 +434,12 @@ data:
           name: Hermes
           slug: hermes
           provider: !KeyOf hermes-proxy-provider
-          meta_launch_url: https://hermes.cjbarroso.com
+          # HIDDEN FROM THE LAUNCHER for everyone: authentik's documented way to
+          # keep an app out of every user's "My applications" library is the
+          # sentinel launch URL `blank://blank`. This only hides the card -- the
+          # proxy still serves https://hermes.cjbarroso.com by direct URL for
+          # members of `hermes-users` (the access binding below is unchanged).
+          meta_launch_url: blank://blank
           open_in_new_tab: false
       # Assign the proxy provider to the built-in embedded outpost so it actually
       # serves hermes.cjbarroso.com. NOTE: this sets the embedded outpost's provider
@@ -557,3 +562,44 @@ data:
         state: present
         attrs:
           flow_authentication: !KeyOf google-auth-flow
+  # Per-application access control for Grafana. The Grafana OIDC provider +
+  # application (slug `grafana`) are runtime config in the DB — they carry an
+  # OIDC client_secret — so they are referenced here by !Find, never redefined.
+  # This blueprint only adds a PolicyBinding gating the app to `Grafana Admins`,
+  # so only its members see Grafana in the launcher AND can log in via SSO.
+  #
+  # ⚠ This restricts SSO to `Grafana Admins` ONLY. Previously ANY authenticated
+  # user got the Viewer role just by being logged in (see role_attribute_path in
+  # grafana-values.yaml); after this they lose access. Editors lose it too — to
+  # readmit them, add a second policybinding for the `Grafana Editors` group.
+  # NOT a hard lockout: the local Grafana admin login still works
+  # (oauth_auto_login:false + /login?disableLoginForm; creds in grafana-secrets).
+  #
+  # Group MEMBERSHIP is identity data managed in the UI/DB, NOT in Git.
+  grafana-access.yaml: |
+    version: 1
+    metadata:
+      name: Grafana access control
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      # Declared idempotently so the !Find below always resolves. state:present
+      # creates it if missing, else updates in place — it never touches the
+      # group's membership (a separate relation owned by the UI/DB). Name must
+      # match the `groups` claim value used in grafana-values.yaml's
+      # role_attribute_path ('Grafana Admins').
+      - model: authentik_core.group
+        identifiers:
+          name: Grafana Admins
+        attrs:
+          is_superuser: false
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, grafana]]
+          group: !Find [authentik_core.group, [name, Grafana Admins]]
+          order: 0
+        attrs:
+          enabled: true
+          negate: false
+          timeout: 30
+          failure_result: false
