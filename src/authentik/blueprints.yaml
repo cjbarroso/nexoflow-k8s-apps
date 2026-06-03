@@ -359,6 +359,22 @@ data:
           # accordingly. !Find (not !KeyOf): the group is declared in access.yaml,
           # a separate blueprint.
           create_users_group: !Find [authentik_core.group, [name, hhccia-users]]
+      # Final stage: after the account is created, send the new physician to the
+      # app's task list instead of the bare login page. They aren't logged in yet
+      # (signup collects no password — auth is via Google afterwards), so the SPA
+      # will see no session and bounce them through the Google-only login, then
+      # land them back on /lista-tareas. keep_context:false => clean external URL,
+      # no flow-context query params appended. Redirect stage requires authentik
+      # 2024.12+ (live is 2026.5.2).
+      - model: authentik_stages_redirect.redirectstage
+        id: signup-redirect-stage
+        identifiers:
+          name: hhccia-signup-redirect
+        attrs:
+          name: hhccia-signup-redirect
+          mode: static
+          target_static: https://medaudit.irupeconsultores.com/lista-tareas
+          keep_context: false
       # ----- flow -----
       - model: authentik_flows.flow
         id: signup-flow
@@ -370,7 +386,7 @@ data:
           slug: hhccia-signup
           designation: enrollment
           authentication: require_unauthenticated
-      # ----- bindings: invitation (5) -> prompt (10) -> user_write (20) -----
+      # ----- bindings: invitation (5) -> prompt (10) -> user_write (20) -> redirect (30) -----
       - model: authentik_flows.flowstagebinding
         identifiers:
           target: !KeyOf signup-flow
@@ -393,6 +409,14 @@ data:
           order: 20
         attrs:
           stage: !KeyOf signup-write-stage
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+      - model: authentik_flows.flowstagebinding
+        identifiers:
+          target: !KeyOf signup-flow
+          order: 30
+        attrs:
+          stage: !KeyOf signup-redirect-stage
           evaluate_on_plan: true
           re_evaluate_policies: false
   # Hermes Agent — Authentik fronts the dashboard (Hermes has no native auth and
