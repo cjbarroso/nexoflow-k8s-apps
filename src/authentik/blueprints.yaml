@@ -302,21 +302,22 @@ data:
           # Constrained single-choice picker: the physician selects exactly one
           # of the two in-scope services. radio-button-group + a fixed choice set
           # means only "IN" or "TI" can ever be submitted (no free text), so the
-          # stored attribute always matches a real Datatech SER. The stored value
-          # is the tuple's first element ("IN"/"TI"); the second is the UI label.
+          # stored attribute always matches a real Datatech SER.
           type: radio-button-group
           required: true
           # placeholder holds the choice list, evaluated as an expression because
-          # placeholder_expression is true. Returns (value, label) tuples — value
-          # is what lands in user.attributes.service and the `service` claim.
+          # placeholder_expression is true. In authentik 2024.10 a radio-button-group
+          # choice list is FLAT: each item is BOTH the submitted value and its label
+          # (no (value, label) tuples — those get stringified to "('IN', '…')" and
+          # then fail validation as "not a valid choice"). So the items are the bare
+          # SER codes, which is exactly what lands in user.attributes.service and the
+          # `service` claim. The human-readable meaning is carried in sub_text below.
           # A doctor covering both services is handled by an admin editing the
           # attribute to a list/CSV later (the claim mapping accepts both).
           placeholder_expression: true
           placeholder: |
-            return [
-                ("IN", "IN — Internación General"),
-                ("TI", "TI — Terapia Intensiva"),
-            ]
+            return ["IN", "TI"]
+          sub_text: "IN — Internación General · TI — Terapia Intensiva"
           order: 4
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
