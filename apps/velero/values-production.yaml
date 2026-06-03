@@ -2,7 +2,7 @@ deployNodeAgent: true
 
 initContainers:
   - name: velero-plugin-for-aws
-    image: velero/velero-plugin-for-aws:v1.10.0
+    image: velero/velero-plugin-for-aws:v1.14.1
     volumeMounts:
       - mountPath: /target
         name: plugins
@@ -72,9 +72,8 @@ schedules:
                   onError: Continue   # never let a hook failure abort the FS backup
                   timeout: 10m
 
-upgradeCRDs: false # Do not upgrade CRDs. Fixes installation issues.
-kubectl:
-  image:
-    repository: docker.io/bitnami/kubectl
-    tag: latest
-    pullPolicy: IfNotPresent
+# CRDs are applied directly by Argo (helm rendered with --include-crds), so the
+# chart's CRD-upgrade hook-job stays off. The old docker.io/bitnami/kubectl:latest
+# override was removed — Bitnami's public catalog was sunset; chart 12.x defaults
+# the kubectl image to registry.k8s.io/kubectl.
+upgradeCRDs: false
