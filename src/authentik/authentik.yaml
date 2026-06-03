@@ -37,7 +37,7 @@ spec:
             name: authentik-branding
       containers:
         - name: server
-          image: ghcr.io/goauthentik/server:2024.10.5
+          image: ghcr.io/goauthentik/server:2024.12.5
           args: ["server"]
           ports:
             - { containerPort: 9000, name: http }
@@ -111,7 +111,7 @@ spec:
             name: authentik-blueprints
       containers:
         - name: worker
-          image: ghcr.io/goauthentik/server:2024.10.5
+          image: ghcr.io/goauthentik/server:2024.12.5
           args: ["worker"]
           volumeMounts:
             - name: custom-blueprints
