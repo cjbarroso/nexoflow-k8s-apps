@@ -29,10 +29,11 @@ the Grafana provider (confidential, redirect `logs.cjbarroso.com/login/generic_o
 `hhccia-front` is a **public** client (PKCE) — it has no usable client secret.
 
 ## How to regenerate this export
-`ak export_blueprint` is currently broken in this Authentik version
-(`KeyError: 'serializer'`), so use Django `dumpdata`:
+`ak export_blueprint` was broken on the old `2024.10` image
+(`KeyError: 'serializer'`); it works again as of the `2026.5.2` upgrade
+(2026-06-03). The `dumpdata` recipe below still works and produces this exact
+shape, so it's kept as the canonical method:
 ```powershell
-$env:KUBECONFIG = "C:\Users\Usuario\.kube\nexoflow.config"
 kubectl -n authentik exec deploy/authentik-server -- `
   ak dumpdata authentik_providers_oauth2.OAuth2Provider authentik_core.Application --indent 2 > export.json
 # then redact `client_secret` before committing
