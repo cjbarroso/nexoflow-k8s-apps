@@ -1,8 +1,12 @@
-# Loki Helm values — Monolithic (SingleBinary), filesystem, 30-day retention.
+# Loki Helm values — Monolithic, filesystem, 30-day retention.
 # Kept deliberately minimal/light. Extra disable-flags are over-specified on
 # purpose: Helm ignores unknown value keys, so this survives minor chart drift.
-
-deploymentMode: SingleBinary
+#
+# Community chart (grafana-community/loki, fork of the frozen grafana/loki OSS
+# chart): the deploymentMode value `SingleBinary` was renamed to `Monolithic`
+# at community chart 12.0.0. The config block below is still `singleBinary:`
+# (the chart did NOT rename the block) — Monolithic mode reads from it.
+deploymentMode: Monolithic
 
 loki:
   auth_enabled: false           # single-tenant; no X-Scope-OrgID needed
