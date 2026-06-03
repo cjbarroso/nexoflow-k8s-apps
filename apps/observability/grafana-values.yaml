@@ -60,6 +60,43 @@ envValueFrom:
       name: alertmanager-notify
       key: telegram-bot-token
 
+# --- GCP BigQuery via Workload Identity Federation (keyless) ---------------
+# No service-account JSON key lives in the cluster. The pod gets a short-lived
+# projected KSA token (aud=gcp-wif-grafana) which GCP STS exchanges for a token
+# impersonating grafana-bq@gen-lang-client-0005670378. GOOGLE_APPLICATION_CREDENTIALS
+# points the Google client lib (ADC) at the external_account cred-config below.
+# Full setup + gcloud runbook: SIF "Grafana BigQuery via Workload Identity Federation".
+env:
+  GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp/cred-config.json
+
+# Install the BigQuery datasource plugin at startup.
+plugins:
+  - grafana-bigquery-datasource
+
+# Projected KSA token for WIF — mirrors the chart's documented EKS IRSA pattern
+# (extraSecretMounts + projected serviceAccountToken). The kubelet rotates it;
+# the Google lib re-reads the file. `audience` must match the provider's
+# --allowed-audiences. Mounts the token at /var/run/secrets/gcp/token.
+extraSecretMounts:
+  - name: gcp-wif-token
+    mountPath: /var/run/secrets/gcp
+    readOnly: true
+    projected:
+      defaultMode: 420
+      sources:
+        - serviceAccountToken:
+            audience: gcp-wif-grafana
+            expirationSeconds: 3600
+            path: token
+
+# The external_account credential config (non-secret) from the gcp-bq-cred-config
+# ConfigMap (src/observability/grafana-gcp-cred-config.yaml) at /etc/gcp/cred-config.json.
+extraConfigmapMounts:
+  - name: gcp-cred-config
+    mountPath: /etc/gcp
+    configMap: gcp-bq-cred-config
+    readOnly: true
+
 # Pre-provisioned datasources (in-cluster). Loki stays default so existing log
 # workflows are unchanged; Prometheus is the metric store (svc prometheus-server).
 datasources:
@@ -135,6 +172,22 @@ datasources:
           postgresVersion: 1600
         secureJsonData:
           password: $__env{GEMINI_COST_DB_PASSWORD}
+      # GCP BigQuery — Cloud Billing export dataset `all_billing_data_1` (US).
+      # Keyless auth via Workload Identity Federation: authenticationType `gce`
+      # makes the plugin use Application Default Credentials, which read
+      # GOOGLE_APPLICATION_CREDENTIALS (the external_account cred-config) and do
+      # the STS token exchange — no SA key. defaultProject is the AI-Studio GCP
+      # project; processingLocation must match the dataset region (US). Verify
+      # with the datasource's "Save & test" after first sync.
+      - name: BigQuery
+        uid: bigquery
+        type: grafana-bigquery-datasource
+        access: proxy
+        isDefault: false
+        jsonData:
+          authenticationType: gce
+          defaultProject: gen-lang-client-0005670378
+          processingLocation: US
 
 # Auto-provision the "Node Exporter Full" dashboard (grafana.com id 1860) so node
 # CPU/memory/disk is visible out of the box. The chart's download-dashboards init

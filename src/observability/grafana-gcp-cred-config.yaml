@@ -1,0 +1,32 @@
+# GCP Workload Identity Federation credential config for Grafana's BigQuery
+# datasource. This is NON-SECRET configuration (no keys) — it just tells the
+# Google client library how to exchange the pod's projected KSA token for a
+# short-lived token impersonating grafana-bq@gen-lang-client-0005670378. Mounted
+# at /etc/gcp/cred-config.json via the chart's extraConfigmapMounts; pointed at
+# by GOOGLE_APPLICATION_CREDENTIALS. See SIF "Grafana BigQuery via WIF".
+#
+# Applied by the `observability-secrets` Argo app (syncs all of src/observability).
+# Regenerate/verify with:
+#   gcloud iam workload-identity-pools create-cred-config \
+#     projects/437019557900/locations/global/workloadIdentityPools/k3s-pool/providers/grafana-k3s \
+#     --service-account=grafana-bq@gen-lang-client-0005670378.iam.gserviceaccount.com \
+#     --credential-source-file=/var/run/secrets/gcp/token \
+#     --credential-source-type=text --output-file=-
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gcp-bq-cred-config
+  namespace: observability
+data:
+  cred-config.json: |
+    {
+      "type": "external_account",
+      "audience": "//iam.googleapis.com/projects/437019557900/locations/global/workloadIdentityPools/k3s-pool/providers/grafana-k3s",
+      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+      "token_url": "https://sts.googleapis.com/v1/token",
+      "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/grafana-bq@gen-lang-client-0005670378.iam.gserviceaccount.com:generateAccessToken",
+      "credential_source": {
+        "file": "/var/run/secrets/gcp/token",
+        "format": { "type": "text" }
+      }
+    }
