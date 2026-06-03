@@ -58,8 +58,6 @@ spec:
               valueFrom: { secretKeyRef: { name: authentik-secrets, key: PG_USER } }
             - name: AUTHENTIK_POSTGRESQL__PASSWORD
               valueFrom: { secretKeyRef: { name: authentik-secrets, key: PG_PASSWORD } }
-            - name: AUTHENTIK_REDIS__HOST
-              value: authentik-redis
             - name: AUTHENTIK_DISABLE_UPDATE_CHECK
               value: "true"
             - name: AUTHENTIK_ERROR_REPORTING__ENABLED
@@ -127,8 +125,6 @@ spec:
               valueFrom: { secretKeyRef: { name: authentik-secrets, key: PG_USER } }
             - name: AUTHENTIK_POSTGRESQL__PASSWORD
               valueFrom: { secretKeyRef: { name: authentik-secrets, key: PG_PASSWORD } }
-            - name: AUTHENTIK_REDIS__HOST
-              value: authentik-redis
             - name: AUTHENTIK_DISABLE_UPDATE_CHECK
               value: "true"
             - name: AUTHENTIK_ERROR_REPORTING__ENABLED
