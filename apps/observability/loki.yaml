@@ -12,12 +12,15 @@ metadata:
 spec:
   project: support
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
+    # Migrated to the community fork (2026-06-03): the OSS Loki chart moved to
+    # grafana-community/helm-charts on 2026-03-16; grafana/loki is now GEL-only.
+    - repoURL: https://grafana-community.github.io/helm-charts
       chart: loki
-      # Pinned + validated with `helm template` (2026-05-29). 7.0.0 still accepts
-      # `deploymentMode: SingleBinary` (verified); the community fork renames it to
-      # `Monolithic` only at 12.x — if you bump past the fork, switch the values key.
-      targetRevision: "7.0.0"
+      # Pinned + validated with `helm template` against loki-values.yaml (2026-06-03):
+      # renders exactly one Monolithic StatefulSet, ruler + rule mounts intact, no
+      # read/write/backend Deployments. deploymentMode renamed SingleBinary->Monolithic
+      # (community 12.0.0) — done in loki-values.yaml. Loki server appVersion 3.7.2.
+      targetRevision: "17.1.6"
       helm:
         valueFiles:
           - $values/apps/observability/loki-values.yaml

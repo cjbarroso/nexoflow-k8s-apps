@@ -8,10 +8,15 @@ metadata:
 spec:
   project: support
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
+    # Migrated to the community fork (2026-06-03): the official grafana/grafana
+    # chart froze on 2026-01-30; OSS updates continue in grafana-community.
+    - repoURL: https://grafana-community.github.io/helm-charts
       chart: grafana
-      # Pinned + validated with `helm template` (2026-05-29). app Grafana 12.3.1.
-      targetRevision: "10.5.15"
+      # Pinned + validated with `helm template` against grafana-values.yaml (2026-06-03):
+      # renders clean (ingress, provisioned datasources, BigQuery WIF mounts, Gemini +
+      # pipeline alerting all intact). app Grafana 13.0.1 (server major 12->13; SQLite
+      # schema migrates one-way on first boot — rollback = restore the PVC).
+      targetRevision: "12.4.2"
       helm:
         valueFiles:
           - $values/apps/observability/grafana-values.yaml
