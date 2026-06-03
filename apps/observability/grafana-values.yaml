@@ -114,6 +114,27 @@ datasources:
           postgresVersion: 1600
         secureJsonData:
           password: $__env{GEMINI_COST_DB_PASSWORD}
+      # HHCCIA core record store (same v2 core DB as GeminiCost, same read-only
+      # role `grafana_ro`, same RO service). Reads ONLY the sanitized view
+      # `clinical_record_report` (status + service code + author name + reviewer +
+      # timestamps — NO patient identity, NO clinical text, NO review notes; the
+      # view + GRANT are created idempotently by hhccia-core app/migrations.py).
+      # Reuses the grafana_ro password env from the gemini-cost-ro Secret — it's
+      # the same DB login. Used by the "Registros aceptados / rechazados" dashboard.
+      - name: HhcciaCore
+        uid: hhcciacore
+        type: postgres
+        access: proxy
+        url: hhccia-core-db-ro.hhccia-v2.svc.cluster.local:5432
+        database: hhccia_core
+        user: grafana_ro
+        isDefault: false
+        jsonData:
+          database: hhccia_core
+          sslmode: require
+          postgresVersion: 1600
+        secureJsonData:
+          password: $__env{GEMINI_COST_DB_PASSWORD}
 
 # Auto-provision the "Node Exporter Full" dashboard (grafana.com id 1860) so node
 # CPU/memory/disk is visible out of the box. The chart's download-dashboards init
@@ -524,6 +545,146 @@ dashboards:
                 { "refId": "A", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\"" },
                 { "refId": "B", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\"" }
               ]
+            }
+          ]
+        }
+    # HHCCIA clinical-record review outcomes — accepted vs rejected, sourced from
+    # the sanitized `clinical_record_report` view via the read-only HhcciaCore
+    # datasource (no patient identity, no clinical text). "Aceptado" = status in
+    # (approved, applied); the two are also shown separately. The per-day trend
+    # groups by reviewed_at (the decision day); ingest volume groups by created_at.
+    # Breakdowns by Service (SER) and by professional (author display name), plus a
+    # reviewer-throughput table. Stable uid `clinical-records`
+    # (https://logs.cjbarroso.com/d/clinical-records). Panels reference the
+    # datasource by uid.
+    clinical-records:
+      json: |
+        {
+          "uid": "clinical-records",
+          "title": "HHCCIA — Registros aceptados / rechazados",
+          "tags": ["hhccia", "records", "auditoria"],
+          "schemaVersion": 39,
+          "refresh": "30m",
+          "time": { "from": "now-30d", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1, "type": "stat", "title": "Aceptados (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM clinical_record_report WHERE status IN ('approved','applied') AND $__timeFilter(reviewed_at)" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Rechazados (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM clinical_record_report WHERE status = 'rejected' AND $__timeFilter(reviewed_at)" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Tasa de aprobación (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1, "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 50 }, { "color": "green", "value": 80 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE status IN ('approved','applied')) / NULLIF(count(*) FILTER (WHERE status IN ('approved','applied','rejected')),0), 1) AS value FROM clinical_record_report WHERE $__timeFilter(reviewed_at)" } ]
+            },
+            {
+              "id": 4, "type": "stat", "title": "Aprobados (approved)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM clinical_record_report WHERE status = 'approved' AND $__timeFilter(reviewed_at)" } ]
+            },
+            {
+              "id": 5, "type": "stat", "title": "Aplicados (applied)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM clinical_record_report WHERE status = 'applied' AND $__timeFilter(reviewed_at)" } ]
+            },
+            {
+              "id": 6, "type": "stat", "title": "Pendientes de revisión (ahora)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM clinical_record_report WHERE status = 'pending_review'" } ]
+            },
+            {
+              "id": 7, "type": "timeseries", "title": "Aceptados vs Rechazados por día (reviewed_at)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "none" } } },
+                "overrides": [
+                  { "matcher": { "id": "byName", "options": "Aceptados" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+                  { "matcher": { "id": "byName", "options": "Rechazados" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+                ]
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(reviewed_at,'1d') AS time, count(*) FILTER (WHERE status IN ('approved','applied')) AS \"Aceptados\", count(*) FILTER (WHERE status = 'rejected') AS \"Rechazados\" FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1 ORDER BY 1" } ]
+            },
+            {
+              "id": 8, "type": "timeseries", "title": "Desglose diario por estado (reviewed_at)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 0, "stacking": { "mode": "normal" } } },
+                "overrides": [
+                  { "matcher": { "id": "byName", "options": "approved" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+                  { "matcher": { "id": "byName", "options": "applied" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+                  { "matcher": { "id": "byName", "options": "rejected" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+                ]
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(reviewed_at,'1d') AS time, status AS metric, count(*) AS value FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1, status ORDER BY 1" } ]
+            },
+            {
+              "id": 9, "type": "timeseries", "title": "Ingresados por día (created_at)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1 } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "single" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created_at,'1d') AS time, count(*) AS \"Ingresados\" FROM clinical_record_report WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1" } ]
+            },
+            {
+              "id": 10, "type": "timeseries", "title": "Tasa de aprobación diaria %", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": true } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean"] }, "tooltip": { "mode": "single" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(reviewed_at,'1d') AS time, round(100.0 * count(*) FILTER (WHERE status IN ('approved','applied')) / NULLIF(count(*) FILTER (WHERE status IN ('approved','applied','rejected')),0),1) AS \"Tasa de aprobación %\" FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1 ORDER BY 1" } ]
+            },
+            {
+              "id": 11, "type": "table", "title": "Aceptados / Rechazados por servicio (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 14, "x": 0, "y": 30 },
+              "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Tasa aprob. %" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "decimals", "value": 1 } ] } ] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Rechazados", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(service_code,'(sin servicio)') AS \"Servicio\", count(*) FILTER (WHERE status IN ('approved','applied')) AS \"Aceptados\", count(*) FILTER (WHERE status = 'rejected') AS \"Rechazados\", round(100.0 * count(*) FILTER (WHERE status IN ('approved','applied')) / NULLIF(count(*) FILTER (WHERE status IN ('approved','applied','rejected')),0),1) AS \"Tasa aprob. %\" FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1 ORDER BY 2 DESC" } ]
+            },
+            {
+              "id": 12, "type": "piechart", "title": "Rechazos por servicio (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 10, "x": 14, "y": 30 },
+              "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(service_code,'(sin servicio)') AS metric, count(*) AS value FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status = 'rejected' GROUP BY 1 ORDER BY 2 DESC" } ]
+            },
+            {
+              "id": 13, "type": "table", "title": "Aceptados / Rechazados por profesional (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 14, "x": 0, "y": 39 },
+              "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Tasa aprob. %" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "decimals", "value": 1 } ] } ] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Rechazados", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(professional,'(sin profesional)') AS \"Profesional\", count(*) FILTER (WHERE status IN ('approved','applied')) AS \"Aceptados\", count(*) FILTER (WHERE status = 'rejected') AS \"Rechazados\", round(100.0 * count(*) FILTER (WHERE status IN ('approved','applied')) / NULLIF(count(*) FILTER (WHERE status IN ('approved','applied','rejected')),0),1) AS \"Tasa aprob. %\" FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1 ORDER BY 3 DESC" } ]
+            },
+            {
+              "id": 14, "type": "barchart", "title": "Rechazos por profesional (top 10, rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 9, "w": 10, "x": 14, "y": 39 },
+              "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+              "options": { "orientation": "horizontal", "showValue": "auto", "legend": { "showLegend": false }, "xTickLabelRotation": 0 },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(professional,'(sin profesional)') AS metric, count(*) AS value FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status = 'rejected' GROUP BY 1 ORDER BY 2 DESC LIMIT 10" } ]
+            },
+            {
+              "id": 15, "type": "table", "title": "Decisiones por revisor (rango)", "datasource": { "type": "postgres", "uid": "hhcciacore" },
+              "gridPos": { "h": 8, "w": 24, "x": 0, "y": 48 },
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Total", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(reviewer,'(sin revisor)') AS \"Revisor\", count(*) FILTER (WHERE status IN ('approved','applied')) AS \"Aceptados\", count(*) FILTER (WHERE status = 'rejected') AS \"Rechazados\", count(*) AS \"Total\" FROM clinical_record_report WHERE $__timeFilter(reviewed_at) AND status IN ('approved','applied','rejected') GROUP BY 1 ORDER BY 4 DESC" } ]
             }
           ]
         }
