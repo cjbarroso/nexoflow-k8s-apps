@@ -111,11 +111,16 @@ data:
           provider: !KeyOf hhccia-provider
           meta_launch_url: https://medaudit.irupeconsultores.com/
           open_in_new_tab: false
-  # Declarative branding for the login/flow page. Sets the DB pointer to the
-  # custom logo served from /media/public (file shipped by branding.yaml's
-  # authentik-branding ConfigMap). Safe to own these fields: the built-in
-  # `Default - Brand` blueprint is `state: created` + a "no default brand
-  # exists" condition, so it seeded the brand once and never re-touches it.
+  # Declarative branding for the login/flow page. Points the DB logo pointer at
+  # the absolute R2-hosted logo (https://pub-...r2.dev/irupe-logo.jpeg) instead
+  # of the self-hosted /media/public copy: the 2024.10.5 -> 2026.5.2 upgrade
+  # (2026-06-03) broke unauthenticated /media/public serving, so the mounted
+  # ConfigMap file 404s. An absolute URL sidesteps authentik's internal media
+  # serving entirely. (branding.yaml's authentik-branding ConfigMap + its mount
+  # in authentik.yaml are now dead weight -- safe to remove later.)
+  # Safe to own these fields: the built-in `Default - Brand` blueprint is
+  # `state: created` + a "no default brand exists" condition, so it seeded the
+  # brand once and never re-touches it.
   brand.yaml: |
     version: 1
     metadata:
@@ -129,7 +134,7 @@ data:
         state: present                        # update-in-place, don't recreate
         attrs:
           branding_title: Irupé Apps          # preserved (already set in DB)
-          branding_logo: /media/public/irupe-logo.jpeg
+          branding_logo: https://pub-291a2932ec3c4b0482850436b8218e9b.r2.dev/irupe-logo.jpeg
           # branding_favicon left untouched (still the authentik default icon).
           # Add a small icon to the authentik-branding ConfigMap and point here
           # if you want a custom favicon too.
