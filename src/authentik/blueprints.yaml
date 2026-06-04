@@ -135,6 +135,15 @@ data:
         attrs:
           branding_title: Irupé Apps          # preserved (already set in DB)
           branding_logo: https://pub-291a2932ec3c4b0482850436b8218e9b.r2.dev/irupe-logo.jpeg
+          # Shrink the login-page logo to 50% of its default size. The flow CSS
+          # sizes the logo by max-width: clamp(75%, var(--ak-c-login--MaxWidth)/2, 90%)
+          # on .branding-logo; halving every term of that clamp halves the rendered
+          # width (height follows the JPEG aspect ratio). !important so it wins
+          # regardless of injection order vs the bundled flow stylesheet.
+          branding_custom_css: |
+            .branding-logo {
+              max-width: clamp(37.5%, calc(var(--ak-c-login--MaxWidth) / 4), 45%) !important;
+            }
           # branding_favicon left untouched (still the authentik default icon).
           # Add a small icon to the authentik-branding ConfigMap and point here
           # if you want a custom favicon too.
