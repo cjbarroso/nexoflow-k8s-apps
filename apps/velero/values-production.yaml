@@ -2,7 +2,14 @@ deployNodeAgent: true
 
 initContainers:
   - name: velero-plugin-for-aws
-    image: velero/velero-plugin-for-aws:v1.14.1
+    # Pinned to v1.13.0, NOT the v1.14.x that matches velero 1.18: v1.14 bumped
+    # aws-sdk-go-v2 (s3 v1.48.0 -> v1.97.3), and the newer SDK emits an empty
+    # `x-amz-tagging` header on PutObject that Cloudflare R2 rejects (501
+    # NotImplemented) — breaking backup-metadata upload. v1.13.0 is the newest
+    # plugin still on the R2-compatible s3 v1.48.0 SDK (same as the long-working
+    # v1.10.0). 1-minor skew under server 1.18.1, fine for object-store ops
+    # (we previously ran v1.10.0 under 1.17.1 — a 3-minor skew — without issue).
+    image: velero/velero-plugin-for-aws:v1.13.0
     volumeMounts:
       - mountPath: /target
         name: plugins
