@@ -1,14 +1,19 @@
 # NATS with JetStream — the event bus for the HHCCIA v2 pipeline.
-# Test-grade: JetStream uses an emptyDir (no durability across pod restarts).
-# For production, switch to the official NATS Helm chart with a PVC / file store.
+# Durable: JetStream's file store lives on a PVC (volumeClaimTemplate), so streams
+# and durable consumers survive pod restarts. This replaced the earlier Deployment
+# + emptyDir, where any NATS restart wiped the stream and every consumer — which
+# silently halted the core's consume side (ingestion + write-back reconciliation)
+# because the core only (re)subscribes at startup. See SIF "Core pierde consumers
+# en reconnect de NATS" (2026-06-05).
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: nats
   namespace: hhccia-v2
   labels:
     app: nats
 spec:
+  serviceName: nats-headless
   replicas: 1
   selector:
     matchLabels:
@@ -29,10 +34,27 @@ spec:
             - { containerPort: 8222, name: monitor }
           volumeMounts:
             - { name: js, mountPath: /data }
-      volumes:
-        - name: js
-          emptyDir: {}
+          # /healthz on the monitoring port: 200 once JetStream is up.
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8222 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8222 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: js
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
 ---
+# Stable client DNS: `nats.hhccia-v2.svc:4222`. ClusterIP (kept as-is — clusterIP
+# is immutable, so this service is unchanged from the previous Deployment setup).
 apiVersion: v1
 kind: Service
 metadata:
@@ -47,3 +69,20 @@ spec:
     - { name: client, port: 4222, targetPort: 4222 }
     - { name: monitor, port: 8222, targetPort: 8222 }
   type: ClusterIP
+---
+# Headless service governing the StatefulSet (required by `serviceName`); gives
+# the pod a stable per-replica DNS name (nats-0.nats-headless.hhccia-v2.svc).
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-headless
+  namespace: hhccia-v2
+  labels:
+    app: nats
+spec:
+  clusterIP: None
+  selector:
+    app: nats
+  ports:
+    - { name: client, port: 4222, targetPort: 4222 }
+    - { name: monitor, port: 8222, targetPort: 8222 }
