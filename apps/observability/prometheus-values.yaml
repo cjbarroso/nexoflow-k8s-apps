@@ -124,6 +124,30 @@ serverFiles:
               summary: "Postgres WAL archiving / backups failing ({{ $labels.cnpg_io_cluster }})"
               description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): the primary's latest WAL-archive attempt to R2 failed and has not succeeded for >15m — backups & point-in-time recovery are at risk. Check the R2 credentials (sealed secret hhccia-core-db-backup-creds) and the barman ObjectStore."
               logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-3h&to=now"
+      # NATS / JetStream consumer health. The core binds 4 durable push consumers on
+      # stream HHCCIA (core-ingestor, core-wb-applied, core-wb-failed, core-wb-stale).
+      # If NATS restarts and loses JetStream, or the core fails to re-subscribe after
+      # a reconnect, these vanish server-side and the whole CONSUME side of the
+      # pipeline silently halts: ingestion stops and approved write-back results never
+      # reconcile (records stuck `approved`, never `applied`) — while publish keeps
+      # working so nothing else trips. This alert closes that gap (incident 2026-06-05).
+      # The exporter only emits per-consumer series for consumers that exist, so
+      # `count(...) or vector(0)` makes the rule fire even when ALL 4 are gone (empty
+      # set → 0 < 4). `for: 10m` rides out normal core/NATS restarts (durables persist
+      # across a core restart; only a NATS store loss or failed resubscribe drops them).
+      - name: nats
+        rules:
+          - alert: HHCCIACoreConsumersMissing
+            expr: |
+              (count(jetstream_consumer_num_pending{stream_name="HHCCIA", consumer_name=~"core-.*"})
+                or vector(0)) < 4
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "MedAudit core JetStream consumers missing ({{ $value }}/4 present)"
+              description: "Fewer than the 4 expected core-* durable consumers are bound to stream HHCCIA for >10m. The core's consume side (ingestion + write-back reconciliation) is halted while publish still works — symptom: clinical records stuck in pending_review and approved changes never advancing to applied. Likely a NATS restart lost JetStream or the core lost its subscriptions. Recovery: kubectl -n hhccia-v2 rollout restart deploy/hhccia-core (recreates the consumers; replay is idempotent)."
+              logs: "https://logs.cjbarroso.com/explore?left=%7B%22queries%22:%5B%7B%22expr%22:%22%7Bnamespace%3D%5C%22hhccia-v2%5C%22%7D%22%7D%5D%7D"
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
