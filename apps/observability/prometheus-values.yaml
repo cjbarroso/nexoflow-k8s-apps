@@ -147,7 +147,7 @@ serverFiles:
             annotations:
               summary: "MedAudit core JetStream consumers missing ({{ $value }}/4 present)"
               description: "Fewer than the 4 expected core-* durable consumers are bound to stream HHCCIA for >10m. The core's consume side (ingestion + write-back reconciliation) is halted while publish still works — symptom: clinical records stuck in pending_review and approved changes never advancing to applied. Likely a NATS restart lost JetStream or the core lost its subscriptions. Recovery: kubectl -n hhccia-v2 rollout restart deploy/hhccia-core (recreates the consumers; replay is idempotent)."
-              logs: "https://logs.cjbarroso.com/explore?left=%7B%22queries%22:%5B%7B%22expr%22:%22%7Bnamespace%3D%5C%22hhccia-v2%5C%22%7D%22%7D%5D%7D"
+              dashboard: "https://logs.cjbarroso.com/d/pipeline-consumers"
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.

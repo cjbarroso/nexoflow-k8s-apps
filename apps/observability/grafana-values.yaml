@@ -399,6 +399,138 @@ dashboards:
             }
           ]
         }
+    # JetStream consumer HEALTH (distinct from pipeline-backlog, which watches the
+    # ingestor's depth). The core binds 4 durable consumers (core-ingestor,
+    # core-wb-{applied,failed,stale}); if NATS loses its store or the core fails to
+    # re-subscribe they vanish server-side and the consume side silently halts while
+    # publish keeps working — the 2026-06-05 incident. This dashboard makes that
+    # failure mode visible: the count-present panels back the HHCCIACoreConsumersMissing
+    # alert, and "Presencia por consumer" pinpoints WHICH one dropped. Stable uid
+    # `pipeline-consumers` so the alert deep-links here. exporter: nats-exporter (-jsz=all).
+    pipeline-consumers:
+      json: |
+        {
+          "uid": "pipeline-consumers",
+          "title": "MedAudit — Salud de consumers (NATS JetStream)",
+          "tags": ["hhccia", "pipeline", "nats", "consumers"],
+          "schemaVersion": 39,
+          "refresh": "30s",
+          "time": { "from": "now-24h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1,
+              "type": "stat",
+              "title": "Consumers del core presentes (esperados: 4) — alerta: < 4 por 10m",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "decimals": 0,
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "green", "value": 4 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "stat",
+              "title": "Consumers totales en el stream (core 4 + adapter 2 = 6)",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "max(jetstream_stream_consumer_count{stream_name=\"HHCCIA\"})" }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "stat",
+              "title": "Mensajes retenidos en el stream",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus",
+                  "expr": "max(jetstream_stream_total_messages{stream_name=\"HHCCIA\"})" }
+              ]
+            },
+            {
+              "id": 4,
+              "type": "timeseries",
+              "title": "Consumers del core presentes en el tiempo — línea de alerta en 4",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 5 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "min": 0, "max": 6, "decimals": 0,
+                  "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 15, "pointSize": 6, "thresholdsStyle": { "mode": "line" } },
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "green", "value": 4 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min"] }, "tooltip": { "mode": "single" } },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus", "legendFormat": "core-* presentes",
+                  "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
+              ]
+            },
+            {
+              "id": 5,
+              "type": "timeseries",
+              "title": "Presencia por consumer (1 = vivo · hueco = ausente)",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "min": 0, "max": 1.2, "decimals": 0,
+                  "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10, "pointSize": 7, "showPoints": "always", "spanNulls": false }
+                },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus", "legendFormat": "{{consumer_name}}",
+                  "expr": "count by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "timeseries",
+              "title": "Backlog (num_pending) + reintentos (num_redelivered) por consumer",
+              "datasource": "Prometheus",
+              "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 10 }
+                },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": "Prometheus", "legendFormat": "pending · {{consumer_name}}",
+                  "expr": "max by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" },
+                { "refId": "B", "datasource": "Prometheus", "legendFormat": "redelivered · {{consumer_name}}",
+                  "expr": "max by (consumer_name) (jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
+              ]
+            }
+          ]
+        }
     # Curated log view for the CNPG backup alerts. Stable uid `cnpg-backup-logs`
     # so the Alertmanager Telegram messages deep-link to it via the alerts'
     # `logs` annotation (https://logs.cjbarroso.com/d/cnpg-backup-logs). Panels
