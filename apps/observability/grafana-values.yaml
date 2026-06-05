@@ -119,6 +119,7 @@ datasources:
         orgId: 1
     datasources:
       - name: Loki
+        uid: loki                  # pinned so dashboards can reference {type:loki,uid:loki}
         type: loki
         access: proxy
         url: http://loki.observability.svc.cluster.local:3100
@@ -234,7 +235,7 @@ dashboards:
               "id": 1,
               "type": "timeseries",
               "title": "CPU usage % — alert: NodeHighCpu (> 80% for 5m)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
               "fieldConfig": {
                 "defaults": {
@@ -250,7 +251,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Prometheus",
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
                   "legendFormat": "{{instance}}"
                 }
@@ -260,7 +261,7 @@ dashboards:
               "id": 2,
               "type": "timeseries",
               "title": "Memory usage % — alert: NodeHighMemory (> 85% for 5m)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
               "fieldConfig": {
                 "defaults": {
@@ -276,7 +277,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Prometheus",
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
                   "legendFormat": "{{instance}}"
                 }
@@ -286,7 +287,7 @@ dashboards:
               "id": 3,
               "type": "timeseries",
               "title": "Disk free % — alert: NodeDiskSpaceLow (< 15% for 10m)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
               "fieldConfig": {
                 "defaults": {
@@ -302,7 +303,7 @@ dashboards:
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Prometheus",
+                  "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} * 100 and node_filesystem_readonly == 0",
                   "legendFormat": "{{instance}} {{mountpoint}}"
                 }
@@ -330,7 +331,7 @@ dashboards:
               "id": 1,
               "type": "stat",
               "title": "Backlog ahora (num_pending) — alerta > 10",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
               "fieldConfig": {
                 "defaults": {
@@ -344,7 +345,7 @@ dashboards:
               },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
@@ -352,12 +353,12 @@ dashboards:
               "id": 2,
               "type": "stat",
               "title": "En vuelo (num_ack_pending)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
@@ -365,12 +366,12 @@ dashboards:
               "id": 3,
               "type": "stat",
               "title": "Reintentos (num_redelivered)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
@@ -378,7 +379,7 @@ dashboards:
               "id": 4,
               "type": "timeseries",
               "title": "Backlog del ingestor en el tiempo — línea de alerta en 10",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 10, "w": 24, "x": 0, "y": 5 },
               "fieldConfig": {
                 "defaults": {
@@ -393,11 +394,11 @@ dashboards:
               },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus", "legendFormat": "num_pending (backlog)",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_pending (backlog)",
                   "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
-                { "refId": "B", "datasource": "Prometheus", "legendFormat": "num_ack_pending (en vuelo)",
+                { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_ack_pending (en vuelo)",
                   "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
-                { "refId": "C", "datasource": "Prometheus", "legendFormat": "num_redelivered (reintentos)",
+                { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_redelivered (reintentos)",
                   "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             }
@@ -426,7 +427,7 @@ dashboards:
               "id": 1,
               "type": "stat",
               "title": "Consumers del core presentes (esperados: 4) — alerta: < 4 por 10m",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
               "fieldConfig": {
                 "defaults": {
@@ -440,7 +441,7 @@ dashboards:
               },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
               ]
             },
@@ -448,12 +449,12 @@ dashboards:
               "id": 2,
               "type": "stat",
               "title": "Consumers totales en el stream (core 4 + adapter 2 = 6)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "max(jetstream_stream_consumer_count{stream_name=\"HHCCIA\"})" }
               ]
             },
@@ -461,12 +462,12 @@ dashboards:
               "id": 3,
               "type": "stat",
               "title": "Mensajes retenidos en el stream",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                   "expr": "max(jetstream_stream_total_messages{stream_name=\"HHCCIA\"})" }
               ]
             },
@@ -474,7 +475,7 @@ dashboards:
               "id": 4,
               "type": "timeseries",
               "title": "Consumers del core presentes en el tiempo — línea de alerta en 4",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 9, "w": 24, "x": 0, "y": 5 },
               "fieldConfig": {
                 "defaults": {
@@ -489,7 +490,7 @@ dashboards:
               },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min"] }, "tooltip": { "mode": "single" } },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus", "legendFormat": "core-* presentes",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "core-* presentes",
                   "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
               ]
             },
@@ -497,7 +498,7 @@ dashboards:
               "id": 5,
               "type": "timeseries",
               "title": "Presencia por consumer (1 = vivo · hueco = ausente)",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
               "fieldConfig": {
                 "defaults": {
@@ -508,7 +509,7 @@ dashboards:
               },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] }, "tooltip": { "mode": "multi" } },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus", "legendFormat": "{{consumer_name}}",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{consumer_name}}",
                   "expr": "count by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
               ]
             },
@@ -516,7 +517,7 @@ dashboards:
               "id": 6,
               "type": "timeseries",
               "title": "Backlog (num_pending) + reintentos (num_redelivered) por consumer",
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
               "fieldConfig": {
                 "defaults": {
@@ -527,9 +528,9 @@ dashboards:
               },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
-                { "refId": "A", "datasource": "Prometheus", "legendFormat": "pending · {{consumer_name}}",
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "pending · {{consumer_name}}",
                   "expr": "max by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" },
-                { "refId": "B", "datasource": "Prometheus", "legendFormat": "redelivered · {{consumer_name}}",
+                { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "redelivered · {{consumer_name}}",
                   "expr": "max by (consumer_name) (jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
               ]
             }
@@ -554,13 +555,13 @@ dashboards:
               "id": 1,
               "type": "logs",
               "title": "Barman plugin errors — backup / WAL / retention (alert: CNPGBackupFailed)",
-              "datasource": "Loki",
+              "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 11, "w": 24, "x": 0, "y": 0 },
               "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Loki",
+                  "datasource": { "type": "loki", "uid": "loki" },
                   "expr": "{namespace=\"hhccia-v2\", container=\"plugin-barman-cloud\"} | json | level=\"error\""
                 }
               ]
@@ -569,13 +570,13 @@ dashboards:
               "id": 2,
               "type": "logs",
               "title": "Postgres WAL archiver failures (alert: CNPGWalArchiveErrorsLog)",
-              "datasource": "Loki",
+              "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
               "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending" },
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Loki",
+                  "datasource": { "type": "loki", "uid": "loki" },
                   "expr": "{namespace=\"hhccia-v2\", container=\"postgres\"} |= \"archive command failed\""
                 }
               ]
@@ -584,13 +585,13 @@ dashboards:
               "id": 3,
               "type": "logs",
               "title": "All hhccia-core-db logs (context)",
-              "datasource": "Loki",
+              "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 10, "w": 24, "x": 0, "y": 19 },
               "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending" },
               "targets": [
                 {
                   "refId": "A",
-                  "datasource": "Loki",
+                  "datasource": { "type": "loki", "uid": "loki" },
                   "expr": "{namespace=\"hhccia-v2\", pod=~\"hhccia-core-db-.*\"}"
                 }
               ]
@@ -690,28 +691,28 @@ dashboards:
           "templating": { "list": [] },
           "panels": [
             {
-              "id": 1, "type": "stat", "title": "Errores Gemini 4xx/5xx (15m) — alerta: GeminiAccessErrors", "datasource": "Loki",
+              "id": 1, "type": "stat", "title": "Errores Gemini 4xx/5xx (15m) — alerta: GeminiAccessErrors", "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [15m]))" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [15m]))" } ]
             },
             {
-              "id": 2, "type": "stat", "title": "Registros a dead-letter (1h) — alerta: GeminiRecordsDeadLettered", "datasource": "Loki",
+              "id": 2, "type": "stat", "title": "Registros a dead-letter (1h) — alerta: GeminiRecordsDeadLettered", "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\" [1h]))" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\" [1h]))" } ]
             },
             {
-              "id": 3, "type": "stat", "title": "Llamadas Gemini OK (15m)", "datasource": "Loki",
+              "id": 3, "type": "stat", "title": "Llamadas Gemini OK (15m)", "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
-              "targets": [ { "refId": "A", "datasource": "Loki", "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [15m]))" } ]
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [15m]))" } ]
             },
             {
-              "id": 4, "type": "timeseries", "title": "Gemini: errores 4xx/5xx vs éxitos en el tiempo", "datasource": "Loki",
+              "id": 4, "type": "timeseries", "title": "Gemini: errores 4xx/5xx vs éxitos en el tiempo", "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
               "fieldConfig": {
                 "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "stacking": { "mode": "none" } } },
@@ -722,17 +723,17 @@ dashboards:
               },
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
               "targets": [
-                { "refId": "A", "datasource": "Loki", "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [$__auto]))" },
-                { "refId": "B", "datasource": "Loki", "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [$__auto]))" }
+                { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [$__auto]))" },
+                { "refId": "B", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |= \"200 OK\" [$__auto]))" }
               ]
             },
             {
-              "id": 5, "type": "logs", "title": "Errores de acceso a Gemini + dead-letters (recientes)", "datasource": "Loki",
+              "id": 5, "type": "logs", "title": "Errores de acceso a Gemini + dead-letters (recientes)", "datasource": { "type": "loki", "uid": "loki" },
               "gridPos": { "h": 11, "w": 24, "x": 0, "y": 13 },
               "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
               "targets": [
-                { "refId": "A", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\"" },
-                { "refId": "B", "datasource": "Loki", "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\"" }
+                { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\"" },
+                { "refId": "B", "datasource": { "type": "loki", "uid": "loki" }, "expr": "{namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\"" }
               ]
             }
           ]
