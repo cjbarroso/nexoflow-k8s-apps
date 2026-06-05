@@ -19,12 +19,16 @@ persistence:
 initChownData:
   enabled: false
 
+# Grafana 13 + the BigQuery plugin + 5 datasources need more than the original
+# 256Mi: at idle it already sits ~210Mi, so loading a multi-panel dashboard spiked
+# past the limit and the container was OOMKilled (exitCode 137) → every panel showed
+# "no data" until raised. 512Mi limit gives ~2.4x idle headroom for query/render bursts.
 resources:
   requests:
     cpu: 50m
-    memory: 128Mi
-  limits:
     memory: 256Mi
+  limits:
+    memory: 512Mi
 
 # Local admin credentials sourced from the sealed Secret.
 admin:
