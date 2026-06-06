@@ -117,6 +117,11 @@ datasources:
       # persisted on the PVC.
       - name: Prometheus
         orgId: 1
+      # Same reason: pin uid=loki so dashboards can reference it by a stable uid
+      # ({type:loki,uid:loki}); without deleting the auto-uid copy on the PVC first,
+      # provisioning errors with "data source not found" and Grafana crashloops.
+      - name: Loki
+        orgId: 1
     datasources:
       - name: Loki
         uid: loki                  # pinned so dashboards can reference {type:loki,uid:loki}
