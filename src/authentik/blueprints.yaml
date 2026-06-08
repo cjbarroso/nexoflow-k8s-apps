@@ -491,7 +491,10 @@ data:
           internal_host: http://hermes.hermes.svc.cluster.local:9119
           internal_host_ssl_validation: false
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          # Same fix as hhccia-provider: default-provider-invalidation-flow is EMPTY on
+          # this instance (no UserLogoutStage), so logout never terminated the SSO
+          # session. Point at default-invalidation-flow (has UserLogoutStage). (2026-06-08)
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
       - model: authentik_core.application
         id: hermes-app
         identifiers:
