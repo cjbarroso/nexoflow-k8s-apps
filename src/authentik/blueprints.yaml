@@ -31,8 +31,8 @@ data:
             return {"prf": user.attributes.get("prf")}
       # Custom scope mapping: emit the physician's authorized Service(s) (Datatech
       # SER codes) as a `service` claim (always a list) plus two admin booleans:
-      #   - `service_admin` (members of hhccia-admins): see/edit every service AND
-      #     may approve.
+      #   - `service_admin` (members of hhccia-superadmins): see/edit every service
+      #     AND may approve.
       #   - `audit_admin` (members of hhccia-admin): see every record but may ONLY
       #     reject — never approve (a supervisor/auditor; reject has no effect on the
       #     origin clinical DB).
@@ -57,7 +57,7 @@ data:
                 services = [s.strip() for s in str(raw).split(",") if s.strip()]
             return {
                 "service": services,
-                "service_admin": ak_is_group_member(user, name="hhccia-admins"),
+                "service_admin": ak_is_group_member(user, name="hhccia-superadmins"),
                 "audit_admin": ak_is_group_member(user, name="hhccia-admin"),
             }
       - model: authentik_providers_oauth2.oauth2provider
@@ -173,28 +173,21 @@ data:
           name: hhccia-users
         attrs:
           is_superuser: false
-      # Role group for HHCCIA admins. No policy binding here -- it exists so the
-      # app can branch on it: authentik's default `profile` scope mapping emits
-      # the user's DIRECT group names in the `groups` claim, so a member shows
-      # up as {"groups": ["hhccia-admins", ...]} in the ID token / userinfo.
+      # Full service-admins (see/edit every service AND may approve) are the members
+      # of the PRE-EXISTING `hhccia-superadmins` group — the `hhccia-service-claim`
+      # mapping above emits service_admin = member-of it. That group is intentionally
+      # NOT defined/managed here: it already exists in the cluster and a blueprint
+      # upsert must not clobber its is_superuser / parent. (authentik group membership
+      # cascades UP the parent tree for policy checks; app access is governed by the
+      # hhccia-users binding below.)
       #
-      # `parent: hhccia-users` makes admins a CHILD of the users group. authentik
-      # group membership cascades UP the tree for policy/access checks, so an
-      # admin automatically satisfies the hhccia-users access binding (no need to
-      # double-add them) -- WITHOUT the `groups` claim listing hhccia-users
-      # (the claim reports direct memberships only).
-      - model: authentik_core.group
-        identifiers:
-          name: hhccia-admins
-        attrs:
-          is_superuser: false
-          parent: !KeyOf hhccia-users-group
-      # Role group for HHCCIA AUDIT admins (supervisors). Members see every record
-      # but may ONLY reject — never approve (the core enforces this; approve -> 403).
-      # The `hhccia-service-claim` scope mapping emits audit_admin = member-of this
-      # group. Like hhccia-admins it is a CHILD of hhccia-users, so an audit admin
-      # automatically satisfies the hhccia-users app-access binding. Distinct from
-      # hhccia-admins (who additionally may approve / write back to the clinical DB).
+      # Role group for HHCCIA AUDIT admins (supervisors). Members are SERVICE-scoped
+      # (see records in their assigned Service(s), case-sensitive; no author-PRF
+      # restriction) but may ONLY reject — never approve (the core enforces this;
+      # approve -> 403). The `hhccia-service-claim` mapping emits audit_admin =
+      # member-of this group. As a CHILD of hhccia-users, an audit admin automatically
+      # satisfies the hhccia-users app-access binding. Distinct from hhccia-superadmins
+      # (who see everything and may approve / write back to the clinical DB).
       - model: authentik_core.group
         identifiers:
           name: hhccia-admin
@@ -207,7 +200,7 @@ data:
           group: !Find [authentik_core.group, [name, hhccia-users]]
           order: 0
         attrs:
-          enabled: true         # ENFORCED: only hhccia-users (+ child hhccia-admins) members may use HHCCIA
+          enabled: true         # ENFORCED: only hhccia-users (+ child groups) members may use HHCCIA
           negate: false
           timeout: 30
           failure_result: false
