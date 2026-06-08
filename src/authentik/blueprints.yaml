@@ -314,9 +314,14 @@ data:
           field_key: attributes.service
           label: Servicio
           # Constrained single-choice picker: the physician selects exactly one
-          # of the two in-scope services. radio-button-group + a fixed choice set
-          # means only "IN" or "TI" can ever be submitted (no free text), so the
+          # of the in-scope services. radio-button-group + a fixed choice set means
+          # only "IN", "TI" or "in" can ever be submitted (no free text), so the
           # stored attribute always matches a real Datatech SER.
+          #
+          # CASE-SENSITIVE (Dirección 2026-06-08): "IN" and "in" are DISTINCT services
+          # (the core matches SER case-sensitively and the adapter ingests them
+          # separately — keep this list in sync with adapter SERVICES_IN_SCOPE). The
+          # value is stored/emitted verbatim, so the case here is load-bearing.
           type: radio-button-group
           required: true
           # placeholder holds the choice list, evaluated as an expression because
@@ -330,8 +335,10 @@ data:
           # attribute to a list/CSV later (the claim mapping accepts both).
           placeholder_expression: true
           placeholder: |
-            return ["IN", "TI"]
-          sub_text: "IN — Internación General · TI — Terapia Intensiva"
+            return ["IN", "TI", "in"]
+          # `in` (lowercase) is a DISTINCT service from `IN` — the case is load-bearing.
+          # The radio shows the bare SER code; sub_text carries the human name.
+          sub_text: "IN — Internación General · TI — Terapia Intensiva · in — Internación CS"
           order: 4
       # ----- stages -----
       - model: authentik_stages_invitation.invitationstage
