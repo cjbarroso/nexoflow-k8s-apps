@@ -30,12 +30,14 @@ data:
           expression: |
             return {"prf": user.attributes.get("prf")}
       # Custom scope mapping: emit the physician's authorized Service(s) (Datatech
-      # SER codes) as a `service` claim (always a list) plus two admin booleans:
+      # SER codes) as a `service` claim (always a list) plus three admin booleans:
       #   - `service_admin` (members of hhccia-superadmins): see/edit every service
       #     AND may approve.
       #   - `audit_admin` (members of hhccia-admin): see every record but may ONLY
       #     reject — never approve (a supervisor/auditor; reject has no effect on the
       #     origin clinical DB).
+      #   - `read_admin` (members of hhccia-readonly): see every record but STRICTLY
+      #     read-only — may neither approve nor reject (a global observer/auditor).
       # The core enforces visibility/editing from these claims. Sourced from
       # user.attributes.service (a list, or a comma-separated string from the signup
       # form). Rides the `profile` scope, so no front change is needed.
@@ -59,6 +61,7 @@ data:
                 "service": services,
                 "service_admin": ak_is_group_member(user, name="hhccia-superadmins"),
                 "audit_admin": ak_is_group_member(user, name="hhccia-admin"),
+                "read_admin": ak_is_group_member(user, name="hhccia-readonly"),
             }
       - model: authentik_providers_oauth2.oauth2provider
         id: hhccia-provider
@@ -191,6 +194,18 @@ data:
       - model: authentik_core.group
         identifiers:
           name: hhccia-admin
+        attrs:
+          is_superuser: false
+          parent: !KeyOf hhccia-users-group
+      # Role group for HHCCIA READ-ONLY admins (global observers). Members see EVERY
+      # record (no service filter, like a superadmin) but have NO write power — the
+      # `hhccia-service-claim` mapping emits read_admin = member-of this group, and the
+      # core blocks both approve AND reject (-> 403). As a CHILD of hhccia-users they
+      # satisfy the app-access binding. Distinct from hhccia-admin (service-scoped, may
+      # reject) and hhccia-superadmins (see-all + may approve).
+      - model: authentik_core.group
+        identifiers:
+          name: hhccia-readonly
         attrs:
           is_superuser: false
           parent: !KeyOf hhccia-users-group
