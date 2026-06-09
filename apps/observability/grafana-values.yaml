@@ -55,6 +55,16 @@ envValueFrom:
     secretKeyRef:
       name: gemini-cost-ro
       key: postgres-password
+  # Read-only Postgres password for the Authentik datasource (users + login
+  # events dashboard). Lives in the SealedSecret `authentik-grafana-ro` in this
+  # namespace (src/observability/authentik-grafana-ro-sealedsecret.yaml). The
+  # matching DB role `grafana_ro` on the Authentik Postgres has column-level
+  # SELECT (never the `password` hash) — see the "Authentik — Usuarios y accesos"
+  # dashboard notes / SIF. No GF_ prefix so Grafana doesn't map it onto grafana.ini.
+  AUTHENTIK_DB_PASSWORD:
+    secretKeyRef:
+      name: authentik-grafana-ro
+      key: db-password
   # Telegram bot token for the Gemini-cost alert contact point. REUSES the
   # existing `alertmanager-notify` Secret (same bot Alertmanager uses), so the
   # token is never duplicated — only referenced. chat_id is non-secret (in the
@@ -198,6 +208,28 @@ datasources:
           authenticationType: gce
           defaultProject: gen-lang-client-0005670378
           processingLocation: US
+      # Authentik identity DB (users + login events). Read-only role `grafana_ro`
+      # on the Authentik Postgres (plain postgres:16-alpine Deployment `authentik-pg`,
+      # ns authentik — NO TLS, so sslmode=disable, unlike the CNPG datasources).
+      # The role has column-level SELECT on authentik_core_user (everything EXCEPT
+      # the `password` hash) + SELECT on authentik_events_event. Password from the
+      # authentik-grafana-ro SealedSecret via env. Used by "Authentik — Usuarios y
+      # accesos". NOTE: the role + grants are applied by hand on the Authentik DB
+      # (Authentik owns its own migrations); recreate them if that DB is rebuilt.
+      - name: Authentik
+        uid: authentik
+        type: postgres
+        access: proxy
+        url: authentik-pg.authentik.svc.cluster.local:5432
+        database: authentik
+        user: grafana_ro
+        isDefault: false
+        jsonData:
+          database: authentik
+          sslmode: disable
+          postgresVersion: 1600
+        secureJsonData:
+          password: $__env{AUTHENTIK_DB_PASSWORD}
 
 # Auto-provision the "Node Exporter Full" dashboard (grafana.com id 1860) so node
 # CPU/memory/disk is visible out of the box. The chart's download-dashboards init
@@ -909,6 +941,121 @@ dashboards:
               "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
               "options": { "orientation": "horizontal", "showValue": "auto", "legend": { "showLegend": false }, "xTickLabelRotation": 0 },
               "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "hhcciacore" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(professional,'(sin profesional)') AS metric, count(*) AS value FROM clinical_record_report WHERE status = 'pending_review' AND coalesce(service_code,'(sin servicio)') IN (${service:sqlstring}) GROUP BY 1 ORDER BY 2 DESC LIMIT 10" } ]
+            }
+          ]
+        }
+    # Authentik identity dashboard: who's registered, when they were created, the
+    # last logins, and the physician metadata (attributes.prf / attributes.service).
+    # Reads the Authentik DB via the read-only `authentik` datasource (role
+    # grafana_ro, column-level SELECT — never the password hash). Login events come
+    # from authentik_events_event (action 'login' / 'login_failed'); users + PRF
+    # from authentik_core_user. Service accounts are excluded from the human lists.
+    authentik-users:
+      json: |
+        {
+          "uid": "authentik-users",
+          "title": "Authentik — Usuarios y accesos",
+          "tags": ["authentik", "usuarios", "auth"],
+          "schemaVersion": 39,
+          "refresh": "30m",
+          "time": { "from": "now-30d", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1, "type": "stat", "title": "Usuarios activos (ahora)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Cuentas humanas activas (excluye service accounts). Sin filtro de tiempo.",
+              "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM authentik_core_user WHERE is_active = true AND type NOT IN ('service_account','internal_service_account')" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Usuarios creados (rango)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM authentik_core_user WHERE $__timeFilter(date_joined)" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Logins (rango)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM authentik_events_event WHERE action = 'login' AND $__timeFilter(created)" } ]
+            },
+            {
+              "id": 4, "type": "stat", "title": "Usuarios que ingresaron (rango)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Cantidad de usuarios distintos con al menos un login en el rango.",
+              "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(DISTINCT coalesce(\"user\"->>'username', context->>'username')) AS value FROM authentik_events_event WHERE action = 'login' AND $__timeFilter(created)" } ]
+            },
+            {
+              "id": 5, "type": "stat", "title": "Activos sin PRF (ahora)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Usuarios humanos activos sin attributes.prf cargado — calidad de datos.",
+              "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM authentik_core_user WHERE is_active = true AND (attributes->>'prf') IS NULL AND type NOT IN ('service_account','internal_service_account')" } ]
+            },
+            {
+              "id": 6, "type": "stat", "title": "Logins fallidos (rango)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT count(*) AS value FROM authentik_events_event WHERE action = 'login_failed' AND $__timeFilter(created)" } ]
+            },
+            {
+              "id": 7, "type": "timeseries", "title": "Usuarios creados por día (date_joined)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 0 }, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "single" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(date_joined,'1d') AS time, count(*) AS \"Usuarios creados\" FROM authentik_core_user WHERE $__timeFilter(date_joined) GROUP BY 1 ORDER BY 1" } ]
+            },
+            {
+              "id": 8, "type": "timeseries", "title": "Logins por día (OK vs fallidos)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "bars", "fillOpacity": 70, "lineWidth": 1, "stacking": { "mode": "none" } } },
+                "overrides": [
+                  { "matcher": { "id": "byName", "options": "Logins OK" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+                  { "matcher": { "id": "byName", "options": "Fallidos" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+                ]
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "time_series", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT $__timeGroup(created,'1d') AS time, count(*) FILTER (WHERE action='login') AS \"Logins OK\", count(*) FILTER (WHERE action='login_failed') AS \"Fallidos\" FROM authentik_events_event WHERE action IN ('login','login_failed') AND $__timeFilter(created) GROUP BY 1 ORDER BY 1" } ]
+            },
+            {
+              "id": 9, "type": "table", "title": "Últimos logins (rango)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Eventos action='login' en el rango, más reciente primero. PRF unido desde el usuario.",
+              "gridPos": { "h": 10, "w": 24, "x": 0, "y": 12 },
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Fecha", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT e.created AS \"Fecha\", coalesce(e.\"user\"->>'username', e.context->>'username') AS \"Usuario\", u.attributes->>'prf' AS \"PRF\", u.attributes->>'service' AS \"Servicio\", e.client_ip AS \"IP\", e.app AS \"App\" FROM authentik_events_event e LEFT JOIN authentik_core_user u ON u.username = coalesce(e.\"user\"->>'username', e.context->>'username') WHERE e.action = 'login' AND $__timeFilter(e.created) ORDER BY e.created DESC LIMIT 200" } ]
+            },
+            {
+              "id": 10, "type": "table", "title": "Listado de usuarios (todos)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Todas las cuentas humanas (excluye service accounts), con metadata PRF / Servicio. Sin filtro de tiempo.",
+              "gridPos": { "h": 12, "w": 24, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Activo" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [ { "type": "value", "options": { "true": { "text": "Sí", "color": "green" }, "false": { "text": "No", "color": "red" } } } ] } ] } ] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Creado", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT u.username AS \"Usuario\", u.name AS \"Nombre\", u.email AS \"Email\", u.attributes->>'prf' AS \"PRF\", u.attributes->>'service' AS \"Servicio\", u.type AS \"Tipo\", u.is_active AS \"Activo\", u.date_joined AS \"Creado\", u.last_login AS \"Último login\" FROM authentik_core_user u WHERE u.type NOT IN ('service_account','internal_service_account') ORDER BY u.date_joined DESC" } ]
+            },
+            {
+              "id": 11, "type": "table", "title": "Usuarios activos sin PRF", "datasource": { "type": "postgres", "uid": "authentik" },
+              "description": "Calidad de datos: cuentas activas que no tienen attributes.prf cargado.",
+              "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Creado", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT u.username AS \"Usuario\", u.email AS \"Email\", u.date_joined AS \"Creado\", u.last_login AS \"Último login\" FROM authentik_core_user u WHERE u.is_active = true AND (u.attributes->>'prf') IS NULL AND u.type NOT IN ('service_account','internal_service_account') ORDER BY u.date_joined DESC" } ]
+            },
+            {
+              "id": 12, "type": "table", "title": "Usuarios por servicio (attributes.service)", "datasource": { "type": "postgres", "uid": "authentik" },
+              "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "Usuarios", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "postgres", "uid": "authentik" }, "format": "table", "editorMode": "code", "rawQuery": true, "rawSql": "SELECT coalesce(u.attributes->>'service','(sin servicio)') AS \"Servicio\", count(*) AS \"Usuarios\" FROM authentik_core_user u WHERE u.type NOT IN ('service_account','internal_service_account') GROUP BY 1 ORDER BY 2 DESC" } ]
             }
           ]
         }
