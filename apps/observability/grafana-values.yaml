@@ -1286,6 +1286,19 @@ ingress:
 grafana.ini:
   server:
     root_url: https://logs.cjbarroso.com
+  # Grafana 13 (security-01 hardening, 2026-02-24) stopped forwarding host env
+  # vars to backend plugin subprocesses — they now get only a GF_*/proxy/AWS/Azure
+  # allowlist. The BigQuery plugin (grafana-bigquery-datasource) needs
+  # GOOGLE_APPLICATION_CREDENTIALS to find the WIF external_account cred-config
+  # (/etc/gcp/cred-config.json) for keyless auth; without it ADC reports "could
+  # not find default credentials" and every BigQuery call goes out unauthenticated
+  # (cloudresourcemanager 401 CREDENTIALS_MISSING). forward_host_env_vars re-enables
+  # host-env forwarding for ONLY this plugin id. NOTE: it's all-or-nothing per
+  # plugin, so this plugin also receives the OIDC secret / DB passwords / Telegram
+  # token set as container env — acceptable for the Grafana-signed BQ plugin.
+  # See SIF "Grafana BigQuery via Workload Identity Federation".
+  plugins:
+    forward_host_env_vars: grafana-bigquery-datasource
   # Authentik OIDC. Browser-facing auth_url is the PUBLIC host; token/userinfo
   # use the in-cluster service to dodge the Cloudflare "Python/Go default
   # User-Agent → 403" quirk documented for hhccia-core. These three endpoints
