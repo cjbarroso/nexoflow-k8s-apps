@@ -1059,6 +1059,106 @@ dashboards:
             }
           ]
         }
+    # Gemini API — AUTHORITATIVE billed cost from the GCP Cloud Billing export in
+    # BigQuery (dataset all_billing_data_1, std export table). This is what Google
+    # actually charges, broken down by model + token kind, complementing the
+    # `gemini-cost` dashboard (which shows USD *derived* from the app's own token
+    # ledger in hhccia_core). Reads via the keyless WIF BigQuery datasource
+    # (uid=bigquery). The model + kind are parsed from sku.description (two SKU
+    # phrasings exist, e.g. "...token count gemini 3.5 flash text" and
+    # "Generate_content text input token count for gemini 3 pro short"); the regex
+    # captures "<ver> <pro|flash>[ lite][ preview]". `net` = cost + SUM(credits)
+    # (credits are currently zero on this billing account, so net==gross). Stats
+    # use BigQuery format=1 (Table); time series use format=0 (Timeseries) — note
+    # the BQ plugin's format is a NUMERIC enum, unlike the Postgres datasources'
+    # string "table"/"time_series". Month stats key off invoice.month (YYYYMM),
+    # which matches the actual invoice, not the time picker. The export table is
+    # tiny (each query hits BigQuery's 10MB minimum regardless), so the 1h refresh
+    # is negligible cost. Stable uid `gemini-billing`. See SIF "Grafana BigQuery
+    # via Workload Identity Federation".
+    gemini-billing:
+      json: |
+        {
+          "uid": "gemini-billing",
+          "title": "Gemini API — Costo facturado (GCP Billing)",
+          "tags": ["gemini", "cost", "billing", "hhccia"],
+          "schemaVersion": 39,
+          "refresh": "1h",
+          "time": { "from": "now-30d", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1, "type": "stat", "title": "Costo neto (rango)", "description": "Costo facturado por Google para el servicio 'Gemini API' en el rango seleccionado (cost + creditos).", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 4, "w": 5, "x": 0, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),4) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time)" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Costo hoy (UTC)", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 4, "w": 5, "x": 5, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),4) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND usage_start_time >= TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY)" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Mes en curso (factura)", "description": "Costo del mes calendario en curso segun invoice.month (coincide con la factura de Google).", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 4, "w": 5, "x": 10, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),4) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND invoice.month = FORMAT_DATE('%Y%m', CURRENT_DATE())" } ]
+            },
+            {
+              "id": 4, "type": "stat", "title": "Mes anterior (factura)", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 4, "w": 5, "x": 15, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),4) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND invoice.month = FORMAT_DATE('%Y%m', DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))" } ]
+            },
+            {
+              "id": 5, "type": "stat", "title": "Tokens facturados (rango)", "description": "Suma de usage.amount (conteo de tokens) para Gemini API en el rango.", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT ROUND(SUM(usage.amount),0) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time)" } ]
+            },
+            {
+              "id": 6, "type": "timeseries", "title": "Costo diario por modelo", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "min": 0, "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 80, "lineWidth": 0 } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 0, "rawSql": "SELECT $__timeGroup(usage_start_time,'1d') AS time, CONCAT('gemini ', REGEXP_EXTRACT(LOWER(sku.description), r'gemini[ _]?([0-9.]+ ?(?:pro|flash)(?: lite)?(?: preview)?)')) AS metric, ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),6) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time) GROUP BY time, metric ORDER BY time" } ]
+            },
+            {
+              "id": 7, "type": "timeseries", "title": "Costo diario por tipo de token (input / output / cached)", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+              "fieldConfig": {
+                "defaults": { "unit": "currencyUSD", "min": 0, "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 80, "lineWidth": 0 } },
+                "overrides": [
+                  { "matcher": { "id": "byName", "options": "output" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+                  { "matcher": { "id": "byName", "options": "input" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
+                  { "matcher": { "id": "byName", "options": "cached input" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+                ]
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 0, "rawSql": "SELECT $__timeGroup(usage_start_time,'1d') AS time, CASE WHEN LOWER(sku.description) LIKE '%cached%' THEN 'cached input' WHEN LOWER(sku.description) LIKE '%output%' THEN 'output' WHEN LOWER(sku.description) LIKE '%input%' THEN 'input' ELSE 'other' END AS metric, ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),6) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time) GROUP BY time, metric ORDER BY time" } ]
+            },
+            {
+              "id": 8, "type": "piechart", "title": "Costo por modelo (rango)", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 9, "w": 8, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true } },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT CONCAT('gemini ', REGEXP_EXTRACT(LOWER(sku.description), r'gemini[ _]?([0-9.]+ ?(?:pro|flash)(?: lite)?(?: preview)?)')) AS metric, ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),6) AS value FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time) GROUP BY metric ORDER BY value DESC" } ]
+            },
+            {
+              "id": 9, "type": "table", "title": "Detalle por modelo y tipo de token (rango)", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" },
+              "gridPos": { "h": 9, "w": 16, "x": 8, "y": 22 },
+              "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "costo_usd" }, "properties": [ { "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 } ] } ] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "costo_usd", "desc": true } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "grafana-bigquery-datasource", "uid": "bigquery" }, "rawQuery": true, "editorMode": "code", "location": "US", "project": "gen-lang-client-0005670378", "format": 1, "rawSql": "SELECT CONCAT('gemini ', REGEXP_EXTRACT(LOWER(sku.description), r'gemini[ _]?([0-9.]+ ?(?:pro|flash)(?: lite)?(?: preview)?)')) AS modelo, CASE WHEN LOWER(sku.description) LIKE '%cached%' THEN 'cached input' WHEN LOWER(sku.description) LIKE '%output%' THEN 'output' WHEN LOWER(sku.description) LIKE '%input%' THEN 'input' ELSE 'other' END AS tipo, ROUND(SUM(usage.amount),0) AS tokens, ROUND(SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c),0)),4) AS costo_usd FROM `gen-lang-client-0005670378.all_billing_data_1.gcp_billing_export_v1_01878F_0656E4_1C5C89` WHERE service.description='Gemini API' AND $__timeFilter(usage_start_time) GROUP BY modelo, tipo ORDER BY costo_usd DESC" } ]
+            }
+          ]
+        }
 
 # Grafana-managed alerting: notify on Gemini daily spend > 6 USD. Queries the
 # GeminiCost (Postgres) datasource — Prometheus can't see the cost, it lives only
