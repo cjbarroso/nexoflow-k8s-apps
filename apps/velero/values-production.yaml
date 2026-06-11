@@ -47,8 +47,11 @@ credentials:
 # running pods; only orphaned PVCs remain), so there's no live volume data to
 # FS-back-up there. Re-add it here if Gitea is ever redeployed.
 #
-# Volumes are FS-backed-up via the node-agent. The Authentik DB also gets a
-# logical `pg_dumpall` via the pre-hook below; Vaultwarden gets a consistent
+# Volumes are FS-backed-up via the node-agent. The Authentik DB moved to CNPG
+# (2026-06-11) with its own barman WAL archiving + base backups to R2 (PITR) —
+# the old `pg_dumpall` pre-hook is gone with the legacy Deployment, and the
+# CNPG data volumes are excluded from FS backup via pod annotation (set in
+# src/authentik/postgres-cnpg.yaml). Vaultwarden gets a consistent
 # `sqlite3 .backup` from its own CronJob (src/vaultwarden/) before this runs.
 schedules:
   stateful-daily:
@@ -59,25 +62,6 @@ schedules:
         - vaultwarden
       defaultVolumesToFsBackup: true
       ttl: 720h                     # 30 days
-      hooks:
-        resources:
-          # Logically-clean dump of the Authentik DB (SSO/OIDC config) just before
-          # the file-system backup, written onto the backed-up data PVC. Gives a
-          # restorable `pg_dumpall` alongside the crash-consistent data dir.
-          - name: authentik-pg-dump
-            includedNamespaces: [authentik]
-            labelSelector:
-              matchLabels:
-                app: authentik-pg
-            pre:
-              - exec:
-                  container: postgres
-                  command:
-                    - /bin/sh
-                    - -c
-                    - 'pg_dumpall -U "$POSTGRES_USER" -f /var/lib/postgresql/data/velero-dump.sql'
-                  onError: Continue   # never let a hook failure abort the FS backup
-                  timeout: 10m
 
 # CRDs are applied directly by Argo (helm rendered with --include-crds), so the
 # chart's CRD-upgrade hook-job stays off. The old docker.io/bitnami/kubectl:latest

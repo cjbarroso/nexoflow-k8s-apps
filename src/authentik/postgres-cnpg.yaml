@@ -1,0 +1,131 @@
+# SSO store — CloudNativePG operator-managed cluster (same pattern as
+# hhccia-core-db, see src/hhccia-v2/postgres.yaml).
+#
+# Migrated 2026-06-11 from the hand-rolled `postgres:16-alpine` Deployment
+# (postgres.yaml) to a CNPG `Cluster`: 1 primary + 1 hot standby (streaming
+# replication), continuous WAL archiving to R2 (PITR) + daily base backup.
+# Losing this database means losing every OIDC app, user, and flow — i.e.
+# nobody can log into anything — hence the same backup posture as the
+# business-critical hhccia DB.
+#
+# NOTE: single-node k3s — both instances land on the same node (anti-affinity
+# off). Replication + failover readiness, but the node remains the SPOF;
+# re-enable anti-affinity when a second node exists.
+#
+# Credentials (role `authentik`, db `authentik`) come from the sealed secret
+# `authentik-db-app` and match the PG_USER/PG_PASSWORD already in
+# `authentik-secrets`, so the app's env needs no credential change — only the
+# host changed (authentik-pg -> authentik-db-rw, see authentik.yaml).
+#
+# Bootstrap: one-shot logical import (pg_dump) of database `authentik` from
+# the legacy Deployment's service. The import snapshot is taken at Cluster
+# creation — authentik MUST be scaled to 0 at that moment or writes are lost
+# (see migration sequence in the 2026-06-11 commits).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: authentik-db
+  namespace: authentik
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  primaryUpdateStrategy: unsupervised
+  inheritedMetadata:
+    labels:
+      logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    annotations:
+      prometheus.io/scrape: "true"          # CNPG instance metrics (backup/WAL health)
+      prometheus.io/port: "9187"
+      prometheus.io/path: "/metrics"
+      # Velero FS-backs every pod volume in this namespace
+      # (defaultVolumesToFsBackup). Exclude the CNPG data volume: barman
+      # WAL archiving + base backups own DB recovery; a crash-consistent FS
+      # copy of pgdata is redundant and not a supported restore path.
+      backup.velero.io/backup-volumes-excludes: pgdata
+  affinity:
+    enablePodAntiAffinity: false            # single-node: both instances on homestation
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  # Continuous WAL archiving to R2 (barman-cloud plugin) → enables PITR.
+  # Base backups are taken by the ScheduledBackup below.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: authentik-db-store
+  bootstrap:
+    initdb:
+      database: authentik
+      owner: authentik
+      secret:
+        name: authentik-db-app
+      # One-shot logical import from the legacy Deployment at bootstrap.
+      import:
+        type: microservice
+        databases: [authentik]
+        source:
+          externalCluster: authentik-pg-legacy
+  externalClusters:
+    - name: authentik-pg-legacy
+      connectionParameters:
+        host: authentik-pg.authentik.svc.cluster.local
+        user: authentik
+        dbname: authentik
+      password:
+        name: authentik-db-app
+        key: password
+  storage:
+    size: 5Gi
+    storageClass: local-path
+---
+# Backups: R2 bucket `velero-backups`, prefix `cnpg/authentik-db` (same
+# bucket-scoped R2 token as the other backup systems). Credentials from the
+# sealed secret `authentik-db-backup-creds`.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: authentik-db-store
+  namespace: authentik
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://velero-backups/cnpg/authentik-db
+    endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: authentik-db-backup-creds
+        key: accessKeyId
+      secretAccessKey:
+        name: authentik-db-backup-creds
+        key: secretAccessKey
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: authentik-db-daily
+  namespace: authentik
+spec:
+  # 6-field CNPG cron (sec min hour dom mon dow): 03:30:00 daily — staggered
+  # after Velero (02:00) and the hhccia base backup (03:00).
+  schedule: "0 30 3 * * *"
+  backupOwnerReference: self
+  immediate: true            # take one base backup as soon as this is created
+  cluster:
+    name: authentik-db
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+#
+# ── Restore runbook ──────────────────────────────────────────────────────────
+# CNPG restores by bootstrapping a NEW cluster from the object store (not
+# in-place). Same procedure as hhccia-core-db — see the runbook at the bottom
+# of src/hhccia-v2/hhccia-core-db-backup.yaml, substituting:
+#   ObjectStore/serverName: authentik-db-store / authentik-db
+#   then point AUTHENTIK_POSTGRESQL__HOST at the recovered cluster's -rw svc.
+# Verify backups exist:  kubectl -n authentik get backups.postgresql.cnpg.io
+# Inspect object store:  objects under s3://velero-backups/cnpg/authentik-db/
