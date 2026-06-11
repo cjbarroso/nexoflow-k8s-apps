@@ -87,6 +87,26 @@ alloy:
       // ---- Strip the CRI envelope, then write to Loki ----
       loki.process "pod_logs" {
         stage.cri {}
+
+        // PHI minimization: the hhccia core/adapter log clinical record
+        // identifiers (HCL = historia clínica, PAC = patient id) in their
+        // ingestion lines. Mask the values at collection so Loki (30d
+        // retention, Grafana-visible) holds de-identified logs. Patterns
+        // cover python-dict repr ('HCL': '123') and JSON ("HCL": "123").
+        // The numbers stay in the pod's live stdout (kubectl logs) for
+        // debugging at the source.
+        stage.match {
+          selector = "{namespace=\"hhccia-v2\"}"
+          stage.replace {
+            expression = "['\"]HCL['\"]:\\s*['\"]?(\\d+)"
+            replace    = "***"
+          }
+          stage.replace {
+            expression = "['\"]PAC['\"]:\\s*['\"]?(\\d+)"
+            replace    = "***"
+          }
+        }
+
         forward_to = [loki.write.default.receiver]
       }
 

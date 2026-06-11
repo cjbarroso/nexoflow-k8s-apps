@@ -10,7 +10,9 @@ metadata:
   labels:
     app: hhccia-front
 spec:
-  replicas: 1
+  # 2 replicas: stateless static server — rolling updates with zero downtime
+  # even on the single node (one pod always serving while the other rolls).
+  replicas: 2
   selector:
     matchLabels:
       app: hhccia-front
@@ -79,3 +81,16 @@ spec:
       port: 8080
       targetPort: 8080
   type: ClusterIP
+---
+# Inert until a second node exists (voluntary evictions on the only node take
+# the whole cluster anyway), but correct from day one of multi-node.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hhccia-front
+  namespace: hhccia-v2
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: hhccia-front

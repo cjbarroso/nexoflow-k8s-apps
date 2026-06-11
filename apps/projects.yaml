@@ -1,3 +1,13 @@
+# Argo CD projects. Tightened 2026-06-11: each project may only deploy into
+# its own namespaces, and only the app projects' actually-needed cluster-scoped
+# kinds are whitelisted (previously every project allowed */* everywhere — any
+# app could have written ClusterRoleBindings or CRDs anywhere).
+#
+# If a sync fails with "resource ... is not permitted in project ...", a chart
+# grew a new cluster-scoped kind: add it here deliberately.
+#
+# Note: the built-in `default` project (used by bootstrap/root-app.yaml) is not
+# defined here and keeps Argo's defaults.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -8,13 +18,30 @@ metadata:
 spec:
   description: System infrastructure and support services
   sourceRepos:
-    - '*'
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    # Helm repos used by support apps (velero, observability stack, cert-manager):
+    - 'https://vmware-tanzu.github.io/helm-charts'
+    - 'https://prometheus-community.github.io/helm-charts'
+    - 'https://grafana.github.io/helm-charts'            # alloy
+    - 'https://grafana-community.github.io/helm-charts'  # loki + grafana (community fork)
+    - 'https://charts.jetstack.io'
   destinations:
-    - namespace: '*'
-      server: '*'
+    - { server: 'https://kubernetes.default.svc', namespace: argocd }
+    - { server: 'https://kubernetes.default.svc', namespace: authentik }
+    - { server: 'https://kubernetes.default.svc', namespace: cert-manager }
+    - { server: 'https://kubernetes.default.svc', namespace: cnpg-system }
+    - { server: 'https://kubernetes.default.svc', namespace: observability }
+    - { server: 'https://kubernetes.default.svc', namespace: velero }
+  # Support apps legitimately install CRDs/RBAC/webhooks (cert-manager, velero,
+  # barman-cloud, prometheus/alloy ClusterRoles).
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - { group: '', kind: Namespace }
+    - { group: 'apiextensions.k8s.io', kind: CustomResourceDefinition }
+    - { group: 'rbac.authorization.k8s.io', kind: ClusterRole }
+    - { group: 'rbac.authorization.k8s.io', kind: ClusterRoleBinding }
+    - { group: 'admissionregistration.k8s.io', kind: MutatingWebhookConfiguration }
+    - { group: 'admissionregistration.k8s.io', kind: ValidatingWebhookConfiguration }
+    - { group: 'apiregistration.k8s.io', kind: APIService }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -26,31 +53,18 @@ metadata:
 spec:
   description: Kubernetes Operators
   sourceRepos:
-    - '*'
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    - 'https://cloudnative-pg.github.io/charts'
+    - 'https://bitnami-labs.github.io/sealed-secrets'
+    - 'https://helm.strrl.dev'
   destinations:
-    - namespace: '*'
-      server: '*'
+    - { server: 'https://kubernetes.default.svc', namespace: cloudflared }
+    - { server: 'https://kubernetes.default.svc', namespace: cnpg-system }
+    - { server: 'https://kubernetes.default.svc', namespace: kube-system }
+  # Operators install the full cluster-scoped surface (CRDs, webhooks,
+  # IngressClass, aggregated APIs) — keep this one broad.
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
----
-apiVersion: argoproj.io/v1alpha1
-kind: AppProject
-metadata:
-  name: waha
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  description: Waha applications
-  sourceRepos:
-    - '*'
-  destinations:
-    - namespace: '*'
-      server: '*'
-  clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - { group: '*', kind: '*' }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -62,13 +76,12 @@ metadata:
 spec:
   description: HHCCIA applications
   sourceRepos:
-    - '*'
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
   destinations:
-    - namespace: '*'
-      server: '*'
+    - { server: 'https://kubernetes.default.svc', namespace: hhccia-v2 }
+  # Namespace only (CreateNamespace + the PSS-labelled Namespace manifest).
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - { group: '', kind: Namespace }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -80,13 +93,12 @@ metadata:
 spec:
   description: Personal applications
   sourceRepos:
-    - '*'
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    - 'https://charts.gabe565.com'
   destinations:
-    - namespace: '*'
-      server: '*'
+    - { server: 'https://kubernetes.default.svc', namespace: vaultwarden }
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - { group: '', kind: Namespace }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -98,10 +110,8 @@ metadata:
 spec:
   description: Hermes Agent
   sourceRepos:
-    - '*'
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
   destinations:
-    - namespace: '*'
-      server: '*'
+    - { server: 'https://kubernetes.default.svc', namespace: hermes }
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - { group: '', kind: Namespace }
