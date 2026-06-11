@@ -1,0 +1,101 @@
+# Network segmentation for the authentik namespace (SSO — losing or
+# compromising this is a skeleton key to everything else).
+# Default-deny ingress + the actual flows. Egress unrestricted for now.
+# See src/hhccia-v2/networkpolicies.yaml for the pattern notes (kube-router
+# enforcement, kubelet probe source, PSS label rationale).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: authentik
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# server/worker -> authentik-db (and the legacy authentik-pg during soak),
+# CNPG replication between instances.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: authentik
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: authentik
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+# Who may reach the authentik server (port 9000):
+# - cloudflared: public hostnames auth.*, hermes.* (embedded outpost)
+# - hhccia-v2: hhccia-core fetches JWKS in-cluster
+# - observability: Grafana's server-side OIDC token exchange
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-authentik-server-clients
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels: { app: authentik-server }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cloudflared }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: hhccia-v2 }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 9000 }
+---
+# Prometheus scrapes the CNPG instance metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: authentik
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 9187 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-operator
+  namespace: authentik
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: authentik-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cnpg-system }
+      ports:
+        - { protocol: TCP, port: 8000 }

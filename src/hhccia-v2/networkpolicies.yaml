@@ -1,0 +1,109 @@
+# Network segmentation for the hhccia-v2 namespace (clinical data lives here —
+# default-deny ingress, then only the flows the pipeline actually uses).
+# Egress is intentionally unrestricted for now (DNS, Gemini API, MSSQL on the
+# LAN, R2); tightening egress is a follow-up once flows are inventoried.
+#
+# k3s enforces NetworkPolicy via its embedded kube-router controller.
+# Kubelet probes arrive from the CNI bridge (10.42.0.1 on this single node) —
+# allowed explicitly below; add the per-node bridge IP if nodes are added.
+#
+# Namespace also carries Pod Security Standards labels: enforce=baseline
+# (no privileged/hostPath/hostNetwork pods), warn+audit=restricted so future
+# violations of the stricter profile surface without blocking.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hhccia-v2
+  annotations:
+    # Never let an Argo prune delete the namespace (and everything in it).
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: hhccia-v2
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Pods within the namespace talk freely: core/adapter -> nats:4222,
+# exporter -> nats:8222, core -> db:5432, CNPG primary <-> standby replication.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: hhccia-v2
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# Kubelet readiness/liveness probes (seen by pods as the CNI bridge IP).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: hhccia-v2
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+# Cloudflare tunnel connectors terminate the public hostnames and connect
+# straight to the web pods — and only to them (a compromised connector must
+# not reach NATS or Postgres directly).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-to-web
+  namespace: hhccia-v2
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [hhccia-core, hhccia-front] }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cloudflared }
+      ports:
+        - { protocol: TCP, port: 8000 }
+        - { protocol: TCP, port: 8080 }
+---
+# Prometheus scrapes nats-exporter (7777) and the CNPG instance metrics (9187).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: hhccia-v2
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 7777 }
+        - { protocol: TCP, port: 9187 }
+---
+# The CNPG operator manages the database pods via their status port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-operator
+  namespace: hhccia-v2
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: hhccia-core-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cnpg-system }
+      ports:
+        - { protocol: TCP, port: 8000 }

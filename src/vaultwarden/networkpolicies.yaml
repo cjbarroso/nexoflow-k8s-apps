@@ -1,0 +1,60 @@
+# Network segmentation for the vaultwarden namespace (password vault).
+# Applied by the vaultwarden-backup Argo app (this directory's app).
+# Only the Cloudflare tunnel may reach the web port; backup CronJob shares the
+# PVC, no network ingress needed. Egress unrestricted (SMTP, icons).
+# See src/hhccia-v2/networkpolicies.yaml for pattern notes.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vaultwarden
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-to-web
+  namespace: vaultwarden
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cloudflared }
+      ports:
+        - { protocol: TCP, port: 8080 }
