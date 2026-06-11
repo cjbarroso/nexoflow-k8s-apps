@@ -7,12 +7,15 @@ name: tofu — healthchecksio
 # Requires repo secret HEALTHCHECKSIO_API_KEY (a healthchecks.io project API key,
 # read-write). The provider reads it from the env var of the same name.
 #
-# STATE: this module uses local state. CI has no persistent disk, so state is
-# carried between runs via the Actions cache (rolling key below). Without it, a
-# fresh `apply` would create a DUPLICATE check every time (checks aren't unique by
-# name). The `concurrency` group serializes runs so they can't race the cache.
-# For anything beyond this single check, switch to a real remote backend — see
-# the commented block in tofu/healthchecksio/versions.tf and the module README.
+# STATE: remote backend in Cloudflare R2 (s3://velero-backups/tofu/), see
+# versions.tf. Requires repo secrets R2_TOFU_ACCESS_KEY_ID and
+# R2_TOFU_SECRET_ACCESS_KEY (bucket-scoped R2 token).
+# MIGRATION (2026-06-11, remove after one green apply): the cache-restore step
+# below resurrects the old Actions-cache local state, and `tofu init
+# -migrate-state -force-copy` pushes it into R2. Once R2 holds the state,
+# delete the cache step and the migrate flags.
+# The `concurrency` group serializes runs (R2 backend has no state locking on
+# tofu 1.9).
 
 on:
   push:
@@ -45,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HEALTHCHECKSIO_API_KEY: ${{ secrets.HEALTHCHECKSIO_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_TOFU_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_TOFU_SECRET_ACCESS_KEY }}
       # Decide the command: manual input wins; pushes apply; PRs plan.
       TOFU_CMD: >-
         ${{ github.event_name == 'workflow_dispatch' && inputs.action
@@ -80,8 +85,8 @@ jobs:
       - name: tofu fmt (check)
         run: tofu fmt -check -recursive
 
-      - name: tofu init
-        run: tofu init -input=false
+      - name: tofu init (one-time state migration cache->R2, see header)
+        run: tofu init -input=false -migrate-state -force-copy
 
       - name: tofu validate
         run: tofu validate

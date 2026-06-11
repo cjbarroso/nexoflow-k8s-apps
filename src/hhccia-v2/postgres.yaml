@@ -33,6 +33,12 @@ spec:
       prometheus.io/path: "/metrics"
   affinity:
     enablePodAntiAffinity: false            # single-node: allow both instances on the same node
+  # Was BestEffort (first eviction victim under node pressure) — same sizing as
+  # authentik-db. Applying this rolls the instances one at a time (standby
+  # first, then a switchover): brief connection blips for the core API.
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
   # Continuous WAL archiving to R2 (barman-cloud plugin) → enables PITR.
   # Base backups are taken by the ScheduledBackup in hhccia-core-db-backup.yaml.
   plugins:
