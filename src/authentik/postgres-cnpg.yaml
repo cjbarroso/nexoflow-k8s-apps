@@ -58,6 +58,13 @@ spec:
     initdb:
       database: authentik
       owner: authentik
+      # Declared explicitly (= the CNPG webhook defaults): this app syncs with
+      # ServerSideApply, so webhook-defaulted fields get attributed to Argo's
+      # field manager — if they're absent from Git, Argo wants to remove them
+      # and the app shows permanently OutOfSync.
+      encoding: UTF8
+      localeCollate: C
+      localeCType: C
       secret:
         name: authentik-db-app
       # One-shot logical import from the legacy Deployment at bootstrap.
