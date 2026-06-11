@@ -29,7 +29,7 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:0d2052b09b4494231d20c3a032fdf5c270460acc
+          image: ghcr.io/irupe-consultores/hhccia-core:49e1105b5e8ee14820288c27d361df90d5d45661
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
@@ -61,8 +61,11 @@ spec:
             # (the public URL); JWKS is just how we fetch the signing keys.
             - name: AUTHENTIK_JWKS_URL
               value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
+          # Readiness verifies the dependencies (Postgres SELECT 1 + NATS
+          # connected): a pod that boots before them, or loses them, is pulled
+          # from the Service instead of answering 500s.
           readinessProbe:
-            httpGet: { path: /health, port: 8000 }
+            httpGet: { path: /health/ready, port: 8000 }
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
