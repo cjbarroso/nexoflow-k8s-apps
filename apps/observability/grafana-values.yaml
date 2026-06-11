@@ -573,6 +573,208 @@ dashboards:
             }
           ]
         }
+    # APP-level metrics of hhccia-core (the service's own /metrics on :9100,
+    # scraped via pod annotations) — complements pipeline-backlog/-consumers,
+    # which watch NATS from the OUTSIDE via the nats-exporter. Here: dispatch
+    # outcomes incl. dead-letters (backs the HHCCIACoreDeadLetters alert, which
+    # deep-links to this uid), Gemini call outcomes/latency/derived USD, API
+    # latency by route template, and DB pool saturation. NB:
+    # hhccia_db_pool_overflow is SQLAlchemy's raw counter and idles at
+    # -pool_size — the panel clamps it at 0 so only real overflow (>0) shows.
+    core-app-metrics:
+      json: |
+        {
+          "uid": "core-app-metrics",
+          "title": "MedAudit — Métricas del core (app)",
+          "tags": ["hhccia", "core", "app"],
+          "schemaVersion": 39,
+          "refresh": "30s",
+          "time": { "from": "now-24h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 1,
+              "type": "stat",
+              "title": "NATS conectado (publish)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "decimals": 0,
+                  "mappings": [
+                    { "type": "value", "options": { "1": { "text": "conectado", "color": "green" }, "0": { "text": "DESCONECTADO", "color": "red" } } }
+                  ],
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "green", "value": 1 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "max(hhccia_bus_connected)" }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "stat",
+              "title": "Dead-letters 24h — alerta > 0",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short", "decimals": 0,
+                  "thresholds": { "mode": "absolute", "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 1 }
+                  ] }
+                },
+                "overrides": []
+              },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "sum(increase(hhccia_bus_messages_total{outcome=~\"dead_letter|permanent|non_json\"}[24h])) or vector(0)" }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "stat",
+              "title": "Costo Gemini 24h (USD derivado)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 3 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "sum(increase(hhccia_gemini_cost_usd_total[24h])) or vector(0)" }
+              ]
+            },
+            {
+              "id": 4,
+              "type": "stat",
+              "title": "API p95 (1h)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+              "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "histogram_quantile(0.95, sum by (le) (rate(hhccia_http_request_seconds_bucket[1h])))" }
+              ]
+            },
+            {
+              "id": 5,
+              "type": "timeseries",
+              "title": "Bus: mensajes por subject/outcome (15m) — dead_letter/permanent deben ser 0",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 15 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{subject}} · {{outcome}}",
+                  "expr": "sum by (subject, outcome) (increase(hhccia_bus_messages_total[15m]))" }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "timeseries",
+              "title": "Gemini: llamadas por outcome (15m) — permanent = billing/quota",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 15 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{outcome}}",
+                  "expr": "sum by (outcome) (increase(hhccia_gemini_calls_total[15m]))" }
+              ]
+            },
+            {
+              "id": 7,
+              "type": "timeseries",
+              "title": "Gemini: latencia p50 / p95 por kind (30m)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+              "fieldConfig": {
+                "defaults": { "unit": "s", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "p50 · {{kind}}",
+                  "expr": "histogram_quantile(0.5, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket[30m])))" },
+                { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "p95 · {{kind}}",
+                  "expr": "histogram_quantile(0.95, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket[30m])))" }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "timeseries",
+              "title": "Gemini: costo por kind (USD/h, derivado)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 12, "y": 14 },
+              "fieldConfig": {
+                "defaults": { "unit": "currencyUSD", "min": 0, "decimals": 4,
+                  "custom": { "drawStyle": "line", "fillOpacity": 15 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{kind}}",
+                  "expr": "sum by (kind) (increase(hhccia_gemini_cost_usd_total[1h]))" }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "timeseries",
+              "title": "API: p95 por ruta (15m)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 0, "y": 23 },
+              "fieldConfig": {
+                "defaults": { "unit": "s", "min": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{route}}",
+                  "expr": "histogram_quantile(0.95, sum by (le, route) (rate(hhccia_http_request_seconds_bucket[15m])))" }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "timeseries",
+              "title": "DB: pool de conexiones (en uso vs tamaño)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 12, "x": 12, "y": 23 },
+              "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0, "decimals": 0,
+                  "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+                "overrides": []
+              },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "en uso",
+                  "expr": "max(hhccia_db_pool_in_use)" },
+                { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "tamaño del pool",
+                  "expr": "max(hhccia_db_pool_size)" },
+                { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "overflow (>0 = saturado)",
+                  "expr": "clamp_min(max(hhccia_db_pool_overflow), 0)" }
+              ]
+            }
+          ]
+        }
     # Curated log view for the CNPG backup alerts. Stable uid `cnpg-backup-logs`
     # so the Alertmanager Telegram messages deep-link to it via the alerts'
     # `logs` annotation (https://logs.cjbarroso.com/d/cnpg-backup-logs). Panels

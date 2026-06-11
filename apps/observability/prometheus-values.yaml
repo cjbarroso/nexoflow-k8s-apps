@@ -163,7 +163,7 @@ serverFiles:
             annotations:
               summary: "MedAudit core dead-lettered messages ({{ $labels.subject }}, {{ $labels.outcome }})"
               description: "El core parqueó mensajes en {{ $labels.subject }}.deadletter (outcome={{ $labels.outcome }}) en los últimos 15m. permanent = 4xx de Gemini (billing/quota) — revisar facturación; dead_letter = reintentos agotados; non_json = payload corrupto. Los registros afectados vuelven solos vía el re-feed del adapter una vez resuelta la causa."
-              logs: "https://logs.cjbarroso.com/explore"
+              dashboard: "https://logs.cjbarroso.com/d/core-app-metrics"
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
