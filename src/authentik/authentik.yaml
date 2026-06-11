@@ -16,7 +16,7 @@ metadata:
   labels:
     app: authentik-server
 spec:
-  replicas: 1
+  replicas: 0  # MIGRATION: scaled down for CNPG import — restored in the next commit
   selector:
     matchLabels:
       app: authentik-server
@@ -51,7 +51,7 @@ spec:
             - secretRef: { name: authentik-secrets }
           env:
             - name: AUTHENTIK_POSTGRESQL__HOST
-              value: authentik-pg
+              value: authentik-db-rw   # CNPG cluster primary (was authentik-pg, legacy Deployment)
             - name: AUTHENTIK_POSTGRESQL__NAME
               value: authentik
             - name: AUTHENTIK_POSTGRESQL__USER
@@ -93,7 +93,7 @@ metadata:
   labels:
     app: authentik-worker
 spec:
-  replicas: 1
+  replicas: 0  # MIGRATION: scaled down for CNPG import — restored in the next commit
   selector:
     matchLabels:
       app: authentik-worker
@@ -118,7 +118,7 @@ spec:
             - secretRef: { name: authentik-secrets }
           env:
             - name: AUTHENTIK_POSTGRESQL__HOST
-              value: authentik-pg
+              value: authentik-db-rw   # CNPG cluster primary (was authentik-pg, legacy Deployment)
             - name: AUTHENTIK_POSTGRESQL__NAME
               value: authentik
             - name: AUTHENTIK_POSTGRESQL__USER
