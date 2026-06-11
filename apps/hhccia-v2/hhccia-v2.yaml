@@ -19,9 +19,9 @@ spec:
   syncPolicy:
     # v2 is the only live stack now — automated like every other app in this repo.
     # selfHeal reverts manual drift; prune removes resources dropped from Git.
-    # Note: deployments pin :latest, so Argo won't auto-deploy new images (the
-    # manifest digest is unchanged) — a code rollout still needs a
-    # `kubectl -n hhccia-v2 rollout restart`.
+    # Deployments pin immutable :<git-sha> image tags — a code rollout is a
+    # tag bump in src/hhccia-v2/*.yaml (see `task images:latest`); Argo rolls
+    # the workload on sync.
     automated:
       prune: true
       selfHeal: true

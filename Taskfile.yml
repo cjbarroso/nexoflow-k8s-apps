@@ -48,34 +48,17 @@ tasks:
     cmds:
       - 'argocd app diff {{.APP}}'
 
-  # --- HHCCIA v2 rollouts ----------------------------------------------- #
-  rollout:core:
-    desc: Force a pull of latest for the AI core (no manifest digest changed)
+  # --- HHCCIA v2 image bumps -------------------------------------------- #
+  # Images are pinned to immutable git-SHA tags in src/hhccia-v2/*.yaml.
+  # Deploy flow: get the SHA below, edit the manifest, commit — Argo rolls it.
+  # (The old rollout:* tasks are gone: with pinned tags a restart pulls the
+  # same image; deploys happen through Git now.)
+  images:latest:
+    desc: Show the git SHA of the last successful image publish for each hhccia repo
     cmds:
-      - 'kubectl -n {{.V2_NAMESPACE}} rollout restart deploy/hhccia-core'
-
-  rollout:adapter:
-    desc: Force a pull of latest for the Datatech adapter
-    cmds:
-      - 'kubectl -n {{.V2_NAMESPACE}} rollout restart deploy/hhccia-adapter-datatech'
-
-  rollout:both:
-    desc: Restart core + adapter (typical post-CI-publish step)
-    cmds:
-      - task: rollout:core
-      - task: rollout:adapter
-
-  rollout:front:
-    desc: Force a pull of latest for the v2 frontend
-    cmds:
-      - 'kubectl -n {{.V2_NAMESPACE}} rollout restart deploy/hhccia-front'
-
-  rollout:all:
-    desc: Restart core + adapter + front (full v2 namespace)
-    cmds:
-      - task: rollout:core
-      - task: rollout:adapter
-      - task: rollout:front
+      - 'gh api "repos/irupe-consultores/hhccia-core/actions/workflows/publish.yml/runs?branch=main&status=success&per_page=1" --jq "\"hhccia-core:             \" + .workflow_runs[0].head_sha + \"  (\" + .workflow_runs[0].updated_at + \")\""'
+      - 'gh api "repos/irupe-consultores/hhccia-front/actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=1" --jq "\"hhccia-front:            \" + .workflow_runs[0].head_sha + \"  (\" + .workflow_runs[0].updated_at + \")\""'
+      - 'gh api "repos/irupe-consultores/hhccia-adapter-datatech/actions/workflows/publish.yml/runs?branch=main&status=success&per_page=1" --jq "\"hhccia-adapter-datatech: \" + .workflow_runs[0].head_sha + \"  (\" + .workflow_runs[0].updated_at + \")\""'
 
   pods:
     desc: List pods in the v2 namespace

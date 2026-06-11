@@ -5,8 +5,8 @@ Kubernetes manifests for the HHCCIA **v2** architecture (source-agnostic AI core
 **separate from** the live `hhccia` namespace so it doesn't affect the current
 system.
 
-Argo `Application`: `apps/hhccia-v2/hhccia-v2.yaml` (project `hhccia`, **manual
-sync** while in testing).
+Argo `Application`: `apps/hhccia-v2/hhccia-v2.yaml` (project `hhccia`,
+automated sync with prune + selfHeal — v2 is the live stack).
 
 ## Components
 
@@ -28,30 +28,26 @@ sync** while in testing).
 
 1. Provide the real `hhccia-core-secrets` Secret (sealed-secrets/vault), keeping
    `PG_PASSWORD` consistent with `DATABASE_URL`.
-2. Build & push the two images — CI for `hhccia-core` and
-   `hhccia-adapter-datatech` must publish to
-   `ghcr.io/irupe-consultores/<name>:latest` (mirror the existing front workflow).
+2. Build & push the images — CI for each app repo publishes
+   `ghcr.io/irupe-consultores/<name>:latest` + `:<git-sha>` on green tests
+   (the manifests here pin the `:<git-sha>` tag).
 3. Keep the adapter in `SOURCE_MODE=sample` until the v3 query + MSSQL
    connectivity are wired; then flip to `datatech`.
 
-Nothing here auto-deploys: the root app tracks `master`, and this Application
-uses manual sync.
+## Deploying a freshly built image
 
-## Pulling a freshly built image
+CI in `hhccia-core`, `hhccia-front` and `hhccia-adapter-datatech` runs the test
+suite and, on green, pushes images tagged `:latest` + `:<git-sha>` to GHCR.
 
-CI in `hhccia-core` and `hhccia-adapter-datatech` (`.github/workflows/publish.yml`)
-runs the test suite and, on green, pushes new images to:
+These manifests pin the **`:<git-sha>` tag** — immutable and traceable to the
+exact source commit, so Git is the single record of what runs in the cluster.
+To deploy a new build:
 
-- `ghcr.io/irupe-consultores/hhccia-core:latest` + `:<sha>`
-- `ghcr.io/irupe-consultores/hhccia-adapter-datatech:latest` + `:<sha>`
+1. Get the SHA of the last successful publish run: `task images:latest`
+   (or copy the commit SHA from the green Actions run in the app repo).
+2. Update the `image:` tag in the matching manifest in this directory.
+3. Commit & push to `master` — Argo CD syncs and rolls the Deployment.
 
-These manifests pin `:latest` with `imagePullPolicy: Always`, **so Argo CD will
-not roll the workload by itself** — the manifest digest in Git didn't change.
-After CI publishes, force the rollout:
-
-```bash
-kubectl -n hhccia-v2 rollout restart deploy/hhccia-core
-kubectl -n hhccia-v2 rollout restart deploy/hhccia-adapter-datatech
-```
-
-(Same pattern as the live `hhccia` app — see the root project notes.)
+Rollback is `git revert` of the bump commit. Do **not** go back to `:latest`:
+Argo can't detect image-only changes, deploys would need out-of-band
+`rollout restart`, and the running version would not be auditable from Git.

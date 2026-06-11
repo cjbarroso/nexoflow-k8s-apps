@@ -30,8 +30,10 @@ spec:
         - name: github-auth
       containers:
         - name: adapter
-          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:latest
-          imagePullPolicy: Always
+          # Pinned to the git SHA of the last successful publish run (main).
+          # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
+          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:977c82387bd3feba54d1275c90691d9f973b7789
+          imagePullPolicy: IfNotPresent
           env:
             - name: NATS_URL
               value: "nats://nats:4222"

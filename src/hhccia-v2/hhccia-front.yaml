@@ -25,8 +25,10 @@ spec:
         - name: github-auth
       containers:
         - name: hhccia-front
-          image: ghcr.io/irupe-consultores/hhccia-front:latest
-          imagePullPolicy: Always
+          # Pinned to the git SHA of the last successful publish run (main).
+          # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
+          image: ghcr.io/irupe-consultores/hhccia-front:5fdceaf965d414de25e8593028480e5e8b431b51
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http

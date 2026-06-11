@@ -41,8 +41,10 @@ spec:
             claimName: hermes-data
       containers:
         - name: hermes
-          image: nousresearch/hermes-agent:latest
-          imagePullPolicy: Always
+          # Pinned to the latest upstream release tag + manifest digest (immutable).
+          # To upgrade: pick a newer vYYYY.M.D tag from Docker Hub, update tag AND digest.
+          image: nousresearch/hermes-agent:v2026.6.5@sha256:9ad3b04ec916ea2c2da22358fd43b024c788d74073210695af88bfc2e63869b4
+          imagePullPolicy: IfNotPresent
           args: ["gateway", "run"]
           env:
             # Run the bundled web dashboard alongside the gateway, bound on all

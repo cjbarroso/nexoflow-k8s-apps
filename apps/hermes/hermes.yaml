@@ -18,9 +18,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: hermes
   syncPolicy:
-    # Note: the deployment pins :latest, so Argo won't auto-deploy a new image
-    # (the manifest digest is unchanged) — a refresh needs a
-    # `kubectl -n hermes rollout restart deploy/hermes`.
+    # The deployment pins an upstream release tag + digest — upgrades are a
+    # tag/digest bump in src/hermes/deployment.yaml; Argo rolls it on sync.
     automated:
       prune: true
       selfHeal: true
