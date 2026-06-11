@@ -65,6 +65,23 @@ spec:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
+          # Liveness restarts a wedged process. /health is a cheap in-process
+          # check; failureThreshold*period = 60s of grace before the kill, so a
+          # slow Gemini call can't trigger a restart (probes have their own
+          # connection, but keep thresholds conservative on a Recreate deploy).
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Sized from observed usage (~165Mi / ~0 CPU idle, 2026-06-11) with
+          # headroom for document batches + Gemini calls. Guaranteed-ish QoS:
+          # without requests this is the first pod evicted under node pressure.
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
 ---
 apiVersion: v1
 kind: Service

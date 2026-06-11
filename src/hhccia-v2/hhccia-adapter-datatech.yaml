@@ -73,3 +73,13 @@ spec:
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
             - name: MSSQL_PASSWORD
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_PASSWORD } }
+          # No probes: event-driven, no HTTP server (adapter/main.py). A crash
+          # exits the process and kubelet restarts the pod. A *stuck* poll loop
+          # is currently only visible via the nats-exporter backlog metrics.
+          # TODO(hhccia-adapter-datatech repo): expose a heartbeat (touch a file
+          # per poll cycle) so an exec liveness probe can catch a wedged loop.
+          # Sized from observed usage (~38Mi / ~0 CPU idle, 2026-06-11); polls
+          # are small batches (DISCOVERY_LIMIT=10) so spikes are modest.
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }

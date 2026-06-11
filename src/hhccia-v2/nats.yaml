@@ -43,6 +43,12 @@ spec:
             httpGet: { path: /healthz, port: 8222 }
             initialDelaySeconds: 10
             periodSeconds: 20
+          # Sized from observed usage (~35Mi / ~0 CPU, 2026-06-11). The event
+          # bus must never be the eviction victim — requests guarantee its slot;
+          # the memory limit caps JetStream cache growth well below node limits.
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 512Mi }
   volumeClaimTemplates:
     - metadata:
         name: js
