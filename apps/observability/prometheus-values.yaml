@@ -148,6 +148,22 @@ serverFiles:
               summary: "MedAudit core JetStream consumers missing ({{ $value }}/4 present)"
               description: "Fewer than the 4 expected core-* durable consumers are bound to stream HHCCIA for >10m. The core's consume side (ingestion + write-back reconciliation) is halted while publish still works — symptom: clinical records stuck in pending_review and approved changes never advancing to applied. Likely a NATS restart lost JetStream or the core lost its subscriptions. Recovery: kubectl -n hhccia-v2 rollout restart deploy/hhccia-core (recreates the consumers; replay is idempotent)."
               dashboard: "https://logs.cjbarroso.com/d/pipeline-consumers"
+          # App-level dead-letter signal (hhccia_bus_messages_total comes from the
+          # core's own /metrics on :9100). ANY parked message is a record that
+          # stopped flowing: poison payload, schema-invalid Gemini output after
+          # retries, or a permanent 4xx (billing/quota). The metric complements
+          # the log-based GeminiRecordsDeadLettered rule (Loki) with a path that
+          # doesn't depend on log shipping.
+          - alert: HHCCIACoreDeadLetters
+            expr: |
+              sum by (subject, outcome)
+              (increase(hhccia_bus_messages_total{outcome=~"dead_letter|permanent|non_json"}[15m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "MedAudit core dead-lettered messages ({{ $labels.subject }}, {{ $labels.outcome }})"
+              description: "El core parqueó mensajes en {{ $labels.subject }}.deadletter (outcome={{ $labels.outcome }}) en los últimos 15m. permanent = 4xx de Gemini (billing/quota) — revisar facturación; dead_letter = reintentos agotados; non_json = payload corrupto. Los registros afectados vuelven solos vía el re-feed del adapter una vez resuelta la causa."
+              logs: "https://logs.cjbarroso.com/explore"
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.

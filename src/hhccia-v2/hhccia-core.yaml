@@ -21,6 +21,13 @@ spec:
       labels:
         app: hhccia-core
         logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+      annotations:
+        # Prometheus auto-discovers via these annotations (same as nats-exporter).
+        # The metrics server is a SEPARATE in-cluster port (app METRICS_PORT) —
+        # deliberately not on :8000, which is published through the public ingress.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
     spec:
       automountServiceAccountToken: false
       imagePullSecrets:
@@ -29,10 +36,11 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:49e1105b5e8ee14820288c27d361df90d5d45661
+          image: ghcr.io/irupe-consultores/hhccia-core:34b798030556785b2cf0145b9b158c84a9efce5d
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
+            - { containerPort: 9100, name: metrics }   # Prometheus scrape (cluster-internal)
           env:
             - name: NATS_URL
               value: "nats://nats:4222"
