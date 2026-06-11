@@ -1,0 +1,34 @@
+# Gitleaks config for CI (.github/workflows/validate.yml) and local scans:
+#   gitleaks dir . --no-banner --redact
+#
+# Allowlists cover content that is high-entropy but safe to commit. Keep these
+# narrow: a path allowlist on anything that could ever hold a *plaintext*
+# secret would defeat the scan.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Safe-by-design content"
+paths = [
+  # SealedSecret payloads are encrypted with the in-cluster controller key;
+  # committing them is the whole point of sealed-secrets.
+  '''.*sealedsecret\.ya?ml$''',
+  # TODO(REMOVE): plaintext Cloudflare apiToken, known leak pending fix —
+  # rotate the token in the Cloudflare dashboard, then seal the new one and
+  # drop this entry. Tracked 2026-06-11.
+  '''manifests/operators/cloudflared/cloudflared-values-production\.yaml$''',
+]
+# Match the allowlist regexes against the whole line (default is the bare
+# extracted secret, which would never contain the `signing_key` context).
+regexTarget = "line"
+regexes = [
+  # Authentik blueprint exports replace real secrets with REDACTED placeholders
+  # (see src/authentik/authentik-oidc-export.README.md). Allowlist the
+  # placeholder pattern, NOT the file: a future re-export that forgets to
+  # redact must still fail the scan.
+  '''REDACTED[A-Za-z0-9_-]*''',
+  # Authentik "signing_key" fields are UUID references to certificate objects,
+  # not key material.
+  '''signing_key": "[A-Za-z0-9-]{36}"''',
+]

@@ -1,0 +1,70 @@
+# Manifest validation — runs on every PR and on pushes to master.
+#
+# master is what Argo CD deploys, so a broken manifest on master goes straight
+# to the cluster (automated sync + selfHeal). These checks are the only gate.
+#
+# Jobs:
+#   kubeconform — schema-validates every k8s manifest in apps/, bootstrap/,
+#                 src/ (CRDs resolved from the datreeio CRDs-catalog).
+#   gitleaks    — scans the working tree for plaintext secrets
+#                 (allowlist in .gitleaks.toml; sealed secrets are exempt).
+#
+# Tool versions are pinned to what was validated locally on 2026-06-11.
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  kubeconform:
+    name: kubeconform (manifest schemas)
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSION: v0.8.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin kubeconform
+          kubeconform -v
+
+      # Excluded from validation:
+      #   *values*.yaml          Helm values, not k8s resources
+      #   kustomization.yaml     kustomize config, not a cluster resource
+      #   authentik-oidc-export  Authentik blueprint export (JSON array)
+      - name: Validate manifests
+        run: |
+          kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -ignore-filename-pattern '.*values.*\.ya?ml' \
+            -ignore-filename-pattern 'kustomization\.yaml' \
+            -ignore-filename-pattern 'authentik-oidc-export.*' \
+            apps bootstrap src
+
+  gitleaks:
+    name: gitleaks (no plaintext secrets)
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.24.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gitleaks
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      # Scans the checked-out tree (not git history — history has known,
+      # already-burned leaks; the gate is "no plaintext secret may *enter or
+      # remain in* the tree"). Config/allowlist: .gitleaks.toml.
+      - name: Scan working tree
+        run: gitleaks dir . --no-banner --redact
