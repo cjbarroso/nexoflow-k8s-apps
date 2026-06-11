@@ -9,11 +9,9 @@ name: tofu — healthchecksio
 #
 # STATE: remote backend in Cloudflare R2 (s3://velero-backups/tofu/), see
 # versions.tf. Requires repo secrets R2_TOFU_ACCESS_KEY_ID and
-# R2_TOFU_SECRET_ACCESS_KEY (bucket-scoped R2 token).
-# MIGRATION (2026-06-11, remove after one green apply): the cache-restore step
-# below resurrects the old Actions-cache local state, and `tofu init
-# -migrate-state -force-copy` pushes it into R2. Once R2 holds the state,
-# delete the cache step and the migrate flags.
+# R2_TOFU_SECRET_ACCESS_KEY (bucket-scoped R2 token). Migrated from the old
+# Actions-cache state 2026-06-11 (run 27383219734: state landed in R2 intact,
+# plan showed no changes).
 # The `concurrency` group serializes runs (R2 backend has no state locking on
 # tofu 1.9).
 
@@ -58,18 +56,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Persist OpenTofu state (rolling cache)
-        uses: actions/cache@v4
-        with:
-          # Each run saves under a unique key; restore-keys grabs the latest
-          # previous state. Caches are immutable per key, so we can't reuse one.
-          path: |
-            tofu/healthchecksio/terraform.tfstate
-            tofu/healthchecksio/terraform.tfstate.backup
-          key: tofu-hcio-state-${{ github.run_id }}
-          restore-keys: |
-            tofu-hcio-state-
-
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
@@ -85,8 +71,8 @@ jobs:
       - name: tofu fmt (check)
         run: tofu fmt -check -recursive
 
-      - name: tofu init (one-time state migration cache->R2, see header)
-        run: tofu init -input=false -migrate-state -force-copy
+      - name: tofu init
+        run: tofu init -input=false
 
       - name: tofu validate
         run: tofu validate
