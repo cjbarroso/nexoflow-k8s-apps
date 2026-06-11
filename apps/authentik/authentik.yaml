@@ -22,4 +22,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
+      # No ServerSideApply: with SSA, the CNPG webhook-defaulted Cluster fields
+      # are attributed to Argo's field manager and the app reads permanently
+      # OutOfSync. Client-side apply (same as hhccia-v2, whose identical CNPG
+      # Cluster syncs clean) diffs via last-applied and ignores live-only
+      # defaulted fields.
