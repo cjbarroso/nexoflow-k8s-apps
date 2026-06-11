@@ -1,5 +1,12 @@
 deployNodeAgent: true
 
+# Expose the server's Prometheus metrics to the cluster-wide kubernetes-pods
+# scrape job — feeds the VeleroBackupFailed alert (prometheus-values.yaml).
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8085"
+  prometheus.io/path: "/metrics"
+
 initContainers:
   - name: velero-plugin-for-aws
     # Pinned to v1.13.0, NOT the v1.14.x that matches velero 1.18: v1.14 bumped

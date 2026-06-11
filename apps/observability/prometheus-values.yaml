@@ -11,11 +11,18 @@
 # --- Trim the optional sub-charts ---
 prometheus-pushgateway:
   enabled: false
-# Cluster-object metrics (deployment desired/available, etc). OFF to save a pod;
-# flip to true if you later want per-workload dashboards. node-exporter + cAdvisor
-# already cover host + per-pod CPU/memory without it.
+# Cluster-object metrics (pod restarts, job status, deployment replicas).
+# Enabled 2026-06-11: without it a crashlooping pod or a failed backup CronJob
+# is invisible to alerting (the `workloads` rules below depend on it). One
+# small pod — worth it for a production posture.
 kube-state-metrics:
-  enabled: false
+  enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
 
 # --- Node metrics: the source of node_cpu_*, node_memory_*, node_filesystem_* ---
 # Tiny DaemonSet, one pod per node. Auto-discovered by the server's
@@ -124,6 +131,17 @@ serverFiles:
               summary: "Postgres WAL archiving / backups failing ({{ $labels.cnpg_io_cluster }})"
               description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): the primary's latest WAL-archive attempt to R2 failed and has not succeeded for >15m — backups & point-in-time recovery are at risk. Check the R2 credentials (sealed secret hhccia-core-db-backup-creds) and the barman ObjectStore."
               logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-3h&to=now"
+          # Streaming replication lag on any standby. On this single node the
+          # standby is the fast-failover copy — if it falls far behind, a
+          # failover loses that much data.
+          - alert: CNPGReplicationLagHigh
+            expr: cnpg_pg_replication_lag > 300
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Postgres replication lag high ({{ $labels.cnpg_io_cluster }})"
+              description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): standby is {{ $value | printf \"%.0f\" }}s behind the primary (>300s for >10m)."
       # NATS / JetStream consumer health. The core binds 4 durable push consumers on
       # stream HHCCIA (core-ingestor, core-wb-applied, core-wb-failed, core-wb-stale).
       # If NATS restarts and loses JetStream, or the core fails to re-subscribe after
@@ -164,6 +182,53 @@ serverFiles:
               summary: "MedAudit core dead-lettered messages ({{ $labels.subject }}, {{ $labels.outcome }})"
               description: "El core parqueó mensajes en {{ $labels.subject }}.deadletter (outcome={{ $labels.outcome }}) en los últimos 15m. permanent = 4xx de Gemini (billing/quota) — revisar facturación; dead_letter = reintentos agotados; non_json = payload corrupto. Los registros afectados vuelven solos vía el re-feed del adapter una vez resuelta la causa."
               dashboard: "https://logs.cjbarroso.com/d/core-app-metrics"
+      # Workload health (needs kube-state-metrics, enabled above). Catches the
+      # failure modes probes can't: crashloops and failed Jobs (e.g. the
+      # vaultwarden sqlite backup CronJob silently failing every night).
+      - name: workloads
+        rules:
+          - alert: KubePodCrashLooping
+            expr: increase(kube_pod_container_status_restarts_total[30m]) > 3
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod crashlooping: {{ $labels.namespace }}/{{ $labels.pod }}"
+              description: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in 30m — it is not recovering on its own."
+          - alert: KubeJobFailed
+            expr: kube_job_status_failed > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Job failed: {{ $labels.namespace }}/{{ $labels.job_name }}"
+              description: "Job {{ $labels.namespace }}/{{ $labels.job_name }} has failed pods. If this is a backup job (vaultwarden-sqlite-backup, CNPG backup), tonight's backup may be missing."
+      # Storage: every PVC here is local-path on one node — running a database
+      # volume to 100% is an outage AND a recovery problem. kubelet volume stats
+      # need no extra exporter.
+      - name: storage
+        rules:
+          - alert: PVCSpaceLow
+            expr: |
+              kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes * 100 < 15
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "PVC almost full: {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }}"
+              description: "Only {{ $value | printf \"%.1f\" }}% free on PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} for >15m."
+      # Velero: the daily stateful-daily backup failing means authentik +
+      # vaultwarden have no fresh file-system backup. Metrics come from the
+      # velero server pod (scrape annotation set in apps/velero/values-production.yaml).
+      - name: velero
+        rules:
+          - alert: VeleroBackupFailed
+            expr: velero_backup_last_status{schedule!=""} == 0
+            labels:
+              severity: critical
+            annotations:
+              summary: "Velero backup failing (schedule {{ $labels.schedule }})"
+              description: "The last run of Velero schedule {{ $labels.schedule }} did not succeed — authentik/vaultwarden file backups are stale. Check: kubectl -n velero get backups, then velero backup logs <name>."
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
