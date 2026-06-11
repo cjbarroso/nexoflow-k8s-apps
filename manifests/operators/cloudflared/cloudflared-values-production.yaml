@@ -1,4 +1,11 @@
+# Credentials live in the cloudflare-api-credentials SealedSecret
+# (cloudflared-api-sealedsecret.yaml in this directory) — never put the
+# apiToken here in plaintext: this repo is public and CI (gitleaks) will
+# reject it. With secretRef set, the chart skips creating its own Secret
+# and the controller reads everything from the sealed one.
 cloudflare:
-  apiToken: YOTR1wA2yqeRXOnJcRwMudfjrh4wpTXvvbAZL-xb
-  accountId: 77df3d66af9eb572fe180d800d44127b
-  tunnelName: nexoflow-k8s
+  secretRef:
+    name: cloudflare-api-credentials
+    apiTokenKey: api_token
+    accountIDKey: account_id
+    tunnelNameKey: tunnel_name

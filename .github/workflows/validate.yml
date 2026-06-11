@@ -47,7 +47,7 @@ jobs:
             -ignore-filename-pattern '.*values.*\.ya?ml' \
             -ignore-filename-pattern 'kustomization\.yaml' \
             -ignore-filename-pattern 'authentik-oidc-export.*' \
-            apps bootstrap src
+            apps bootstrap src manifests
 
   gitleaks:
     name: gitleaks (no plaintext secrets)

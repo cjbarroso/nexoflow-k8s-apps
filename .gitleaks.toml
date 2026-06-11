@@ -14,10 +14,6 @@ paths = [
   # SealedSecret payloads are encrypted with the in-cluster controller key;
   # committing them is the whole point of sealed-secrets.
   '''.*sealedsecret\.ya?ml$''',
-  # TODO(REMOVE): plaintext Cloudflare apiToken, known leak pending fix —
-  # rotate the token in the Cloudflare dashboard, then seal the new one and
-  # drop this entry. Tracked 2026-06-11.
-  '''manifests/operators/cloudflared/cloudflared-values-production\.yaml$''',
 ]
 # Match the allowlist regexes against the whole line (default is the bare
 # extracted secret, which would never contain the `signing_key` context).
