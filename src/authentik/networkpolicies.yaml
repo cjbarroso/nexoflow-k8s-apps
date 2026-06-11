@@ -23,8 +23,7 @@ spec:
   podSelector: {}
   policyTypes: [Ingress]
 ---
-# server/worker -> authentik-db (and the legacy authentik-pg during soak),
-# CNPG replication between instances.
+# server/worker -> authentik-db, CNPG replication between instances.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

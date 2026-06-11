@@ -18,9 +18,11 @@
 # host changed (authentik-pg -> authentik-db-rw, see authentik.yaml).
 #
 # Bootstrap: one-shot logical import (pg_dump) of database `authentik` from
-# the legacy Deployment's service. The import snapshot is taken at Cluster
-# creation — authentik MUST be scaled to 0 at that moment or writes are lost
-# (see migration sequence in the 2026-06-11 commits).
+# the legacy Deployment's service. The import snapshot was taken at Cluster
+# creation (2026-06-11, authentik scaled to 0 during it). The legacy
+# authentik-pg Deployment/Service/PVC were removed after soak — the
+# bootstrap/externalClusters blocks below are inert post-bootstrap and kept
+# only as a record of where the data came from.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
