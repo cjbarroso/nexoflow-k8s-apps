@@ -16,7 +16,7 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
     *   `my-new-app-chart.yaml` (or `app.yaml`): The Argo CD Application definition.
 
 3.  **Follow the `APP-STRUCTURE` Guide**:
-    Refere to `doc/APP-STRUCTURE.md` for the detailed checklist and boilerplate code. It contains the standard templates for the `Application` manifest.
+    Refer to `docs/06-APP-STRUCTURE.md` for the detailed checklist and boilerplate code. It contains the standard templates for the `Application` manifest.
 
 4.  **Handling Extra Manifests**:
     If your application requires resources not covered by the Helm chart (e.g., a specific pure-manifest Secret or a custom PVC adjustment), place these files in `manifests/<app-name>/`.

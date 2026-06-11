@@ -3,7 +3,7 @@
 # backend for this small meta-monitoring stack. Scrapes node-exporter (node
 # CPU/mem/disk) + kubelet/cAdvisor (per-pod) out of the chart's default jobs.
 #
-# Multi-source pattern (see doc/APP-STRUCTURE.md): the upstream Helm chart +
+# Multi-source pattern (see docs/06-APP-STRUCTURE.md): the upstream Helm chart +
 # this repo as `ref: values` so Argo loads prometheus-values.yaml from Git.
 apiVersion: argoproj.io/v1alpha1
 kind: Application

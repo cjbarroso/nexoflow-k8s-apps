@@ -4,19 +4,12 @@
 
 Please be aware of the following application statuses to avoid unnecessary debugging.
 
-### 🔴 Do Not Deploy / Broken
+### 🪦 Removed applications
 
-The following applications are currently **Work In Progress (WIP)** or have known blocking errors. **Do not attempt to deploy or fix them without checking with the lead developer.**
-
-1.  **WAHA (WhatsApp HTTP API)**:
-    *   **Location**: `apps/waha/`
-    *   **Status**: Commented out / Broken.
-    *   **Reason**: Deployment issues / Configuration incomplete.
-
-2.  **Cal.com**:
-    *   **Location**: `manifests/cal.com/` (Note: No corresponding `apps/` entry verified).
-    *   **Status**: Broken.
-    *   **Reason**: Deployment issues.
+WAHA and Cal.com (both broken, never stabilised) were removed from the repo on
+2026-06-11. Their manifests live in git history if ever needed; note that the
+historical files contain plaintext credentials that must be treated as burned
+(see `.gitleaks.toml` and the CI `validate` workflow that now prevents this).
 
 ## Common Issues
 
