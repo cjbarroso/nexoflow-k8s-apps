@@ -108,6 +108,24 @@ spec:
       ports:
         - { protocol: TCP, port: 8000 }
 ---
+# Grafana (observability ns) reads the sanitized report views over 5432 for the
+# "Registros aceptados/rechazados" + "Gemini — Costo" dashboards (role grafana_ro,
+# RO grants on clinical_record_report / gemini_usage_report only).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-db
+  namespace: hhccia-v2
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: hhccia-core-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
 # EGRESS lockdown for the one pod holding clinical-DB credentials: the adapter
 # may talk to DNS, NATS (events + watermark KV), and the Datatech MSSQL host —
 # nothing else. A compromised adapter cannot exfiltrate to the internet.
