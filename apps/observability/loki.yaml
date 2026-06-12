@@ -20,7 +20,7 @@ spec:
       # renders exactly one Monolithic StatefulSet, ruler + rule mounts intact, no
       # read/write/backend Deployments. deploymentMode renamed SingleBinary->Monolithic
       # (community 12.0.0) — done in loki-values.yaml. Loki server appVersion 3.7.2.
-      targetRevision: "17.1.6"
+      targetRevision: "17.3.1"
       helm:
         valueFiles:
           - $values/apps/observability/loki-values.yaml
