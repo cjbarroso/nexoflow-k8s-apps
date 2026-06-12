@@ -59,7 +59,9 @@ Auth on every human entry point: Authentik OIDC (`auth.irupeconsultores.com`).
 ## 5. Access control
 
 - Humans: Authentik OIDC in front of the app, Grafana, Argo CD. User inventory lives in Authentik (CNPG-backed, PITR).
-- Cluster: single kubeconfig (admin) — ⚠ OPEN: no per-person identity on kubectl access, no K8s API audit logging (k3s supports it via apiserver args; needs node access + restart).
+- Cluster: single kubeconfig (admin) — ⚠ OPEN: no per-person identity on kubectl access.
+- **K8s API audit logging: ENABLED 2026-06-12** — policy at `/etc/rancher/k3s/audit-policy.yaml` on the node (all secret/configmap access logged at Metadata, all mutations at Request level, control-plane read noise excluded). Logs: `/var/lib/rancher/k3s/server/logs/audit.log`, 90 d / 12×100 MB rotation. Follow-up: ship to Loki for queryability.
+- **Secrets encrypted at rest in the k3s datastore: ENABLED 2026-06-12** (AES-CBC, all 42 secrets re-encrypted, verified at the datastore level). ⚠ The key file `/var/lib/rancher/k3s/server/cred/encryption-config.json` is now part of the DR story: a copied `state.db` without it cannot decrypt Secrets. Note: pre-encryption plaintext revisions may linger in the datastore file until kine compaction; full disk-level mitigation is the LUKS item below.
 - Network: default-deny ingress in the four app namespaces; adapter egress-locked (see §1).
 
 ## 6. Open items (decision/owner needed)
@@ -67,7 +69,6 @@ Auth on every human entry point: Authentik OIDC (`auth.irupeconsultores.com`).
 1. **Gemini DPA + pseudonymization** — legal review + app change. The single biggest compliance exposure.
 2. **Which regulation applies** (HIPAA-equivalent? Argentina Ley 26.529/25.326? EU GDPR?) — drives retention numbers and breach-notification duties. Everything below depends on this.
 3. **Retention**: Postgres is indefinite; logs/backups 15–30 d. Medical audit-trail requirements are typically *years* — likely need: longer DB backup retention + Loki→R2 archival for audit logs.
-4. **Node disk encryption** (LUKS) — PHI sits unencrypted on the homestation disk today; also k3s secrets-encryption at rest. Host-level work on existing hardware.
-5. **K8s API audit logging** — host-level k3s flag.
-6. **MSSQL connection encryption** — verify TDS TLS.
-7. **Per-person cluster access** — OIDC kubectl (Authentik can be the IdP) instead of one shared kubeconfig.
+4. **Node disk encryption (LUKS)** — PHI sits unencrypted on the homestation disk (single LVM root, no spare disk → online encryption is not feasible; this is a reinstall-time job, natural to fold into the future prod-cluster build). k3s secrets-encryption and audit logging are DONE (see §5).
+5. **MSSQL connection encryption** — verify TDS TLS.
+6. **Per-person cluster access** — OIDC kubectl (Authentik can be the IdP) instead of one shared kubeconfig.
