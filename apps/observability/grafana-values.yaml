@@ -209,18 +209,21 @@ datasources:
           defaultProject: gen-lang-client-0005670378
           processingLocation: US
       # Authentik identity DB (users + login events). Read-only role `grafana_ro`
-      # on the Authentik Postgres (plain postgres:16-alpine Deployment `authentik-pg`,
-      # ns authentik — NO TLS, so sslmode=disable, unlike the CNPG datasources).
+      # on the Authentik Postgres. The DB was migrated to a CloudNativePG cluster
+      # `authentik-db` (svc authentik-db-ro, ns authentik) ~2026-06-11 — the old
+      # plain `authentik-pg` Deployment is GONE. The CNPG pg_hba has a plain
+      # `host all all all scram-sha-256` line, so sslmode=disable still works.
       # The role has column-level SELECT on authentik_core_user (everything EXCEPT
       # the `password` hash) + SELECT on authentik_events_event. Password from the
       # authentik-grafana-ro SealedSecret via env. Used by "Authentik — Usuarios y
       # accesos". NOTE: the role + grants are applied by hand on the Authentik DB
-      # (Authentik owns its own migrations); recreate them if that DB is rebuilt.
+      # (Authentik owns its own migrations); the CNPG rebuild DROPPED them, so they
+      # were recreated by hand — recreate again if that DB is ever rebuilt/restored.
       - name: Authentik
         uid: authentik
         type: postgres
         access: proxy
-        url: authentik-pg.authentik.svc.cluster.local:5432
+        url: authentik-db-ro.authentik.svc.cluster.local:5432
         database: authentik
         user: grafana_ro
         isDefault: false
