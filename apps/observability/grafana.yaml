@@ -16,7 +16,7 @@ spec:
       # renders clean (ingress, provisioned datasources, BigQuery WIF mounts, Gemini +
       # pipeline alerting all intact). app Grafana 13.0.1 (server major 12->13; SQLite
       # schema migrates one-way on first boot — rollback = restore the PVC).
-      targetRevision: "12.4.2"
+      targetRevision: "12.4.4"
       helm:
         valueFiles:
           - $values/apps/observability/grafana-values.yaml
