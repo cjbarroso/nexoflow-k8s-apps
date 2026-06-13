@@ -13,7 +13,7 @@ spec:
     helm:
       valueFiles:
       # References the file in Source 2
-      - $values/apps/velero/values-production.yaml
+      - $values/apps/velero/values.yaml
   
   # Source 2: Your Private Config Repo
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'

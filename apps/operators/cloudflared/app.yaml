@@ -10,7 +10,7 @@ spec:
     targetRevision: 0.0.23
     helm:
       valueFiles:
-      - $values/src/cloudflared/cloudflared-values-production.yaml
+      - $values/src/cloudflared/values.yaml
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     targetRevision: master
     ref: values
