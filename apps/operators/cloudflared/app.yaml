@@ -10,7 +10,7 @@ spec:
     targetRevision: 0.0.23
     helm:
       valueFiles:
-      - $values/manifests/operators/cloudflared/cloudflared-values-production.yaml
+      - $values/src/cloudflared/cloudflared-values-production.yaml
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     targetRevision: master
     ref: values
@@ -18,7 +18,7 @@ spec:
   # reads it via cloudflare.secretRef (see the values file).
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     targetRevision: master
-    path: manifests/operators/cloudflared
+    path: src/cloudflared
     directory:
       include: 'cloudflared-api-sealedsecret.yaml'
   destination:
