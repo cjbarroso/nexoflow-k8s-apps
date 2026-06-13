@@ -29,11 +29,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cache kubeconform
+        id: cache-kubeconform
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/kubeconform
+          key: kubeconform-${{ env.KUBECONFORM_VERSION }}
+
       - name: Install kubeconform
+        if: steps.cache-kubeconform.outputs.cache-hit != 'true'
         run: |
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
             | sudo tar xz -C /usr/local/bin kubeconform
-          kubeconform -v
+
+      - name: Verify kubeconform
+        run: kubeconform -v
 
       # Excluded from validation:
       #   *values*.yaml          Helm values, not k8s resources
@@ -57,11 +67,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cache gitleaks
+        id: cache-gitleaks
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/gitleaks
+          key: gitleaks-${{ env.GITLEAKS_VERSION }}
+
       - name: Install gitleaks
+        if: steps.cache-gitleaks.outputs.cache-hit != 'true'
         run: |
           curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             | sudo tar xz -C /usr/local/bin gitleaks
-          gitleaks version
+
+      - name: Verify gitleaks
+        run: gitleaks version
 
       # Scans the checked-out tree (not git history — history has known,
       # already-burned leaks; the gate is "no plaintext secret may *enter or
