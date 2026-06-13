@@ -1,1 +1,24 @@
+# Legacy (app removed)
 apps/cal.com/othersecret.yaml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Terraform / OpenTofu
+tofu/**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Helm
+*.tgz
+
+# Temp
+*.tmp
+*.swp
+*.swo
