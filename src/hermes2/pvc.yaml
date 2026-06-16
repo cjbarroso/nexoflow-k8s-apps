@@ -1,0 +1,17 @@
+# Durable state for the SECOND Hermes instance. Everything lives under /opt/data:
+# config.yaml, .env (API keys, Discord bot token), sessions, memory, skills, logs.
+# This is the volume the hannibal-deployment config is copied onto (see
+# src/hermes2/README or the deploy runbook). Separate from hermes-data — the two
+# instances never share state. Backed up by Velero like the rest of the cluster.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes2-data
+  namespace: hermes2
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

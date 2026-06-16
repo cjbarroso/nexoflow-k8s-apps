@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hermes2
+  namespace: argocd
+spec:
+  project: hermes2
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/hermes2
+    targetRevision: master
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hermes2
+  syncPolicy:
+    # The deployment pins an upstream release tag + digest — upgrades are a
+    # tag/digest bump in src/hermes2/deployment.yaml; Argo rolls it on sync.
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

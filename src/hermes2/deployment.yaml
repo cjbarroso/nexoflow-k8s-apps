@@ -1,0 +1,82 @@
+# SECOND Hermes Agent instance (Hannibal/Discord). Independent of src/hermes —
+# its own namespace, PVC, service and Argo app. Does NOT touch instance #1.
+#
+# Source of truth = the PVC (/opt/data). Hermes owns its own config.yaml, .env
+# (API keys, Discord bot token), sessions, memory and skills there. Git only
+# defines the WORKLOAD — no app config/secrets via env/ConfigMap/Secret. The
+# hannibal operating layer (profiles, profile_router.yaml, projects/) is copied
+# onto /opt/data after first boot (see deploy notes), then real Discord IDs +
+# tokens are entered via the dashboard / `hermes gateway setup`.
+#
+# Recreate (not RollingUpdate): RWO PVC, single owner of /opt/data.
+#
+# Auth: the dashboard has NO native auth and exposes API keys, so it runs with
+# HERMES_DASHBOARD_INSECURE=1. Unlike instance #1 there is NO Authentik proxy
+# in front — this instance has no Ingress and is reachable only via
+# `kubectl -n hermes2 port-forward` (localhost, gated by kube RBAC). Never add
+# an Ingress without putting auth in front first.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes2
+  namespace: hermes2
+  labels:
+    app: hermes2
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes2
+  template:
+    metadata:
+      labels:
+        app: hermes2
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hermes2-data
+      containers:
+        - name: hermes
+          # Pinned to the same upstream release tag + manifest digest as
+          # instance #1 (immutable). To upgrade: pick a newer vYYYY.M.D tag from
+          # Docker Hub, update tag AND digest. Bump the two instances independently.
+          image: nousresearch/hermes-agent:v2026.6.5@sha256:9ad3b04ec916ea2c2da22358fd43b024c788d74073210695af88bfc2e63869b4
+          imagePullPolicy: IfNotPresent
+          args: ["gateway", "run"]
+          env:
+            # Run the bundled web dashboard alongside the gateway, bound on all
+            # interfaces with its native OAuth gate OFF. Only reachable via
+            # port-forward (no Ingress, default-deny-ingress NetworkPolicy).
+            - name: HERMES_DASHBOARD
+              value: "1"
+            - name: HERMES_DASHBOARD_HOST
+              value: "0.0.0.0"
+            - name: HERMES_DASHBOARD_PORT
+              value: "9119"
+            - name: HERMES_DASHBOARD_INSECURE
+              value: "1"
+          ports:
+            - name: api
+              containerPort: 8642
+              protocol: TCP
+            - name: dashboard
+              containerPort: 9119
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false   # dashboard + gateway write at runtime

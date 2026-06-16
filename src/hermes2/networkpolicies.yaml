@@ -1,0 +1,51 @@
+# Network segmentation for the hermes2 namespace (second Hermes instance —
+# Hannibal/Discord). This instance has NO public ingress: the dashboard is
+# reached only via `kubectl -n hermes2 port-forward` (see service.yaml). There
+# is therefore no Authentik-outpost ingress allowance here (unlike src/hermes).
+# Discord is reached as EGRESS (gateway websocket), unrestricted for now.
+#
+# Mirrors the src/hermes pattern minus the authentik ingress rule.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hermes2
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: hermes2
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: hermes2
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# Kubelet probes + `kubectl port-forward` reach the pod from the node. Without
+# this the dashboard/API port-forward (the only access path for this instance)
+# would be blocked by default-deny-ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: hermes2
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
