@@ -4,7 +4,7 @@ metadata:
   name: root
   namespace: argocd
   # Add a finalizer to prevent accidental deletion
-  finalizers: 
+  finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
   project: default

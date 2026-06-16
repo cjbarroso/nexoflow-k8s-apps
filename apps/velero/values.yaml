@@ -36,7 +36,7 @@ configuration:
         s3Url: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
         region: auto
         s3ForcePathStyle: true
-  
+
   # Empty because we use Node Agent for file-level backups
   volumeSnapshotLocation: []
 

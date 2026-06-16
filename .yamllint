@@ -5,10 +5,27 @@ ignore: |
   .github/
   .terraform/
   *.tgz
+  # Machine-generated base64 blobs, not hand-edited YAML: SealedSecrets are
+  # UTF-16 single-line ciphertext (also crash the linter), and branding.yaml
+  # embeds a 36 KB base64 JPEG on one line. kubeconform still schema-checks them.
+  *sealedsecret*.yaml
+  src/authentik/branding.yaml
 
 rules:
-  line-length:
-    max: 120
+  # Disabled: digest-pinned image refs, Helm values, embedded Grafana dashboard
+  # JSON and base64 assets all legitimately exceed any sane line limit. The
+  # structural rules below (indentation, trailing space, EOF, etc.) still apply.
+  line-length: disable
   document-start: disable
   truthy:
     check-keys: false
+  # House style across the manifests uses one space inside flow braces, e.g.
+  # `{ cidr: 10.42.0.1/32 }` in NetworkPolicies.
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  # Argo Application manifests mix sequence indentation (some lists sit at the
+  # parent's indent, some are indented). Accept either rather than reformat them.
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever
