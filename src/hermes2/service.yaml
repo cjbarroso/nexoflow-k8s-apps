@@ -1,0 +1,25 @@
+# ClusterIP only, NO ingress. Unlike src/hermes (fronted by Authentik), this
+# second instance is not publicly exposed. Reach the dashboard or gateway API
+# locally with port-forward:
+#   kubectl -n hermes2 port-forward svc/hermes2 9119:9119   # dashboard
+#   kubectl -n hermes2 port-forward svc/hermes2 8642:8642   # gateway API
+# Do NOT add an Ingress to this service without putting Authentik (or equivalent
+# auth) in front — the dashboard has no native auth and exposes API keys.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes2
+  namespace: hermes2
+spec:
+  type: ClusterIP
+  selector:
+    app: hermes2
+  ports:
+    - name: api
+      port: 8642
+      targetPort: api
+      protocol: TCP
+    - name: dashboard
+      port: 9119
+      targetPort: dashboard
+      protocol: TCP

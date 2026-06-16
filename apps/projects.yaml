@@ -117,3 +117,19 @@ spec:
     - { server: 'https://kubernetes.default.svc', namespace: hermes }
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: hermes2
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Hermes Agent — second instance (Hannibal/Discord). Independent of the hermes project.
+  sourceRepos:
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+  destinations:
+    - { server: 'https://kubernetes.default.svc', namespace: hermes2 }
+  clusterResourceWhitelist:
+    - { group: '', kind: Namespace }
