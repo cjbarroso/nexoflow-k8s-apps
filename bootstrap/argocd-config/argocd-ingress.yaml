@@ -6,7 +6,7 @@ metadata:
   annotations:
     # Matches the working configuration from your monitoring stack
     kubernetes.io/ingress.class: cloudflare-tunnel
-    
+
     # Optional: Increases body size limits (helpful for large Helm charts uploads)
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
