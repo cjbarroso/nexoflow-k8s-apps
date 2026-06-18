@@ -42,10 +42,14 @@ spec:
             claimName: hermes2-data
       containers:
         - name: hermes
-          # Pinned to the same upstream release tag + manifest digest as
-          # instance #1 (immutable). To upgrade: pick a newer vYYYY.M.D tag from
-          # Docker Hub, update tag AND digest. Bump the two instances independently.
-          image: nousresearch/hermes-agent:v2026.6.5@sha256:9ad3b04ec916ea2c2da22358fd43b024c788d74073210695af88bfc2e63869b4
+          # Pinned by digest to the 2026-06-18 `main` build, which includes the
+          # gateway-autostart fix (upstream PR #43236, merged 2026-06-10): a
+          # container-restart SIGTERM no longer persists gateway_state=stopped, so
+          # per-profile gateways auto-start after a restart instead of staying down
+          # (bug #33597). v2026.6.5 predated the fix. Digest is immutable even
+          # though the tag is `main`; move to a dated vYYYY.M.D tag once one ships
+          # with #43236.
+          image: nousresearch/hermes-agent:main@sha256:a8a528a5ad1cee0362dc85814862811d428ac0a461030d4de9a3796a7bb9a802
           imagePullPolicy: IfNotPresent
           args: ["gateway", "run"]
           env:
