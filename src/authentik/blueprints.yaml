@@ -63,6 +63,23 @@ data:
                 "audit_admin": ak_is_group_member(user, name="hhccia-admin"),
                 "read_admin": ak_is_group_member(user, name="hhccia-readonly"),
             }
+      # Custom scope mapping: emit a `voice_enabled` boolean (members of
+      # hhccia-voice-enabled) that gates the voice-dictation feature ("evolución por
+      # voz"). The core's ServiceScope.can_dictate requires this claim + a `service`
+      # claim and is INDEPENDENT of the admin role (directive 2026-06-18): a plain
+      # physician, a service_admin and an audit_admin alike may dictate IF in this
+      # group; read_admin is excluded by the core regardless. Rides the `profile`
+      # scope (same as the others), so no front change is needed.
+      - model: authentik_providers_oauth2.scopemapping
+        id: hhccia-voice-enabled-mapping
+        identifiers:
+          name: hhccia-voice-enabled-claim
+        attrs:
+          name: hhccia-voice-enabled-claim
+          scope_name: profile
+          description: "HHCCIA: permiso de dictado por voz (voice_enabled), sobre el scope profile."
+          expression: |
+            return {"voice_enabled": ak_is_group_member(user, name="hhccia-voice-enabled")}
       - model: authentik_providers_oauth2.oauth2provider
         id: hhccia-provider
         identifiers:
@@ -117,6 +134,7 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
             - !KeyOf hhccia-prf-mapping
             - !KeyOf hhccia-service-mapping
+            - !KeyOf hhccia-voice-enabled-mapping
       - model: authentik_core.application
         id: hhccia-app
         identifiers:
@@ -219,6 +237,19 @@ data:
       - model: authentik_core.group
         identifiers:
           name: hhccia-readonly
+        attrs:
+          is_superuser: false
+          parent: !KeyOf hhccia-users-group
+      # Voice-dictation grant group. Members get voice_enabled=true (emitted by the
+      # hhccia-voice-enabled-claim mapping) and, IF they also have a `service` claim
+      # and are NOT read_admin, may dictate new evolutions ("evolución por voz"). This
+      # is an ORTHOGONAL capability flag, not a role: it composes with whatever role
+      # (plain physician / hhccia-admin auditor / hhccia-superadmins) the user already
+      # has. As a CHILD of hhccia-users they satisfy the app-access binding. Membership
+      # is identity data managed in the UI/DB, NOT in Git.
+      - model: authentik_core.group
+        identifiers:
+          name: hhccia-voice-enabled
         attrs:
           is_superuser: false
           parent: !KeyOf hhccia-users-group
