@@ -23,19 +23,21 @@ Everything else (NATS, network policies, core/adapter/front workloads) mirrors p
 
 ## Before the first sync — required out-of-band steps
 
-1. **Seal two secrets for THIS namespace** (SealedSecrets are namespace-scoped —
+1. **Seal ONE secret for THIS namespace** (SealedSecrets are namespace-scoped —
    prod's sealed values cannot be reused). Mirror the kubeseal invocation used for
    the prod secrets, with `--namespace hhccia-staging`:
 
-   - `hhccia-core-secrets` — shape in `secrets.example.yaml`
-     (`DATABASE_URL`, `GEMINI_API_KEY`, `MSSQL_USER`/`MSSQL_PASSWORD` for an
-     **HHCC** write-capable login, `PG_USER`/`PG_PASSWORD`).
-   - `hhccia-staging-db-app` — CNPG role credentials (`username` + `password`),
-     matching `PG_USER`/`PG_PASSWORD` above.
+   - `hhccia-core-secrets` — shape in `secrets.example.yaml`: only the genuinely
+     external secrets — `GEMINI_API_KEY` and `MSSQL_USER`/`MSSQL_PASSWORD` for an
+     **HHCC** write-capable login.
 
-   Write the sealed output to `hhccia-core-sealedsecret.yaml` and
-   `hhccia-core-db-app-sealedsecret.yaml` in this directory, then commit. Until
-   they exist, the core/adapter pods stay pending on the missing secret.
+   Write the sealed output to `hhccia-core-sealedsecret.yaml` in this directory,
+   then commit. Until it exists, the core/adapter pods stay pending on it.
+
+   **The Postgres credentials are NOT sealed** — the CNPG operator generates the
+   secret `hhccia-staging-db-app` (`username`/`password`) when it bootstraps the
+   cluster, and the core assembles `DATABASE_URL` from it (see `hhccia-core.yaml`).
+   So there is no `hhccia-staging-db-app` sealed file to create.
 
 2. **Authentik**: the staging redirect/logout URIs are added to `hhccia-provider`
    in `src/authentik/blueprints.yaml`; after pushing, restart the worker

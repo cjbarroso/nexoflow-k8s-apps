@@ -35,8 +35,12 @@ spec:
     initdb:
       database: hhccia_core
       owner: hhccia
-      secret:
-        name: hhccia-staging-db-app
+      # No `secret:` on purpose — the CNPG operator generates the app role's
+      # credentials and stores them in the secret `hhccia-staging-db-app`
+      # (keys: username, password). The core assembles DATABASE_URL from that
+      # operator-managed secret (see hhccia-core.yaml), so NO database credential
+      # is hand-sealed for staging. (Prod hand-seals hhccia-core-db-app instead;
+      # staging deliberately diverges to keep its bring-up credential-free.)
   storage:
     size: 2Gi
     storageClass: local-path

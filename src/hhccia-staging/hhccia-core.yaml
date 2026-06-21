@@ -52,8 +52,16 @@ spec:
               value: "gemini-3.5-flash"
             - name: VOICE_EDIT_MODEL
               value: "gemini-flash-lite-latest"
+            # DB credentials come from the secret the CNPG operator generates for
+            # the cluster (hhccia-staging-db-app: keys username/password) — NOT a
+            # hand-sealed secret. The asyncpg URL is assembled from them; kubelet
+            # expands $(VAR) from env entries defined earlier in this container.
+            - name: PG_USER
+              valueFrom: { secretKeyRef: { name: hhccia-staging-db-app, key: username } }
+            - name: PG_PASSWORD
+              valueFrom: { secretKeyRef: { name: hhccia-staging-db-app, key: password } }
             - name: DATABASE_URL
-              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
+              value: "postgresql+asyncpg://$(PG_USER):$(PG_PASSWORD)@hhccia-core-pg:5432/hhccia_core"
             - name: GEMINI_API_KEY
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
             # Reuse the prod hhccia OIDC application (shared identity).
