@@ -1,0 +1,22 @@
+# Exposes the staging core API via the Cloudflare tunnel.
+#   - api-staging.medaudit.irupeconsultores.com
+# The controller's account-scoped API token reaches the irupeconsultores.com
+# zone, so the DNS CNAME is auto-created (same as prod).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hhccia-core-ingress
+  namespace: hhccia-staging
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: "api-staging.medaudit.irupeconsultores.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hhccia-core
+                port:
+                  number: 8000

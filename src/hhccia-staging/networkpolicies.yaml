@@ -1,0 +1,152 @@
+# Network segmentation for the hhccia-staging namespace. Staging mirrors the
+# hhccia-v2 policies verbatim except for the namespace and the CNPG cluster name
+# in the operator/grafana selectors (hhccia-staging-db). The adapter still talks
+# to the SAME Datatech host (192.168.5.132) as prod — staging just points at the
+# HHCC database on that host instead of SRN — so the egress lockdown is identical.
+#
+# k3s enforces NetworkPolicy via its embedded kube-router controller.
+# Kubelet probes arrive from the CNI bridge (10.42.0.1 on this single node).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hhccia-staging
+  annotations:
+    # Never let an Argo prune delete the namespace (and everything in it).
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: hhccia-staging
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Pods within the namespace talk freely: core/adapter -> nats:4222,
+# exporter -> nats:8222, core -> db:5432, CNPG primary <-> standby replication.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: hhccia-staging
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# Kubelet readiness/liveness probes (seen by pods as the CNI bridge IP).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: hhccia-staging
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+# Cloudflare tunnel connectors terminate the public hostnames and connect
+# straight to the web pods — and only to them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-to-web
+  namespace: hhccia-staging
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [hhccia-core, hhccia-front] }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cloudflared }
+      ports:
+        - { protocol: TCP, port: 8000 }
+        - { protocol: TCP, port: 8080 }
+---
+# Prometheus scrapes nats-exporter (7777) and the CNPG instance metrics (9187).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: hhccia-staging
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 7777 }
+        - { protocol: TCP, port: 9187 }
+---
+# The CNPG operator manages the database pods via their status port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-operator
+  namespace: hhccia-staging
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: hhccia-staging-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cnpg-system }
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# Grafana (observability ns) reads report views over 5432 (if staging dashboards
+# are added later). Harmless if unused.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-db
+  namespace: hhccia-staging
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: hhccia-staging-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# EGRESS lockdown for the one pod holding clinical-DB credentials: the adapter
+# may talk to DNS, NATS, and the Datatech MSSQL host (192.168.5.132) — nothing
+# else. Same host as prod; staging targets the HHCC database on it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: adapter-egress-lockdown
+  namespace: hhccia-staging
+spec:
+  podSelector:
+    matchLabels: { app: hhccia-adapter-datatech }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: nats }
+      ports:
+        - { protocol: TCP, port: 4222 }
+    - to:
+        - ipBlock: { cidr: 192.168.5.132/32 }
+      ports:
+        - { protocol: TCP, port: 1433 }

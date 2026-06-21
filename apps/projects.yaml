@@ -81,6 +81,8 @@ spec:
     - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
   destinations:
     - { server: 'https://kubernetes.default.svc', namespace: hhccia-v2 }
+    # Staging environment — same project, isolated namespace (apps/hhccia-staging).
+    - { server: 'https://kubernetes.default.svc', namespace: hhccia-staging }
   # Namespace only (CreateNamespace + the PSS-labelled Namespace manifest).
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }

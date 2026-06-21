@@ -108,6 +108,9 @@ data:
           redirect_uris:
             - matching_mode: strict
               url: https://medaudit.irupeconsultores.com/callback
+            # Staging front (hhccia-staging ns) reuses this same OIDC client.
+            - matching_mode: strict
+              url: https://staging.medaudit.irupeconsultores.com/callback
             - matching_mode: strict
               url: http://localhost:4200/callback
             # post_logout_redirect_uri targets (the SPA sends origin + /auth/login on
@@ -115,6 +118,8 @@ data:
             # so without these the redirect back after logout is silently dropped.
             - matching_mode: strict
               url: https://medaudit.irupeconsultores.com/auth/login
+            - matching_mode: strict
+              url: https://staging.medaudit.irupeconsultores.com/auth/login
             - matching_mode: strict
               url: http://localhost:4200/auth/login
           sub_mode: hashed_user_id

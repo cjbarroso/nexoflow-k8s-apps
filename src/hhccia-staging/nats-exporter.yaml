@@ -1,0 +1,38 @@
+# NATS Prometheus exporter for staging — same as prod, in the staging namespace.
+# Prometheus auto-discovers via the prometheus.io/scrape annotation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats-exporter
+  namespace: hhccia-staging
+  labels:
+    app: nats-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-exporter
+  template:
+    metadata:
+      labels:
+        app: nats-exporter
+        logs.cjbarroso.com/collect: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7777"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: exporter
+          image: natsio/prometheus-nats-exporter:0.20.1
+          args: ["-port=7777", "-jsz=all", "http://nats:8222"]
+          ports:
+            - name: metrics
+              containerPort: 7777
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi

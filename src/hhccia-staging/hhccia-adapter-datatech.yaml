@@ -1,0 +1,62 @@
+# Datatech source adapter (staging). The only workload with credentials to the
+# clinical DB. Points at the SAME Datatech host as prod (192.168.5.132) but at
+# the **HHCC** test database (prod uses SRN) — no live PII, and write-back is
+# exercised safely against HHCC. Reaches the host over the LAN; no SSH tunnel.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-adapter-datatech
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-adapter-datatech
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hhccia-adapter-datatech
+  template:
+    metadata:
+      labels:
+        app: hhccia-adapter-datatech
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: adapter
+          # SHA-pinned to staging-branch builds; CI git-write-back rewrites this
+          # to `:staging-<sha>` per push (see hhccia-core.yaml for the full note).
+          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:staging
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SOURCE_SYSTEM
+              value: "datatech"
+            - name: SOURCE_MODE
+              value: "datatech"
+            - name: DISCOVERY_LOOKBACK_HOURS
+              value: "720"   # HHCC is a static test DB: widen the bootstrap window
+            - name: DISCOVERY_OVERLAP_MINUTES
+              value: "60"
+            - name: DISCOVERY_LIMIT
+              value: "10"
+            - name: POLL_INTERVAL_SECONDS
+              value: "300"
+            - name: MSSQL_HOST
+              value: "192.168.5.132"
+            - name: MSSQL_PORT
+              value: "1433"
+            # Staging targets the HHCC TEST database (prod uses SRN).
+            - name: MSSQL_DATABASE
+              value: "HHCC"
+            - name: MSSQL_USER
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
+            - name: MSSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_PASSWORD } }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }

@@ -1,0 +1,93 @@
+# AI Core Service (staging). Same image as prod, deployed to hhccia-staging.
+# Reuses the prod `hhccia` Authentik OIDC application (same issuer/JWKS), so
+# staging users/groups/roles are identical to prod — only the data store and
+# clinical source differ.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-core
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-core
+spec:
+  replicas: 1
+  # Recreate: the core binds a single durable JetStream consumer; two
+  # overlapping pods fight over it (see prod manifest).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hhccia-core
+  template:
+    metadata:
+      labels:
+        app: hhccia-core
+        logs.cjbarroso.com/collect: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: hhccia-core
+          # Staging is SHA-pinned like prod, but to the `staging` branch builds.
+          # The app repo's CI rewrites this tag to `:staging-<sha>` on every push
+          # to `staging` (git write-back) — that manifest change is what Argo
+          # detects and rolls. `:staging` here is the bootstrap placeholder before
+          # the first write-back (a brief ImagePullBackOff until CI lands the SHA).
+          image: ghcr.io/irupe-consultores/hhccia-core:staging
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { containerPort: 8000, name: http }
+            - { containerPort: 9100, name: metrics }
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: AI_MODE
+              value: "gemini"          # real Gemini; low HHCC volume = low cost
+            - name: GEMINI_MODEL
+              value: "gemini-3.5-flash"
+            - name: VOICE_EDIT_MODEL
+              value: "gemini-flash-lite-latest"
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: DATABASE_URL } }
+            - name: GEMINI_API_KEY
+              valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
+            # Reuse the prod hhccia OIDC application (shared identity).
+            - name: AUTH_DISABLED
+              value: "false"
+            - name: AUTHENTIK_ISSUER
+              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
+            - name: AUTHENTIK_JWKS_URL
+              value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { cpu: "1", memory: 768Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-core
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-core
+spec:
+  selector:
+    app: hhccia-core
+  ports:
+    - { protocol: TCP, port: 8000, targetPort: 8000 }
+  type: ClusterIP

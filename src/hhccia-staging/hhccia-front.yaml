@@ -1,0 +1,75 @@
+# Frontend (Angular) for staging — same image as prod, runtime-switched to the
+# staging core via CORE_API_URL. Reuses the prod `hhccia-front` OIDC client; the
+# staging origin's /callback + /auth/login are allowlisted in the Authentik
+# provider blueprint (src/authentik/blueprints.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-front
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhccia-front
+  template:
+    metadata:
+      labels:
+        app: hhccia-front
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: github-auth
+      containers:
+        - name: hhccia-front
+          # SHA-pinned to staging-branch builds; CI git-write-back rewrites this
+          # to `:staging-<sha>` per push (see hhccia-core.yaml for the full note).
+          image: ghcr.io/irupe-consultores/hhccia-front:staging
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: API_URL
+              value: "https://api-staging.medaudit.irupeconsultores.com"
+            # The switch that flips ListService -> CoreApiService (staging core).
+            - name: CORE_API_URL
+              value: "https://api-staging.medaudit.irupeconsultores.com"
+            # Reuse the prod hhccia OIDC application/client (shared identity).
+            - name: AUTHENTIK_AUTHORITY
+              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
+            - name: AUTHENTIK_CLIENT_ID
+              value: "hhccia-front"
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-front
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-front
+spec:
+  selector:
+    app: hhccia-front
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

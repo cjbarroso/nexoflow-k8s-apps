@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hhccia-staging
+  namespace: argocd
+spec:
+  project: hhccia
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/hhccia-staging
+    targetRevision: master
+    directory:
+      recurse: false
+      # The placeholder secret template is never applied by Argo.
+      exclude: 'secrets.example.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hhccia-staging
+  syncPolicy:
+    # Same discipline as prod (hhccia-v2): selfHeal reverts manual drift, prune
+    # removes resources dropped from Git. Staging tracks the `staging` code
+    # branch via the :staging image tag; see src/hhccia-staging/README.md for the
+    # auto-rollout mechanism.
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

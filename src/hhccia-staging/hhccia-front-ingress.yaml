@@ -1,0 +1,24 @@
+# Exposes the staging frontend via the Cloudflare tunnel.
+#   - staging.medaudit.irupeconsultores.com  (irupeconsultores.com zone)
+# DNS CNAME auto-created by the controller. The Angular SPA derives its OIDC
+# redirect from window.location.origin, so this host's /callback + /auth/login
+# must be allowlisted in the Authentik provider blueprint
+# (src/authentik/blueprints.yaml — added alongside the prod medaudit host).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hhccia-front-ingress
+  namespace: hhccia-staging
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: "staging.medaudit.irupeconsultores.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hhccia-front
+                port:
+                  number: 8080

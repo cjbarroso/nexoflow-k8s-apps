@@ -1,0 +1,57 @@
+# Staging AI core store — CloudNativePG operator-managed cluster.
+#
+# Differs from prod (src/hhccia-v2/postgres.yaml) in three ways:
+#   - name `hhccia-staging-db` (prod is `hhccia-core-db`)
+#   - `instances: 1` — staging data is disposable; no hot standby needed
+#   - NO barman-cloud WAL archiving / PITR (no hhccia-core-db-backup.yaml for
+#     staging) — there is nothing to recover here.
+#
+# Credentials (role `hhccia`, db `hhccia_core`) come from the sealed secret
+# `hhccia-staging-db-app` (sealed for THIS namespace — see README). The
+# ExternalName Service keeps the host `hhccia-core-pg` resolving to this
+# cluster's -rw endpoint, so the staging app's DATABASE_URL host matches prod.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: hhccia-staging-db
+  namespace: hhccia-staging
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  primaryUpdateStrategy: unsupervised
+  inheritedMetadata:
+    labels:
+      logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9187"
+      prometheus.io/path: "/metrics"
+  affinity:
+    enablePodAntiAffinity: false            # single-node cluster
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 512Mi }
+  bootstrap:
+    initdb:
+      database: hhccia_core
+      owner: hhccia
+      secret:
+        name: hhccia-staging-db-app
+  storage:
+    size: 2Gi
+    storageClass: local-path
+---
+# Stable alias: keeps `hhccia-core-pg` pointing at this cluster's RW (primary)
+# service so the staging app's DATABASE_URL host matches prod's.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-core-pg
+  namespace: hhccia-staging
+  labels:
+    app: hhccia-core-pg
+spec:
+  type: ExternalName
+  externalName: hhccia-staging-db-rw.hhccia-staging.svc.cluster.local
+  ports:
+    - { name: pg, port: 5432, targetPort: 5432 }
