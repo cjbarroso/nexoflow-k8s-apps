@@ -29,7 +29,7 @@ spec:
         - name: adapter
           # SHA-pinned to staging-branch builds; CI git-write-back rewrites this
           # to `:staging-<sha>` per push (see hhccia-core.yaml for the full note).
-          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:staging
+          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:staging-38a63f209ea9788185bba58a2b1dbe2c3589730f
           imagePullPolicy: IfNotPresent
           env:
             - name: NATS_URL
