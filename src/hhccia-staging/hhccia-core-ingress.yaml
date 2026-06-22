@@ -1,7 +1,7 @@
 # Exposes the staging core API via the Cloudflare tunnel.
-#   - api-staging.medaudit.irupeconsultores.com
-# The controller's account-scoped API token reaches the irupeconsultores.com
-# zone, so the DNS CNAME is auto-created (same as prod).
+#   - api-medaudit-staging.irupeconsultores.com
+# Single-level subdomain on purpose: Universal SSL covers `*.irupeconsultores.com`
+# but not a nested `*.medaudit.irupeconsultores.com`. DNS CNAME auto-created.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: "api-staging.medaudit.irupeconsultores.com"
+    - host: "api-medaudit-staging.irupeconsultores.com"
       http:
         paths:
           - path: /

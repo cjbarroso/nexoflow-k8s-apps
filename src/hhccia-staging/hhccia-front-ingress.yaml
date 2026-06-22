@@ -1,5 +1,9 @@
 # Exposes the staging frontend via the Cloudflare tunnel.
-#   - staging.medaudit.irupeconsultores.com  (irupeconsultores.com zone)
+#   - medaudit-staging.irupeconsultores.com  (irupeconsultores.com zone)
+# Single-level subdomain on purpose: Cloudflare Universal SSL covers
+# `*.irupeconsultores.com` but NOT a nested `*.medaudit.irupeconsultores.com`,
+# so a host like `staging.medaudit.…` has no edge cert and TLS fails. Mirrors the
+# prod (`medaudit.`) and landing (`medaudit-landing.`) single-level pattern.
 # DNS CNAME auto-created by the controller. The Angular SPA derives its OIDC
 # redirect from window.location.origin, so this host's /callback + /auth/login
 # must be allowlisted in the Authentik provider blueprint
@@ -12,7 +16,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: "staging.medaudit.irupeconsultores.com"
+    - host: "medaudit-staging.irupeconsultores.com"
       http:
         paths:
           - path: /
