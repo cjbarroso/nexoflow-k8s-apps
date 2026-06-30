@@ -80,7 +80,12 @@ spec:
               memory: 512Mi
             limits:
               cpu: 1500m
-              memory: 2Gi
+              # 3Gi (was 2Gi): the gateway sits at ~900Mi, and adding an MCP
+              # server via `npx` (e.g. @chmald/planka-mcp) spikes memory during
+              # the first install — at 2Gi the container OOMKilled (exit 137).
+              # Steady state with the MCP running is ~1Gi; 3Gi covers the install
+              # spike + resident node process. Node has headroom (~5Gi free / 14Gi).
+              memory: 3Gi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false   # dashboard + gateway write at runtime
