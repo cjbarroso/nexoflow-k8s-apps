@@ -1,7 +1,7 @@
 # Frontend (Angular) for staging — same image as prod, runtime-switched to the
-# staging core via CORE_API_URL. Reuses the prod `hhccia-front` OIDC client; the
-# staging origin's /callback + /auth/login are allowlisted in the Authentik
-# provider blueprint (src/authentik/blueprints.yaml).
+# staging core via CORE_API_URL. Uses the DEDICATED staging OIDC client
+# `hhccia-front-staging` (app slug `hhccia-staging`), isolated from prod — see
+# the hhccia-staging.yaml blueprint in src/authentik/blueprints.yaml.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,11 +38,12 @@ spec:
             # The switch that flips ListService -> CoreApiService (staging core).
             - name: CORE_API_URL
               value: "https://api-medaudit-staging.irupeconsultores.com"
-            # Reuse the prod hhccia OIDC application/client (shared identity).
+            # Dedicated staging OIDC application/client (hhccia-staging.yaml in
+            # src/authentik/blueprints.yaml) — isolated from prod's hhccia client.
             - name: AUTHENTIK_AUTHORITY
-              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
+              value: "https://auth.irupeconsultores.com/application/o/hhccia-staging/"
             - name: AUTHENTIK_CLIENT_ID
-              value: "hhccia-front"
+              value: "hhccia-front-staging"
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             initialDelaySeconds: 3

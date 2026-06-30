@@ -105,12 +105,12 @@ data:
           # is a no-op. silent-renew URLs are intentionally absent — the SPA runs
           # silentRenew:false. To add a host, add a {matching_mode, url} entry here
           # and restart the worker; do NOT edit it in the admin UI anymore.
+          # Staging is NO LONGER here: it has its OWN provider/application
+          # (hhccia-staging.yaml, client_id hhccia-front-staging) so prod auth
+          # config is isolated from staging. This list is prod + local-dev only.
           redirect_uris:
             - matching_mode: strict
               url: https://medaudit.irupeconsultores.com/callback
-            # Staging front (hhccia-staging ns) reuses this same OIDC client.
-            - matching_mode: strict
-              url: https://medaudit-staging.irupeconsultores.com/callback
             - matching_mode: strict
               url: http://localhost:4200/callback
             # post_logout_redirect_uri targets (the SPA sends origin + /auth/login on
@@ -118,8 +118,6 @@ data:
             # so without these the redirect back after logout is silently dropped.
             - matching_mode: strict
               url: https://medaudit.irupeconsultores.com/auth/login
-            - matching_mode: strict
-              url: https://medaudit-staging.irupeconsultores.com/auth/login
             - matching_mode: strict
               url: http://localhost:4200/auth/login
           sub_mode: hashed_user_id
@@ -812,6 +810,102 @@ data:
           order: 0
         attrs:
           enabled: false        # staged off — no access restriction until opted in
+          negate: false
+          timeout: 30
+          failure_result: false
+  # ===========================================================================
+  # MedAudit IA STAGING — its OWN OIDC application/provider, isolated from prod.
+  #
+  # Prod (slug `hhccia`, client_id `hhccia-front`) and staging now have separate
+  # OIDC clients so staging auth config (redirect URIs, app-access group, the
+  # application/provider objects) can change WITHOUT touching prod. What is still
+  # SHARED on purpose: the 3 custom scope mappings (prf/service/voice_enabled —
+  # global objects, referenced by !Find) and the role groups (hhccia-superadmins,
+  # hhccia-admin, hhccia-readonly, hhccia-voice-enabled), which are identity/role
+  # data, not per-app. To also sandbox a claim-mapping change, duplicate the
+  # mapping here with an hhccia-staging- prefix (not done — claims rarely change).
+  #
+  # Issuer is per-application-slug: tokens minted via this app carry
+  #   iss = https://auth.irupeconsultores.com/application/o/hhccia-staging/
+  # so the staging core's AUTHENTIK_ISSUER/JWKS_URL and the staging front's
+  # AUTHENTIK_AUTHORITY/CLIENT_ID point here (src/hhccia-staging/*.yaml). Public
+  # client (PKCE) → no client_secret → nothing to seal.
+  #
+  # After editing, restart the authentik worker (or wait for its discovery cycle).
+  hhccia-staging.yaml: |
+    version: 1
+    metadata:
+      name: MedAudit IA staging OIDC application
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      - model: authentik_providers_oauth2.oauth2provider
+        id: hhccia-staging-provider
+        identifiers:
+          name: hhccia-staging-provider
+        attrs:
+          name: hhccia-staging-provider
+          client_id: hhccia-front-staging
+          client_type: public                       # Angular SPA -> PKCE, no secret stored
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          # Same invalidation fix as the prod provider: point at the flow that
+          # actually has a UserLogoutStage so RP-initiated logout kills the SSO session.
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+          access_code_validity: minutes=1
+          access_token_validity: hours=1
+          refresh_token_validity: days=30
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          # Staging + local-dev origins ONLY (prod lives in hhccia.yaml).
+          redirect_uris:
+            - matching_mode: strict
+              url: https://medaudit-staging.irupeconsultores.com/callback
+            - matching_mode: strict
+              url: http://localhost:4200/callback
+            - matching_mode: strict
+              url: https://medaudit-staging.irupeconsultores.com/auth/login
+            - matching_mode: strict
+              url: http://localhost:4200/auth/login
+          sub_mode: hashed_user_id
+          include_claims_in_id_token: true
+          # Built-ins by `managed` (unique); the 3 custom mappings live in the
+          # hhccia.yaml blueprint, so reference them across blueprints by !Find on
+          # their (unique) name — !KeyOf only resolves within the same blueprint.
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, hhccia-prf-claim]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, hhccia-service-claim]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, hhccia-voice-enabled-claim]]
+      - model: authentik_core.application
+        id: hhccia-staging-app
+        identifiers:
+          slug: hhccia-staging
+        attrs:
+          name: MedAudit IA (staging)
+          slug: hhccia-staging
+          provider: !KeyOf hhccia-staging-provider
+          meta_launch_url: https://medaudit-staging.irupeconsultores.com/
+          open_in_new_tab: false
+      # App-access group for staging — distinct from prod's hhccia-users so the
+      # staging user set is managed independently. Add test users here in the
+      # admin UI (membership is runtime data, NOT in Git). The role/claim groups
+      # (hhccia-superadmins/-admin/-readonly/-voice-enabled) are shared and still
+      # drive service_admin/audit_admin/read_admin/voice_enabled in staging too.
+      - model: authentik_core.group
+        id: hhccia-staging-users-group
+        identifiers:
+          name: hhccia-staging-users
+        attrs:
+          is_superuser: false
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, hhccia-staging]]
+          group: !Find [authentik_core.group, [name, hhccia-staging-users]]
+          order: 0
+        attrs:
+          enabled: true        # ENFORCED: only hhccia-staging-users members may use staging
           negate: false
           timeout: 30
           failure_result: false

@@ -1,7 +1,8 @@
 # AI Core Service (staging). Same image as prod, deployed to hhccia-staging.
-# Reuses the prod `hhccia` Authentik OIDC application (same issuer/JWKS), so
-# staging users/groups/roles are identical to prod — only the data store and
-# clinical source differ.
+# Uses the DEDICATED staging Authentik OIDC application (slug hhccia-staging,
+# own issuer/JWKS) so staging auth is isolated from prod. App access is gated to
+# the `hhccia-staging-users` group; the role/claim groups (and prf/service
+# attributes) are shared with prod. Data store and clinical source also differ.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -64,13 +65,17 @@ spec:
               value: "postgresql+asyncpg://$(PG_USER):$(PG_PASSWORD)@hhccia-core-pg:5432/hhccia_core"
             - name: GEMINI_API_KEY
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
-            # Reuse the prod hhccia OIDC application (shared identity).
+            # Dedicated staging OIDC application (slug hhccia-staging) — issuer is
+            # per-app-slug, so tokens carry iss=.../application/o/hhccia-staging/.
+            # Must match the staging provider in src/authentik/blueprints.yaml.
+            # (aud is NOT enforced — AUTHENTIK_AUDIENCE unset — so the differing
+            # client_id is fine; only iss/JWKS must point at the staging app.)
             - name: AUTH_DISABLED
               value: "false"
             - name: AUTHENTIK_ISSUER
-              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
+              value: "https://auth.irupeconsultores.com/application/o/hhccia-staging/"
             - name: AUTHENTIK_JWKS_URL
-              value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
+              value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-staging/jwks/"
             # CORS: the staging front origin is NOT in the code defaults (those cover
             # the prod fronts only), so without this the browser preflight OPTIONS to
             # /records returns 400 and the SPA worklist never loads. Staging host only.
