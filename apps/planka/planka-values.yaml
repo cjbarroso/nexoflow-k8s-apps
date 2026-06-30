@@ -29,7 +29,10 @@ existingDburlSecret: planka-db-app
 
 # SSO via the existing Authentik instance. The confidential client's id +
 # secret come from the SealedSecret `planka-oidc` (keys clientId, clientSecret).
-# OIDC_ENFORCED is left false so the native login (break-glass admin) still works.
+# OIDC_ENFORCED is deliberately left false (its default) so the break-glass local
+# admin's email/password login keeps working if SSO breaks (mirrors Grafana).
+# Programmatic API access uses per-user API keys (X-Api-Key header), which are
+# independent of OIDC — see the planka-deployment memory / src/planka secrets.
 oidc:
   enabled: true
   issuerUrl: https://auth.irupeconsultores.com/application/o/planka/
