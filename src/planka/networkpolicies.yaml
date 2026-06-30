@@ -69,6 +69,25 @@ spec:
       ports:
         - { protocol: TCP, port: 1337 }
 ---
+# The hermes2 agent calls the Planka REST API (X-Api-Key auth) over the internal
+# Service, so it needs ingress to the web pods on 1337 — same scope as the tunnel
+# (web pods only, never Postgres directly). hermes2's own namespace has no egress
+# policy, so no rule is needed there; this ingress allow is the only change.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-hermes2-to-web
+  namespace: planka
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: planka }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: hermes2 }
+      ports:
+        - { protocol: TCP, port: 1337 }
+---
 # Prometheus scrapes the CNPG instance metrics.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
