@@ -71,6 +71,11 @@ spec:
               value: "https://auth.irupeconsultores.com/application/o/hhccia/"
             - name: AUTHENTIK_JWKS_URL
               value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
+            # CORS: the staging front origin is NOT in the code defaults (those cover
+            # the prod fronts only), so without this the browser preflight OPTIONS to
+            # /records returns 400 and the SPA worklist never loads. Staging host only.
+            - name: ALLOWED_ORIGINS
+              value: "https://medaudit-staging.irupeconsultores.com,http://localhost:4200"
           readinessProbe:
             httpGet: { path: /health/ready, port: 8000 }
             initialDelaySeconds: 5
