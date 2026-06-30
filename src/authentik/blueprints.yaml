@@ -867,6 +867,15 @@ data:
               url: http://localhost:4200/auth/login
           sub_mode: hashed_user_id
           include_claims_in_id_token: true
+          # A blueprint-created provider defaults grant_types to [] (authentik only
+          # sets the full set for UI-created providers), and then rejects every
+          # authorize request as invalid_request / "request is otherwise malformed".
+          # The prod hhccia-provider was created in the UI so it dodged this; this
+          # one must declare them. The SPA uses the authorization-code flow + refresh
+          # tokens (offline_access / useRefreshToken:true).
+          grant_types:
+            - authorization_code
+            - refresh_token
           # Built-ins by `managed` (unique); the 3 custom mappings live in the
           # hhccia.yaml blueprint, so reference them across blueprints by !Find on
           # their (unique) name — !KeyOf only resolves within the same blueprint.
