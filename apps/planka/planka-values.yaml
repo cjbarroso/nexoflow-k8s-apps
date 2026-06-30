@@ -1,0 +1,69 @@
+# Helm values for the upstream planka/planka chart (2.1.0). Loaded by Argo via
+# `ref: values` from apps/planka/app.yaml. Secrets stay out of Git — every
+# credential is referenced by an existing*Secret pointing at a SealedSecret in
+# src/planka (or, for the DB, the secret CNPG auto-generates).
+image:
+  repository: ghcr.io/plankanban/planka
+  tag: "2.1.0"
+
+# Planka builds absolute URLs (OIDC redirect, attachment links) from this.
+baseUrl: https://planka.irupeconsultores.com
+
+# SECRET_KEY (session signing). SealedSecret `planka-secretkey`, key `key`.
+existingSecretkeySecret: planka-secretkey
+
+# Break-glass local admin, kept as a fallback because OIDC is NOT enforced
+# (mirrors Grafana's local-admin break-glass). admin_email/admin_name are not
+# secret; the username + password come from the SealedSecret `planka-admin`
+# (keys username, password).
+admin_email: "carlos.barroso@goconvey.com"
+admin_name: "Carlos Barroso"
+existingAdminCredsSecret: planka-admin
+
+# Use the cluster-standard CNPG database, not the chart's bundled Bitnami
+# subchart. With this off, the chart sets DATABASE_URL from existingDburlSecret's
+# `uri` key — exactly what CNPG writes into `planka-db-app`.
+postgresql:
+  enabled: false
+existingDburlSecret: planka-db-app
+
+# SSO via the existing Authentik instance. The confidential client's id +
+# secret come from the SealedSecret `planka-oidc` (keys clientId, clientSecret).
+# OIDC_ENFORCED is left false so the native login (break-glass admin) still works.
+oidc:
+  enabled: true
+  issuerUrl: https://auth.irupeconsultores.com/application/o/planka/
+  existingSecret: planka-oidc
+  scopes:
+    - openid
+    - profile
+    - email
+    - groups
+  admin:
+    rolesAttribute: groups
+    roles:
+      - "Planka Admins"
+
+# Attachments / avatars / background images live on disk. Velero FS-backs this
+# PVC (the namespace has no defaultVolumesToFsBackup exclusion for it).
+persistence:
+  enabled: true
+  size: 10Gi
+  accessMode: ReadWriteOnce
+  # storageClassName omitted: k3s's default StorageClass is local-path.
+
+service:
+  type: ClusterIP
+  port: 1337
+
+# Public host via the Cloudflare Tunnel ingress controller. No TLS block —
+# Cloudflare terminates TLS (Universal SSL, single-level host), exactly like
+# src/authentik/ingress.yaml which selects the controller purely by class.
+ingress:
+  enabled: true
+  className: cloudflare-tunnel
+  hosts:
+    - host: planka.irupeconsultores.com
+      paths:
+        - path: /
+          pathType: Prefix

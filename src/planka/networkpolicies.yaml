@@ -1,0 +1,101 @@
+# Network segmentation for the planka namespace. Default-deny ingress, then only
+# the flows Planka actually uses. Same pattern as src/authentik/networkpolicies.yaml
+# (kube-router enforcement on this single-node k3s; kubelet probes arrive from the
+# CNI bridge 10.42.0.1; PSS labels surface stricter-profile violations).
+#
+# Egress is intentionally unrestricted: Planka resolves and reaches
+# auth.irupeconsultores.com (OIDC discovery / token / userinfo) over the public
+# Cloudflare edge, whose IPs cannot be pinned in a NetworkPolicy.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: planka
+  annotations:
+    # Never let an Argo prune delete the namespace (and everything in it).
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: planka
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Planka <-> CNPG (5432), CNPG replication between instances.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: planka
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - podSelector: {}
+---
+# Kubelet readiness/liveness probes (seen by pods as the CNI bridge IP).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: planka
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+# Cloudflare tunnel connectors terminate planka.irupeconsultores.com and connect
+# straight to the Planka web pods on 1337 — and only to them (a compromised
+# connector must not reach Postgres directly).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-to-web
+  namespace: planka
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: planka }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cloudflared }
+      ports:
+        - { protocol: TCP, port: 1337 }
+---
+# Prometheus scrapes the CNPG instance metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: planka
+spec:
+  podSelector: {}
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+      ports:
+        - { protocol: TCP, port: 9187 }
+---
+# The CNPG operator manages the database pods via their status port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-operator
+  namespace: planka
+spec:
+  podSelector:
+    matchLabels: { cnpg.io/cluster: planka-db }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: cnpg-system }
+      ports:
+        - { protocol: TCP, port: 8000 }

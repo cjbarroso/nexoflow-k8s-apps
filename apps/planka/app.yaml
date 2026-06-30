@@ -1,0 +1,46 @@
+# Planka — self-hosted kanban board (https://planka.cloud).
+#
+# Multi-source app (see docs/06-APP-STRUCTURE.md):
+#   1. upstream Helm chart `planka/planka`, pinned 2.1.0;
+#   2. this repo as `ref: values` so Argo loads planka-values.yaml from Git;
+#   3. this repo at `path: src/planka` for the raw manifests the chart doesn't
+#      own — Namespace+PSS, NetworkPolicies, the CloudNativePG cluster + backups,
+#      and the SealedSecrets the chart consumes by name.
+#
+# PostgreSQL is NOT the chart's bundled Bitnami subchart (postgresql.enabled=false
+# in the values): we run CNPG (src/planka/postgres-cnpg.yaml) for the same
+# WAL-archiving + R2-backup posture as authentik-db / hhccia-core-db. Planka reads
+# the CNPG-generated `planka-db-app` secret's `uri` key via existingDburlSecret.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: planka
+  namespace: argocd
+spec:
+  project: planka
+  sources:
+    - chart: planka
+      repoURL: http://plankanban.github.io/planka
+      targetRevision: 2.1.0
+      helm:
+        valueFiles:
+          - $values/apps/planka/planka-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      path: src/planka
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: planka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # No ServerSideApply: same as apps/authentik/app.yaml — under SSA the CNPG
+      # webhook-defaulted Cluster fields are attributed to Argo's field manager
+      # and the app reads permanently OutOfSync. Client-side apply diffs via
+      # last-applied and ignores live-only defaulted fields.

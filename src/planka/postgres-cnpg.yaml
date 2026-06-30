@@ -1,0 +1,111 @@
+# Planka's database — CloudNativePG operator-managed cluster, same pattern as
+# src/authentik/postgres-cnpg.yaml and src/hhccia-v2/postgres.yaml.
+#
+# Fresh database (no legacy import): CNPG runs initdb and AUTO-GENERATES the
+# application secret `planka-db-app` (basic-auth + a ready-to-use `uri`). Planka
+# consumes that `uri` via existingDburlSecret in apps/planka/planka-values.yaml,
+# so no DB-credential SealedSecret is needed.
+#
+# 1 primary + 1 hot standby (streaming replication), continuous WAL archiving to
+# R2 (PITR) + daily base backup.
+#
+# NOTE: single-node k3s — both instances land on the same node (anti-affinity
+# off). The node remains the SPOF; re-enable anti-affinity when a second node
+# exists. Backups are the recovery path.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: planka-db
+  namespace: planka
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  primaryUpdateStrategy: unsupervised
+  inheritedMetadata:
+    labels:
+      logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    annotations:
+      prometheus.io/scrape: "true"          # CNPG instance metrics (backup/WAL health)
+      prometheus.io/port: "9187"
+      prometheus.io/path: "/metrics"
+      # Velero FS-backs every pod volume in this namespace. Exclude the CNPG
+      # data volume: barman WAL archiving + base backups own DB recovery; a
+      # crash-consistent FS copy of pgdata is redundant and not a supported
+      # restore path.
+      backup.velero.io/backup-volumes-excludes: pgdata
+  affinity:
+    enablePodAntiAffinity: false            # single-node: both instances on homestation
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  # Continuous WAL archiving to R2 (barman-cloud plugin) → enables PITR.
+  # Base backups are taken by the ScheduledBackup below.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: planka-db-store
+  bootstrap:
+    initdb:
+      database: planka
+      owner: planka
+      # Declared explicitly (= the CNPG webhook defaults) so the manifest matches
+      # the live object and the app never reads OutOfSync. No `secret:` here —
+      # CNPG auto-generates the `planka-db-app` role credentials.
+      encoding: UTF8
+      localeCollate: C
+      localeCType: C
+  storage:
+    size: 5Gi
+    storageClass: local-path
+---
+# Backups: R2 bucket `velero-backups`, prefix `cnpg/planka-db` (same bucket-scoped
+# R2 token as the other backup systems). Credentials from the sealed secret
+# `planka-db-backup-creds`.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: planka-db-store
+  namespace: planka
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://velero-backups/cnpg/planka-db
+    endpointURL: https://77df3d66af9eb572fe180d800d44127b.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: planka-db-backup-creds
+        key: accessKeyId
+      secretAccessKey:
+        name: planka-db-backup-creds
+        key: secretAccessKey
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: planka-db-daily
+  namespace: planka
+spec:
+  # 6-field CNPG cron (sec min hour dom mon dow): 03:45:00 daily — staggered
+  # after Velero (02:00), the hhccia base backup (03:00) and authentik (03:30).
+  schedule: "0 45 3 * * *"
+  backupOwnerReference: self
+  immediate: true            # take one base backup as soon as this is created
+  cluster:
+    name: planka-db
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+#
+# ── Restore runbook ──────────────────────────────────────────────────────────
+# CNPG restores by bootstrapping a NEW cluster from the object store (not
+# in-place). Same procedure as authentik-db — see the runbook at the bottom of
+# src/authentik/postgres-cnpg.yaml, substituting:
+#   ObjectStore/serverName: planka-db-store / planka-db
+#   then point Planka's existingDburlSecret at the recovered cluster's -app secret.
+# Verify backups exist:  kubectl -n planka get backups.postgresql.cnpg.io
+# Inspect object store:  objects under s3://velero-backups/cnpg/planka-db/

@@ -135,3 +135,23 @@ spec:
     - { server: 'https://kubernetes.default.svc', namespace: hermes2 }
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: planka
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Planka kanban board
+  sourceRepos:
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    # Upstream Planka Helm chart:
+    - 'http://plankanban.github.io/planka'
+  destinations:
+    - { server: 'https://kubernetes.default.svc', namespace: planka }
+  # Namespace only (CreateNamespace + the PSS-labelled Namespace manifest). The
+  # CNPG Cluster/ObjectStore/ScheduledBackup and SealedSecrets are all namespaced.
+  clusterResourceWhitelist:
+    - { group: '', kind: Namespace }
