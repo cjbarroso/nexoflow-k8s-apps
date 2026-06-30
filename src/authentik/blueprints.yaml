@@ -708,3 +708,102 @@ data:
           negate: false
           timeout: 30
           failure_result: false
+  # Planka (kanban board, planka.irupeconsultores.com) OIDC application. Unlike
+  # hhccia (a PUBLIC SPA using PKCE), Planka is a CONFIDENTIAL server-side client:
+  # it holds a client_secret. We DELIBERATELY omit client_secret here so Authentik
+  # GENERATES one — committing a secret to this (plaintext) ConfigMap would leak
+  # it. After this applies, read the generated secret from the admin UI
+  # (Applications -> Providers -> planka-provider) and seal it into the
+  # `planka-oidc` SealedSecret (src/planka) as keys clientId + clientSecret.
+  #
+  # Planka maps admin rights from a `groups` claim (OIDC_ROLES_ATTRIBUTE=groups,
+  # OIDC_ADMIN_ROLES="Planka Admins"), so we add a custom scope mapping that emits
+  # the user's group names on the `groups` scope, and a `Planka Admins` group.
+  #
+  # After editing, restart the authentik worker (or wait for its discovery cycle).
+  planka-oidc.yaml: |
+    version: 1
+    metadata:
+      name: Planka OIDC application
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      # Emit the user's group names as a `groups` claim on a dedicated `groups`
+      # scope, so Planka's OIDC_ROLES_ATTRIBUTE=groups admin mapping works. Planka
+      # reads claims from userinfo by default; authentik includes a scope's mapping
+      # in userinfo when that scope is requested (Planka requests `groups`).
+      - model: authentik_providers_oauth2.scopemapping
+        id: planka-groups-mapping
+        identifiers:
+          name: planka-groups-claim
+        attrs:
+          name: planka-groups-claim
+          scope_name: groups
+          description: "Planka: nombres de los grupos del usuario, sobre el scope groups."
+          expression: |
+            return {"groups": [group.name for group in user.ak_groups.all()]}
+      - model: authentik_providers_oauth2.oauth2provider
+        id: planka-provider
+        identifiers:
+          name: planka-provider
+        attrs:
+          name: planka-provider
+          client_id: planka
+          client_type: confidential                  # server-side client, holds a secret
+          # client_secret intentionally omitted -> authentik generates it.
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          # Same fix as hhccia/hermes: default-provider-invalidation-flow is EMPTY
+          # on this instance, so logout never terminated the SSO session. Point at
+          # default-invalidation-flow (has the UserLogoutStage).
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+          access_code_validity: minutes=1
+          access_token_validity: hours=1
+          refresh_token_validity: days=30
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          redirect_uris:
+            - matching_mode: strict
+              url: https://planka.irupeconsultores.com/oidc-callback
+          sub_mode: hashed_user_id
+          include_claims_in_id_token: true
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+            - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+            - !KeyOf planka-groups-mapping
+      - model: authentik_core.application
+        id: planka-app
+        identifiers:
+          slug: planka
+        attrs:
+          name: Planka
+          slug: planka
+          provider: !KeyOf planka-provider
+          meta_launch_url: https://planka.irupeconsultores.com/
+          open_in_new_tab: false
+      # The group whose members Planka grants admin (OIDC_ADMIN_ROLES). Declared
+      # idempotently; MEMBERSHIP is identity data managed in the UI/DB, NOT in Git.
+      - model: authentik_core.group
+        identifiers:
+          name: Planka Admins
+        attrs:
+          is_superuser: false
+      # OPTIONAL app-access gate, STAGED DISABLED (mirrors hhccia): committing this
+      # changes nothing (Planka stays open to all authenticated users). To restrict
+      # who may SSO into Planka: add members to `planka-users` in the admin UI, then
+      # flip enabled: true.
+      - model: authentik_core.group
+        id: planka-users-group
+        identifiers:
+          name: planka-users
+        attrs:
+          is_superuser: false
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, planka]]
+          group: !Find [authentik_core.group, [name, planka-users]]
+          order: 0
+        attrs:
+          enabled: false        # staged off — no access restriction until opted in
+          negate: false
+          timeout: 30
+          failure_result: false
