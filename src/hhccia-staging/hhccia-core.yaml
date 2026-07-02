@@ -81,6 +81,12 @@ spec:
             # /records returns 400 and the SPA worklist never loads. Staging host only.
             - name: ALLOWED_ORIGINS
               value: "https://medaudit-staging.irupeconsultores.com,http://localhost:4200"
+            # Fase 2 dictation write-back: finalize INSERTs the dictated evolution
+            # into the source (HHCC, CNSRSP ANA=CMEV03) via the adapter RPC.
+            # STAGING-ONLY for now — the code default is false, so prod stays in
+            # Fase 1 even though the same code ships on main.
+            - name: DICTATION_WRITEBACK_ENABLED
+              value: "true"
           readinessProbe:
             httpGet: { path: /health/ready, port: 8000 }
             initialDelaySeconds: 5
