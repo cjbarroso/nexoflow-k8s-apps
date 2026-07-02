@@ -36,7 +36,7 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:a154d42afbf6fdf978dee6507070e356e10d94a6
+          image: ghcr.io/irupe-consultores/hhccia-core:cc3f4657c65c5cdd2a99bcb70b1da0c8a577be28
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
