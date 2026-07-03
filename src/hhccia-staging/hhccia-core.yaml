@@ -76,6 +76,20 @@ spec:
               value: "https://auth.irupeconsultores.com/application/o/hhccia-staging/"
             - name: AUTHENTIK_JWKS_URL
               value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-staging/jwks/"
+            # Self-service user preferences (PATCH /me/profile) writes the user's
+            # own name/prf/service back to Authentik via its MANAGEMENT API. The
+            # management API is app-agnostic (same authentik-server as prod), so
+            # this URL is identical to prod. AUTHENTIK_API_TOKEN is a service-account
+            # token (core.view_user + core.change_user) sealed into hhccia-core-secrets
+            # under AUTHENTIK_API_TOKEN. `optional: true` → the pod boots before the
+            # token is sealed; until then the endpoint is read-only (503 on write).
+            - name: AUTHENTIK_API_URL
+              value: "http://authentik-server.authentik.svc.cluster.local"
+            - name: AUTHENTIK_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: hhccia-core-secrets, key: AUTHENTIK_API_TOKEN, optional: true }
+            - name: PROFILE_ALLOWED_SERVICES
+              value: "TI,IN,in"
             # CORS: the staging front origin is NOT in the code defaults (those cover
             # the prod fronts only), so without this the browser preflight OPTIONS to
             # /records returns 400 and the SPA worklist never loads. Staging host only.
