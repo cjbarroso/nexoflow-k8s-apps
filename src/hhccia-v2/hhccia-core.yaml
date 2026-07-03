@@ -69,6 +69,23 @@ spec:
             # (the public URL); JWKS is just how we fetch the signing keys.
             - name: AUTHENTIK_JWKS_URL
               value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia/jwks/"
+            # Self-service user preferences (PATCH /me/profile) writes the user's
+            # own name/prf/service back to Authentik via its MANAGEMENT API (the
+            # reverse direction of the JWKS validation above). AUTHENTIK_API_TOKEN
+            # is a service-account token scoped to core.view_user + core.change_user,
+            # sealed into hhccia-core-secrets. `optional: true` so the pod still boots
+            # BEFORE the token is sealed — until then /me/profile is read-only and a
+            # write answers 503 (see app/authentik_client.configured()). The
+            # authentik NetworkPolicy already allows hhccia-v2 -> authentik-server:9000.
+            - name: AUTHENTIK_API_URL
+              value: "http://authentik-server.authentik.svc.cluster.local"
+            - name: AUTHENTIK_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: hhccia-core-secrets, key: AUTHENTIK_API_TOKEN, optional: true }
+            # SER codes a user may self-assign (case-sensitive; "IN" != "in"). Keep
+            # in sync with the adapter SERVICES_IN_SCOPE + the signup radio choices.
+            - name: PROFILE_ALLOWED_SERVICES
+              value: "TI,IN,in"
           # Readiness verifies the dependencies (Postgres SELECT 1 + NATS
           # connected): a pod that boots before them, or loses them, is pulled
           # from the Service instead of answering 500s.
