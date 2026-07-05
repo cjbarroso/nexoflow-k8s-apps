@@ -1,0 +1,35 @@
+# cloudflared-k8s-api — a dedicated Cloudflare Tunnel connector that forwards a
+# raw TCP stream to the Kubernetes API server, exposing it at
+# kubernetes-srn.irupeconsultores.com. Separate from the strrl HTTP tunnel-
+# ingress controller (apps/operators/cloudflared) and the MSSQL tunnel
+# (apps/operators/cloudflared-mssql): each tunnel has isolated credentials and
+# its own Cloudflare Access policy.
+#
+# Raw manifests live in src/cloudflared-k8s-api (Deployment, ConfigMap, and the
+# SealedSecret holding the tunnel credentials). Deploys into the shared
+# `cloudflared` namespace, already allowed by the `operators` AppProject.
+#
+# One-time out-of-band setup (create tunnel, route DNS, seal creds, add a
+# STRICT Cloudflare Access policy) is documented in
+# src/cloudflared-k8s-api/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflared-k8s-api
+  namespace: argocd
+spec:
+  project: operators
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    targetRevision: master
+    path: src/cloudflared-k8s-api
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflared
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
