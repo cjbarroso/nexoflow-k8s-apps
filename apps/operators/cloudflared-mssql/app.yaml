@@ -1,0 +1,32 @@
+# cloudflared-mssql — a dedicated Cloudflare Tunnel connector that forwards a
+# raw TCP stream (MSSQL / TDS on 1433) from a public hostname to an MSSQL server
+# at a LAN IP outside the cluster. Separate from the strrl HTTP tunnel-ingress
+# controller (apps/operators/cloudflared): that one only handles HTTP Ingress.
+#
+# Raw manifests live in src/cloudflared-mssql (Deployment, ConfigMap, and the
+# SealedSecret holding the tunnel credentials). Deploys into the shared
+# `cloudflared` namespace, already allowed by the `operators` AppProject.
+#
+# One-time out-of-band setup (create tunnel, route DNS, seal creds, add a
+# Cloudflare Access policy) is documented in src/cloudflared-mssql/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflared-mssql
+  namespace: argocd
+spec:
+  project: operators
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    targetRevision: master
+    path: src/cloudflared-mssql
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflared
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

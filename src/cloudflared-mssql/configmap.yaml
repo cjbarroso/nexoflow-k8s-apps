@@ -1,0 +1,34 @@
+# Locally-managed tunnel config for the raw-TCP MSSQL route. Unlike the strrl
+# cloudflare-tunnel-ingress-controller (apps/operators/cloudflared), which only
+# maps HTTP Ingress objects to public hostnames, this is a plain `cloudflared`
+# running its OWN dedicated tunnel that forwards a raw TCP stream to an MSSQL
+# server living at a LAN IP OUTSIDE the cluster.
+#
+# TDS (MSSQL) is not HTTP, so it cannot ride the HTTP tunnel/orange-cloud proxy.
+# The client side pairs with this via:
+#   cloudflared access tcp --hostname mssql-srn.irupeconsultores.com --url localhost:1433
+# then points SSMS/sqlcmd at localhost:1433.
+#
+# The MSSQL server lives at 192.168.5.132:1433 on the LAN; the node routes to it
+# directly (no in-cluster Service). See README.md for the tunnel/DNS/Access setup.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-mssql-config
+  namespace: cloudflared
+data:
+  config.yaml: |
+    tunnel: 98b16c57-a8ad-4540-ba20-f71268ea1242
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    # Metrics + /ready health endpoint (scraped by the liveness probe).
+    metrics: 0.0.0.0:2000
+    # The image is pinned; cloudflared must not self-update.
+    no-autoupdate: true
+    # Keep at least this many connections to the Cloudflare edge for HA.
+    ingress:
+      # The MSSQL server is at a LAN IP the cluster node can route to. cloudflared
+      # dials it directly (no in-cluster Service needed) and streams raw TCP.
+      - hostname: mssql-srn.irupeconsultores.com
+        service: tcp://192.168.5.132:1433
+      # Everything else is refused.
+      - service: http_status:404

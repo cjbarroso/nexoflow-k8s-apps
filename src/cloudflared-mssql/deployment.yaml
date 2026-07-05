@@ -1,0 +1,91 @@
+# Plain `cloudflared` connector for the MSSQL raw-TCP tunnel. Runs a dedicated
+# tunnel (config in cloudflared-mssql-config, creds in the SealedSecret
+# cloudflared-mssql-creds). Independent of the strrl ingress-controller pod that
+# shares this namespace — it does NOT touch that tunnel or its HTTP hostnames.
+#
+# Outbound-only: cloudflared opens connections TO the Cloudflare edge (443/7844),
+# so no inbound router port is exposed. Reachability to the MSSQL LAN IP is over
+# the node's normal L3 routing (egress is unrestricted here, same as the other
+# namespaces — see src/planka/networkpolicies.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-mssql
+  namespace: cloudflared
+  labels:
+    app: cloudflared-mssql
+spec:
+  replicas: 2          # two connectors => zero-downtime restarts / edge HA
+  selector:
+    matchLabels:
+      app: cloudflared-mssql
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: cloudflared-mssql
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    spec:
+      automountServiceAccountToken: false
+      # Spread the two connectors across restarts; single-node k3s tolerates this.
+      containers:
+        - name: cloudflared
+          # Pinned tag; Renovate bumps it to the latest release + digest. cloudflared
+          # refuses to self-update (no-autoupdate in config.yaml). Keep the
+          # connector within ~1 minor of the CLI that creates/rotates the tunnel.
+          image: cloudflare/cloudflared:2026.6.1
+          args:
+            - tunnel
+            - --config
+            - /etc/cloudflared/config.yaml
+            - run
+          ports:
+            - name: metrics
+              containerPort: 2000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
+            - name: creds
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: config
+          configMap:
+            name: cloudflared-mssql-config
+        - name: creds
+          secret:
+            secretName: cloudflared-mssql-creds
