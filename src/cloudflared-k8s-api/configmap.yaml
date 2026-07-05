@@ -1,0 +1,36 @@
+# Locally-managed tunnel config for the raw-TCP Kubernetes API route. A plain
+# `cloudflared` running its OWN dedicated tunnel, separate from both the strrl
+# HTTP ingress-controller (apps/operators/cloudflared) and the MSSQL tunnel
+# (src/cloudflared-mssql).
+#
+# The Kubernetes API is TLS-over-TCP (6443 on the node). We forward it as a raw
+# TCP stream — kubectl <-> apiserver mTLS is negotiated END TO END; cloudflared
+# only pipes bytes and never sees the plaintext or the client cert.
+#
+# Target is the IN-CLUSTER `kubernetes` Service (ClusterIP 10.43.0.1:443), NOT a
+# node IP. It is backed by every control-plane node's apiserver, so when the
+# cluster grows from 1 to 3 nodes this route needs NO change — kube-proxy load-
+# balances across all apiserver endpoints automatically.
+#
+# Client side pairs with this via:
+#   cloudflared access tcp --hostname kubernetes-srn.irupeconsultores.com --url localhost:6443
+# then kubectl uses a kubeconfig whose server is https://127.0.0.1:6443 (the API
+# serving cert has 127.0.0.1 + localhost SANs, so TLS validates). See README.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-k8s-api-config
+  namespace: cloudflared
+data:
+  config.yaml: |
+    tunnel: abf84933-ae03-427e-ac02-a485e4a6123d
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    metrics: 0.0.0.0:2000
+    no-autoupdate: true
+    ingress:
+      # The in-cluster kubernetes Service — auto-HA across all control-plane
+      # nodes. cloudflared resolves it via CoreDNS from the cloudflared namespace.
+      - hostname: kubernetes-srn.irupeconsultores.com
+        service: tcp://kubernetes.default.svc:443
+      # Everything else is refused.
+      - service: http_status:404

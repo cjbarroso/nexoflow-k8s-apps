@@ -1,0 +1,91 @@
+# Plain `cloudflared` connector for the Kubernetes API raw-TCP tunnel. Runs a
+# dedicated tunnel (config in cloudflared-k8s-api-config, creds in the
+# SealedSecret cloudflared-k8s-api-creds). Independent of the strrl ingress
+# controller and the MSSQL connector that share this namespace.
+#
+# Outbound-only: cloudflared dials the Cloudflare edge (443/7844); no inbound
+# router port is opened. It reaches the apiserver via the in-cluster
+# kubernetes.default.svc ClusterIP — it needs NO Kubernetes RBAC of its own
+# (it pipes an opaque TLS stream; the client authenticates to the API itself),
+# so the ServiceAccount token is not mounted.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-k8s-api
+  namespace: cloudflared
+  labels:
+    app: cloudflared-k8s-api
+spec:
+  replicas: 2          # two connectors => zero-downtime restarts / edge HA
+  selector:
+    matchLabels:
+      app: cloudflared-k8s-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: cloudflared-k8s-api
+        logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: cloudflared
+          # Pinned tag; Renovate bumps it to the latest release + digest. cloudflared
+          # refuses to self-update (no-autoupdate in config.yaml). Keep the
+          # connector within ~1 minor of the CLI that creates/rotates the tunnel.
+          image: cloudflare/cloudflared:2026.6.1
+          args:
+            - tunnel
+            - --config
+            - /etc/cloudflared/config.yaml
+            - run
+          ports:
+            - name: metrics
+              containerPort: 2000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
+            - name: creds
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: config
+          configMap:
+            name: cloudflared-k8s-api-config
+        - name: creds
+          secret:
+            secretName: cloudflared-k8s-api-creds
