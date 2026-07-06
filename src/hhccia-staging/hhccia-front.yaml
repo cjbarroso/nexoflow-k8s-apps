@@ -27,7 +27,7 @@ spec:
         - name: hhccia-front
           # SHA-pinned to staging-branch builds; CI git-write-back rewrites this
           # to `:staging-<sha>` per push (see hhccia-core.yaml for the full note).
-          image: ghcr.io/irupe-consultores/hhccia-front:staging-3d62c5e59fcc4c0b4d1c200bb87f594cdd5eebef
+          image: ghcr.io/irupe-consultores/hhccia-front:staging-af4942adb5d18c02ea6bcb482440ccfc44bb5c3c
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
