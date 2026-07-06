@@ -39,7 +39,7 @@ spec:
           # to `staging` (git write-back) — that manifest change is what Argo
           # detects and rolls. `:staging` here is the bootstrap placeholder before
           # the first write-back (a brief ImagePullBackOff until CI lands the SHA).
-          image: ghcr.io/irupe-consultores/hhccia-core:staging-528eb8b59b25c9fc7f79776ddac6fcf2a9b22abf
+          image: ghcr.io/irupe-consultores/hhccia-core:staging-1c840c170c0110f075bfea203ba81eb1d12c72d0
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
