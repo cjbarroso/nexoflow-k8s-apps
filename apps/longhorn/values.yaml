@@ -3,6 +3,13 @@
 # handles HA); Longhorn is for stateful apps whose PVCs must be able to move
 # between nodes (e.g. vaultwarden, grafana). local-path REMAINS the cluster
 # default StorageClass; `longhorn` is opt-in per-PVC.
+# The pre-upgrade checker ships as a Helm pre-upgrade HOOK Job that Argo runs
+# before the chart's ServiceAccount exists on a fresh install → the Job can never
+# create its pod ("serviceaccount longhorn-service-account not found") and the
+# sync hangs. Disable it for GitOps installs (it's meant for `helm upgrade`).
+preUpgradeChecker:
+  jobEnabled: false
+
 persistence:
   defaultClass: false            # do NOT become the default SC (keep local-path default)
   defaultClassReplicaCount: 2
