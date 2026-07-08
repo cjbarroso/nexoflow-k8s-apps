@@ -31,6 +31,16 @@ spec:
         logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
+      # 3-node HA (2026-07-08): force the two connectors onto different nodes so a
+      # single node loss can't take down this tunnel. The backend
+      # (kubernetes.default.svc) is already apiserver-HA across all nodes.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: cloudflared-k8s-api
       containers:
         - name: cloudflared
           # Pinned tag; Renovate bumps it to the latest release + digest. cloudflared

@@ -30,7 +30,15 @@ spec:
         logs.cjbarroso.com/collect: "true"   # opt in to log aggregation
     spec:
       automountServiceAccountToken: false
-      # Spread the two connectors across restarts; single-node k3s tolerates this.
+      # 3-node HA (2026-07-08): force the two connectors onto different nodes so a
+      # single node loss can't take down this tunnel.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: cloudflared-mssql
       containers:
         - name: cloudflared
           # Pinned tag; Renovate bumps it to the latest release + digest. cloudflared
