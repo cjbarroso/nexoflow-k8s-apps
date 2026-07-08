@@ -9,3 +9,11 @@ cloudflare:
     apiTokenKey: api_token
     accountIDKey: account_id
     tunnelNameKey: tunnel_name
+
+# 3-node HA (2026-07-08): run multiple connector replicas so app ingress
+# (medaudit.*, etc.) survives a single node loss. The strrl controller doesn't
+# expose affinity for the connector, so placement relies on the scheduler's
+# default soft topology spread — with 3 replicas across 3 nodes that lands ~1
+# per node, leaving ≥1 connector alive if any node (incl. homestation) goes down.
+cloudflared:
+  replicaCount: 3
