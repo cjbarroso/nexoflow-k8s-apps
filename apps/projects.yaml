@@ -59,10 +59,12 @@ spec:
     - 'https://cloudnative-pg.github.io/charts'
     - 'https://bitnami-labs.github.io/sealed-secrets'
     - 'https://helm.strrl.dev'
+    - 'https://charts.longhorn.io'
   destinations:
     - { server: 'https://kubernetes.default.svc', namespace: cloudflared }
     - { server: 'https://kubernetes.default.svc', namespace: cnpg-system }
     - { server: 'https://kubernetes.default.svc', namespace: kube-system }
+    - { server: 'https://kubernetes.default.svc', namespace: longhorn-system }
   # Operators install the full cluster-scoped surface (CRDs, webhooks,
   # IngressClass, aggregated APIs) — keep this one broad.
   clusterResourceWhitelist:

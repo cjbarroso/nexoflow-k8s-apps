@@ -1,0 +1,32 @@
+# Longhorn distributed storage (added 2026-07-08 after the cluster went 3-node HA).
+# Multi-source Argo app: official Longhorn Helm chart + values from this repo
+# (same $values pattern as apps/velero). Project `operators` (broad cluster-scoped
+# whitelist) — Longhorn ships CRDs, ClusterRoles, webhooks. Namespace longhorn-system.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  project: operators
+  sources:
+    - chart: longhorn
+      repoURL: https://charts.longhorn.io
+      targetRevision: 1.12.0
+      helm:
+        valueFiles:
+          - $values/apps/longhorn/values.yaml
+    - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+      targetRevision: master
+      ref: values
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Longhorn's CRDs are large — SSA avoids the client-side apply annotation limit.
+      - ServerSideApply=true

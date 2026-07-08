@@ -1,0 +1,16 @@
+# Longhorn — replicated block storage for NON-DB PVCs across the 3-node cluster.
+# CNPG databases deliberately stay on local-path (their own streaming replication
+# handles HA); Longhorn is for stateful apps whose PVCs must be able to move
+# between nodes (e.g. vaultwarden, grafana). local-path REMAINS the cluster
+# default StorageClass; `longhorn` is opt-in per-PVC.
+persistence:
+  defaultClass: false            # do NOT become the default SC (keep local-path default)
+  defaultClassReplicaCount: 2
+
+defaultSettings:
+  defaultReplicaCount: 2
+  # Keep replicas off the disk-tight homestation node (27G/108G ≈ 25% free) and
+  # on the roomy homestation2/3 (466G each): 30% minimal-available excludes
+  # homestation from replica scheduling. Pods on homestation can still USE
+  # longhorn volumes (engine local, replicas remote).
+  storageMinimalAvailablePercentage: 30
