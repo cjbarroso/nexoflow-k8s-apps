@@ -64,12 +64,12 @@ spec:
         persistence:
           data:
             enabled: true
-            # The size of the persistent volume.
-            size: "10Gi"
-            # The StorageClass for the persistent volume. For home labs, 'local-path'
-            # is a common choice. If you have a different provisioner (like Longhorn,
-            # NFS, etc.), change this value to match your setup.
-            storageClassName: "local-path"
+            # Migrated 2026-07-08 from local-path to Longhorn (replicated) so the
+            # vault volume is node-mobile in the 3-node HA cluster. Data was copied
+            # from the old local-path PVC into this pre-created Longhorn PVC; we
+            # mount it via existingClaim (size/storageClassName are ignored then).
+            # The old `vaultwarden-data` PVC is kept (Prune=false) as a fallback.
+            existingClaim: vaultwarden-data-lh
             accessMode: ReadWriteOnce
 
   destination:
