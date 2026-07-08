@@ -44,6 +44,10 @@ spec:
               value: "https://auth.irupeconsultores.com/application/o/hhccia-staging/"
             - name: AUTHENTIK_CLIENT_ID
               value: "hhccia-front-staging"
+            # Drives the staging visual indicators (amber ribbon, tinted chrome,
+            # [STG] tab marker). Prod (hhccia-v2) leaves this unset → clean UI.
+            - name: APP_ENV
+              value: "staging"
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             initialDelaySeconds: 3
