@@ -32,7 +32,7 @@ spec:
       prometheus.io/port: "9187"
       prometheus.io/path: "/metrics"
   affinity:
-    enablePodAntiAffinity: false            # single-node: allow both instances on the same node
+    enablePodAntiAffinity: true             # 3-node HA (2026-07-08): spread primary/standby across nodes
   # Was BestEffort (first eviction victim under node pressure) — same sizing as
   # authentik-db. Applying this rolls the instances one at a time (standby
   # first, then a switchover): brief connection blips for the core API.

@@ -34,7 +34,7 @@ spec:
       # restore path.
       backup.velero.io/backup-volumes-excludes: pgdata
   affinity:
-    enablePodAntiAffinity: false            # single-node: both instances on homestation
+    enablePodAntiAffinity: true             # 3-node HA (2026-07-08): spread primary/standby across nodes
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 1Gi }
