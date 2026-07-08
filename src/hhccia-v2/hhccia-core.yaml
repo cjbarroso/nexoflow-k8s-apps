@@ -86,6 +86,20 @@ spec:
             # in sync with the adapter SERVICES_IN_SCOPE + the signup radio choices.
             - name: PROFILE_ALLOWED_SERVICES
               value: "TI,IN,in"
+            # Fase 2: enable write-back of finalized dictations into Datatech
+            # (finalize -> INSERT RPC -> CNSRSP as ANA=CMEV03). OFF by default in
+            # code (config.py); prod stayed unset (=> false) so dictations stopped
+            # at ready_to_apply and never reached the clinical record.
+            # ⚠️ COUPLED WITH A DB GRANT: the write-back login `hhcciapower`
+            # (role rol_hhcciapower) currently has DATABASE-scoped `DENY INSERT`
+            # on both SRN and HHCC. Until a DBA runs, on SRN *and* HHCC,
+            #   REVOKE INSERT TO rol_hhcciapower;               -- drop the DENY
+            #   GRANT  INSERT ON OBJECT::dbo.CNSRSP TO rol_hhcciapower;
+            # this flag being true makes finalize return apply_failed (error 229).
+            # Verify as hhcciapower: HAS_PERMS_BY_NAME('CNSRSP','OBJECT','INSERT')=1
+            # BEFORE deploying this. (verified missing 2026-07-07)
+            - name: DICTATION_WRITEBACK_ENABLED
+              value: "true"
           # Readiness verifies the dependencies (Postgres SELECT 1 + NATS
           # connected): a pod that boots before them, or loses them, is pulled
           # from the Service instead of answering 500s.
