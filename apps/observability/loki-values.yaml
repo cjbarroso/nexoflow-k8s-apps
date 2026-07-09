@@ -62,6 +62,14 @@ singleBinary:
   replicas: 1
   persistence:
     enabled: true
+    # Longhorn (replica 2 → ~80Gi across the roomy homestation2/3) since the
+    # 3-node HA move: logs AND the Loki-ruler alerts (CNPGBackupFailed,
+    # GeminiAccessErrors, …) reschedule onto a survivor instead of dying with
+    # homestation. Log history is disposable — no data copy; recreate on Longhorn.
+    # A StatefulSet volumeClaimTemplate's storageClass is immutable, so applying
+    # this needs the Loki STS + its PVC deleted once so it's recreated on Longhorn
+    # (see the migration runbook). Key is `storageClass` (not ...Name) in this chart.
+    storageClass: longhorn
     size: 40Gi          # ~30d headroom for this stack; bump if it fills
   resources:
     requests:

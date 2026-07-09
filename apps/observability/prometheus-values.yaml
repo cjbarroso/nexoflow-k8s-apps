@@ -1,8 +1,16 @@
 # Prometheus Helm values — the metric store. Deliberately minimal, to match the
 # light log stack alongside it (Loki SingleBinary + Alloy). It scrapes node +
-# cluster metrics and keeps 15 days; nothing here is HA.
+# cluster metrics and keeps 15 days.
 #
-# Footprint trims: Alertmanager, Pushgateway and kube-state-metrics are all OFF.
+# 3-node cluster (since 2026-07-08): the scrape layer needs no per-node config —
+# node-exporter is a DaemonSet (one pod/node) and scraping is endpoint/annotation
+# based, so all 3 nodes' node-exporters + kubelets are discovered automatically.
+# The Prometheus server itself is still a single replica (not multi-replica HA),
+# but its PVC now lives on Longhorn (replicated across the roomy nodes), so on a
+# node loss the pod reschedules onto a survivor with its TSDB intact instead of
+# dying with homestation. Resources/storage were resized for ~3x the series.
+#
+# Footprint trims: Pushgateway is OFF; Alertmanager + kube-state-metrics are ON.
 # Node CPU/mem/disk comes from the node-exporter DaemonSet; per-pod CPU/mem comes
 # from the kubelet/cAdvisor scrape (already wired by the chart's default
 # scrape_configs — no extra pod). Helm ignores unknown keys, so the disable-flags
@@ -48,14 +56,41 @@ server:
     evaluation_interval: 60s
   persistentVolume:
     enabled: true
-    size: 8Gi                     # default storage class (same as Loki)
+    # Longhorn (replica 2) so the TSDB survives + reschedules on a node loss,
+    # instead of being pinned to one node's local-path disk. Sized for a 3-node
+    # cluster: ~3x the node/kubelet/cAdvisor series of the old single node.
+    storageClass: longhorn
+    size: 16Gi                    # was 8Gi (1 node) — 15d retention at ~3x series
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 400Mi               # was 256Mi
+    # ~3x series (3 nodes) + etcd scrape + kube-state pushed head memory past the
+    # old 700Mi ceiling. Validate against prometheus_tsdb_head_series and tune.
     limits:
-      memory: 700Mi
+      memory: 1500Mi              # was 700Mi (1 node)
   replicaCount: 1
+
+# --- Extra scrape jobs (appended to the chart's default scrape_configs) ---
+# k3s embedded-etcd quorum/leader health for the 3-server control plane. etcd
+# metrics are plain HTTP on :2381, but k3s binds them to 127.0.0.1 by default —
+# each server needs `etcd-expose-metrics: true` in /etc/rancher/k3s/config.yaml
+# (rebinds to 0.0.0.0:2381, no auth/TLS), applied one node at a time with a k3s
+# restart. ENABLE THAT ON THE NODES BEFORE MERGING THIS, or the k3s-etcd targets
+# scrape 0 until they're reachable (the etcd alerts below are absent-safe, so they
+# won't false-fire, but the targets show DOWN). node-role SD → one target/node,
+# repointed from the kubelet port to :2381.
+extraScrapeConfigs: |
+  - job_name: k3s-etcd
+    scheme: http
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_node_address_InternalIP]
+        target_label: __address__
+        replacement: "${1}:2381"
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: instance
 
 # --- Alerting rules: a single always-firing Watchdog (dead-man's switch) ---
 # `vector(1)` is true forever, so this alert fires continuously while Prometheus
@@ -108,6 +143,84 @@ serverFiles:
               summary: "Low disk on {{ $labels.instance }}:{{ $labels.mountpoint }}"
               description: "Only {{ $value | printf \"%.1f\" }}% free on {{ $labels.instance }} {{ $labels.mountpoint }} ({{ $labels.fstype }}) — <15% for >10m."
               dashboard: "https://logs.cjbarroso.com/d/node-alerts?viewPanel=3&from=now-3h&to=now"
+      # Cluster / node availability (needs kube-state-metrics, enabled above).
+      # New for the 3-node cluster: before, a node loss WAS the whole cluster and
+      # took Prometheus with it, so there was nothing to alert. Now a single node
+      # going away is a survivable, page-worthy event.
+      - name: cluster
+        rules:
+          # A node the API server has marked not-Ready (kubelet stopped heart-
+          # beating, node down/rebooting). Critical: on 3 nodes this is degraded
+          # capacity + a lost etcd member.
+          - alert: NodeNotReady
+            expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node not Ready: {{ $labels.node }}"
+              description: "Node {{ $labels.node }} has been NotReady for >5m — workloads are being rescheduled and the etcd quorum is down a member. Check the node/k3s service."
+          # Fewer than the expected 3 nodes are registered at all (a node dropped
+          # out of the API entirely, not just NotReady).
+          - alert: ClusterNodeCountLow
+            expr: count(kube_node_info) < 3
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Cluster has {{ $value }} nodes (expected 3)"
+              description: "Only {{ $value }} nodes are registered with the API server for >10m (expected 3). A node has left the cluster."
+          # An infra scrape target (node-exporter / kube-state-metrics, discovered
+          # via service endpoints) is unreachable. Per node-exporter pod, so a dead
+          # node's exporter trips this too — complements NodeNotReady from the
+          # metrics side. Tight matcher (service-endpoints only) to avoid paging on
+          # every annotation-scraped app pod restart.
+          - alert: ScrapeTargetDown
+            expr: up{job="kubernetes-service-endpoints"} == 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Scrape target down: {{ $labels.instance }} ({{ $labels.kubernetes_name }})"
+              description: "Prometheus cannot scrape {{ $labels.instance }} for >10m. If it's a node-exporter, that node's metrics are dark."
+      # k3s embedded etcd — the 3-member quorum that backs the whole control plane.
+      # Metrics come from the k3s-etcd scrape job (see extraScrapeConfigs above);
+      # needs `etcd-expose-metrics: true` on the nodes. All exprs are ABSENT-SAFE
+      # (== 0 / count < 3 yield no result on an empty vector), so they will not
+      # false-fire before the node config is applied — the targets simply show
+      # DOWN until then.
+      - name: etcd
+        rules:
+          # A member reports it currently has no leader → that member can't serve
+          # linearizable reads/writes. Sustained = quorum trouble.
+          - alert: EtcdNoLeader
+            expr: etcd_server_has_leader == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "etcd member without leader: {{ $labels.instance }}"
+              description: "etcd member {{ $labels.instance }} reports no leader for >1m — the control-plane datastore may be losing quorum."
+          # Fewer than 3 etcd members are reporting metrics (a member is down or
+          # unreachable). Two of three down = quorum lost = API read-only.
+          - alert: EtcdMembersDown
+            expr: count(etcd_server_has_leader) < 3
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "etcd quorum degraded ({{ $value }}/3 members reporting)"
+              description: "Only {{ $value }} of 3 etcd members are reporting for >5m. Losing one more breaks quorum and makes the API server read-only. Check k3s on the missing node."
+          # Frequent leader elections = an unstable/flapping control plane (disk
+          # latency, network partitions between the nodes).
+          - alert: EtcdLeaderFlapping
+            expr: increase(etcd_server_leader_changes_seen_total[15m]) > 3
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "etcd leader elections flapping"
+              description: "etcd has seen {{ $value | printf \"%.0f\" }} leader changes in 15m — the control plane is unstable (disk latency or inter-node network issues)."
       # CloudNativePG backup health. Backups = continuous WAL archiving to R2
       # (barman-cloud plugin) + daily base backups → PITR. The plugin does NOT
       # populate CNPG's base-backup *status* metrics (last_available/last_failed
@@ -131,9 +244,10 @@ serverFiles:
               summary: "Postgres WAL archiving / backups failing ({{ $labels.cnpg_io_cluster }})"
               description: "CNPG cluster {{ $labels.cnpg_io_cluster }} (ns {{ $labels.namespace }}): the primary's latest WAL-archive attempt to R2 failed and has not succeeded for >15m — backups & point-in-time recovery are at risk. Check the R2 credentials (sealed secret hhccia-core-db-backup-creds) and the barman ObjectStore."
               logs: "https://logs.cjbarroso.com/d/cnpg-backup-logs?from=now-3h&to=now"
-          # Streaming replication lag on any standby. On this single node the
-          # standby is the fast-failover copy — if it falls far behind, a
-          # failover loses that much data.
+          # Streaming replication lag on any standby. Since the 3-node HA move the
+          # standby lives on a DIFFERENT node than the primary (CNPG pod anti-
+          # affinity), so it's a genuine cross-node failover copy — if it falls far
+          # behind, a node loss / failover loses that much data.
           - alert: CNPGReplicationLagHigh
             expr: cnpg_pg_replication_lag > 300
             for: 10m
@@ -203,9 +317,10 @@ serverFiles:
             annotations:
               summary: "Job failed: {{ $labels.namespace }}/{{ $labels.job_name }}"
               description: "Job {{ $labels.namespace }}/{{ $labels.job_name }} has failed pods. If this is a backup job (vaultwarden-sqlite-backup, CNPG backup), tonight's backup may be missing."
-      # Storage: every PVC here is local-path on one node — running a database
-      # volume to 100% is an outage AND a recovery problem. kubelet volume stats
-      # need no extra exporter.
+      # Storage: PVCs are a mix of node-local local-path (CNPG DBs, some apps) and
+      # replicated Longhorn (grafana/prometheus/loki, vaultwarden). Either way,
+      # running a volume to 100% is an outage AND a recovery problem. kubelet
+      # volume stats need no extra exporter.
       - name: storage
         rules:
           - alert: PVCSpaceLow

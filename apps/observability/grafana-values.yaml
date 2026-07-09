@@ -6,10 +6,20 @@
 testFramework:
   enabled: false
 
-# Small PVC so dashboards/state survive restarts.
+# Small PVC so dashboards/state survive restarts. Migrated (3-node HA move) from
+# local-path to Longhorn (replicated) so the pod is node-mobile — its SQLite state
+# (OIDC users, annotations; datasources/dashboards/rules are provisioned anyway)
+# reschedules onto a surviving node instead of being pinned to homestation.
+# Same pattern as vaultwarden: a PVC's storageClass is immutable, so the Longhorn
+# PVC `grafana-data-lh` is pre-created out-of-band and the old `grafana` volume's
+# contents are copied into it, then mounted here via existingClaim (size/
+# storageClassName are ignored). See the migration runbook. The old local-path
+# `grafana` PVC is kept (annotate Prune=false) as a fallback until verified.
 persistence:
   enabled: true
-  size: 2Gi
+  existingClaim: grafana-data-lh
+  accessModes:
+    - ReadWriteOnce
 
 # The chart's init-chown-data container runs `chown -R` as uid 0 but with all
 # caps dropped except CHOWN — so it can't traverse the 472-owned png/pdf/csv

@@ -9,20 +9,28 @@ metrics are scraped cluster-wide.
 
 | File | What it deploys | Notes |
 |------|-----------------|-------|
-| `loki.yaml` + `loki-values.yaml` | **Grafana Loki** | Monolithic mode, filesystem storage, 1 replica, **30-day** retention. The log store. |
-| `alloy.yaml` + `alloy-values.yaml` | **Grafana Alloy** | DaemonSet collector (Promtail's successor — Promtail is EOL). Tails `/var/log/pods`, ships **only opt-in pods**. |
-| `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, 8Gi PVC, **15-day** retention. Bundled **node-exporter** DaemonSet (node CPU/mem/disk) + kubelet/cAdvisor scrape (per-pod). Pushgateway/kube-state-metrics **off** to stay light. A minimal **Alertmanager** (no PVC) runs only to drive the healthchecks.io heartbeat (below). Internal-only (no ingress). |
-| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** datasources pre-wired; auto-imports the **Node Exporter Full** dashboard. |
+| `loki.yaml` + `loki-values.yaml` | **Grafana Loki** | Monolithic mode, filesystem storage, 1 replica, **30-day** retention. The log store. PVC on **Longhorn** (replicated) so it reschedules on a node loss. |
+| `alloy.yaml` + `alloy-values.yaml` | **Grafana Alloy** | DaemonSet collector (Promtail's successor — Promtail is EOL). Tails `/var/log/pods`, ships **only opt-in pods**. One pod per node — scales with the cluster. |
+| `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, **16Gi PVC on Longhorn** (replicated → reschedules on node loss), **15-day** retention, sized for a 3-node cluster. Bundled **node-exporter** DaemonSet (node CPU/mem/disk, one pod/node) + kubelet/cAdvisor scrape (per-pod) + **kube-state-metrics** (cluster objects). Also scrapes the **k3s embedded-etcd** quorum (`:2381`). Pushgateway **off**. A minimal **Alertmanager** (no PVC) runs only to drive the healthchecks.io heartbeat (below). Internal-only (no ingress). |
+| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** datasources pre-wired; auto-imports the **Node Exporter Full** dashboard. PVC on **Longhorn** (node-mobile). |
 | `observability-secrets.yaml` | Argo **directory app** → `src/observability/` | Applies the sealed `grafana-secrets`. |
 
 All Helm apps live in project `support`, namespace `observability`,
 auto-synced. Chart versions are **pinned and validated with `helm template`**:
-loki `7.0.0`, alloy `1.8.2`, grafana `10.5.15` (2026-05-29); prometheus `29.9.0`
-(2026-05-30). Prometheus needs **no secret** — internal, no auth.
+loki `17.3.1`, alloy `1.9.0`, grafana `12.4.4`, prometheus `29.10.1`.
+Prometheus needs **no secret** — internal, no auth.
 
-> **Want per-workload / cluster-object metrics** (deployment desired vs available,
-> etc.)? Set `kube-state-metrics.enabled: true` in `prometheus-values.yaml` — it's
-> one pod. node-exporter + cAdvisor already cover host + per-pod CPU/memory.
+> **Cluster-object metrics** (deployment desired vs available, pod restarts, job
+> status) come from **kube-state-metrics**, enabled in `prometheus-values.yaml`
+> (one pod). node-exporter + cAdvisor cover host + per-pod CPU/memory.
+
+> **3-node cluster (since 2026-07-08):** the scrape layer needed no changes —
+> node-exporter + Alloy are DaemonSets and discovery is endpoint/annotation based,
+> so all 3 nodes are picked up automatically. What changed: node-availability +
+> etcd-quorum alerts were added (see the alerts table), Prometheus was resized for
+> ~3× the series, and the Prometheus/Grafana/Loki PVCs moved to Longhorn so the
+> stack survives (reschedules on) a node loss instead of dying with `homestation`.
+> The migration steps (immutable-storageClass surgery) are in the migration SIF.
 
 ## How to aggregate a component's logs (the one knob)
 
@@ -94,6 +102,18 @@ Any rule labelled `severity: warning|critical` routes through Alertmanager to a
 | `NodeHighCpu` | node CPU > 80% (100 − idle) for > 5 min |
 | `NodeHighMemory` | node memory in use > 85% (100 − available) for > 5 min |
 | `NodeDiskSpaceLow` | a real, writable filesystem has < 15% free for > 10 min |
+| `NodeNotReady` | a node is `NotReady` (API view) for > 5 min |
+| `ClusterNodeCountLow` | fewer than 3 nodes registered with the API for > 10 min |
+| `ScrapeTargetDown` | an infra scrape target (node-exporter / kube-state) unreachable > 10 min |
+| `EtcdNoLeader` | an etcd member reports no leader for > 1 min |
+| `EtcdMembersDown` | fewer than 3 etcd members reporting for > 5 min (quorum risk) |
+| `EtcdLeaderFlapping` | > 3 etcd leader changes in 15 min (unstable control plane) |
+
+(Plus non-node rules: `CNPGWALArchivingFailing`, `CNPGReplicationLagHigh`,
+`HHCCIACoreConsumersMissing`, `HHCCIACoreDeadLetters`, `KubePodCrashLooping`,
+`KubeJobFailed`, `PVCSpaceLow`, `VeleroBackupFailed`, and the Loki-ruler log
+alerts.) The **etcd** rules need `etcd-expose-metrics: true` on each k3s server —
+see the migration SIF.
 
 To add an alert, append a rule with a `severity: warning` (or `critical`) label —
 routing is automatic. The Telegram **bot token** is the sealed Secret
