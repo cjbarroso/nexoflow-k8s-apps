@@ -7,12 +7,18 @@ metadata:
   labels:
     app: hhccia-core
 spec:
-  replicas: 1
-  # Recreate (not RollingUpdate): the core binds a single durable JetStream
-  # consumer ("core-ingestor"). Two overlapping pods fight over it and the new
-  # one crashes with "consumer is already bound to a subscription".
+  replicas: 2
+  # RollingUpdate is safe since e9461c5: the durable JetStream consumers carry a
+  # deliver (queue) group, so >1 replica binds the same durable and JetStream
+  # load-balances each message to exactly one of them (the old "consumer is
+  # already bound to a subscription" crash is gone). replicas:2 spread across
+  # nodes gives the API node-HA — a pod on a rebooted node no longer takes it
+  # down. maxUnavailable:0 keeps 2 pods serving through a rollout.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: hhccia-core
@@ -30,6 +36,16 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       automountServiceAccountToken: false
+      # Spread the replicas across nodes so a single node loss can't take the API
+      # down (mirrors cloudflared-k8s-api). DoNotSchedule keeps them on distinct
+      # nodes; the cluster is 3-node, so both schedule.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: hhccia-core
       imagePullSecrets:
         - name: github-auth
       containers:
