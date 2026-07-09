@@ -29,7 +29,7 @@ spec:
         - name: hhccia-front
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-front:b2fbc49dd993c189729594ab226f2834f3b0e1a2
+          image: ghcr.io/irupe-consultores/hhccia-front:7f3479c4449533f7f2249febd817ff3b445ade32
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
