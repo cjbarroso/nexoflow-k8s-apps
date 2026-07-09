@@ -11,11 +11,17 @@ metadata:
   labels:
     app: hhccia-core
 spec:
-  replicas: 1
-  # Recreate: the core binds a single durable JetStream consumer; two
-  # overlapping pods fight over it (see prod manifest).
+  replicas: 2
+  # RollingUpdate is safe now: the durable JetStream consumers carry a deliver
+  # (queue) group, so multiple replicas bind the same durable and JetStream
+  # load-balances each message to exactly one of them (the old single-binding
+  # crash is gone — see hhccia-core commit "make service safe to run at
+  # replicas>=1"). maxUnavailable:0 keeps 2 pods serving through a rollout.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: hhccia-core
@@ -30,6 +36,17 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       automountServiceAccountToken: false
+      # Spread the replicas across nodes so a single node loss can't take the API
+      # down (mirrors cloudflared-k8s-api). DoNotSchedule keeps them on distinct
+      # nodes; on a 1-node cluster the 2nd pod would stay Pending, so relax to
+      # ScheduleAnyway if staging ever runs single-node.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: hhccia-core
       imagePullSecrets:
         - name: github-auth
       containers:
