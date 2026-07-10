@@ -32,7 +32,7 @@ spec:
         - name: adapter
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:0547cc6996a09c7c7b4267b614b91d27b6d1129e
+          image: ghcr.io/irupe-consultores/hhccia-adapter-datatech:22c7d99eeabc781085de085b5c4be5bf2f54aad8
           imagePullPolicy: IfNotPresent
           env:
             - name: NATS_URL
