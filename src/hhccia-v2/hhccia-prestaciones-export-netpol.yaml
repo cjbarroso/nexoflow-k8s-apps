@@ -1,7 +1,6 @@
-# Egress lockdown for the export pods: they hold a clinical-DB credential, so —
-# like the adapter — they may reach ONLY DNS and the Datatech MSSQL host. There is
-# NO R2/internet egress (output goes to the on-prem PVC), so this is stricter than
-# adapter-egress-lockdown: no 443, no OTLP. A compromised pod cannot exfiltrate.
+# Egress lockdown for the exporter pod. It may reach DNS, Datatech MSSQL, and
+# public HTTPS for Gemini. Private networks remain blocked except for MSSQL.
+# The fetch helper is excluded by the role selector and has no allowed egress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -9,7 +8,9 @@ metadata:
   namespace: hhccia-v2
 spec:
   podSelector:
-    matchLabels: { app: hhccia-prestaciones-export }
+    matchLabels:
+      app: hhccia-prestaciones-export
+      role: exporter
   policyTypes: [Egress]
   egress:
     - to:
@@ -24,3 +25,32 @@ spec:
         - ipBlock: { cidr: 192.168.5.132/32 }
       ports:
         - { protocol: TCP, port: 1433 }
+    # Standard NetworkPolicy cannot restrict by FQDN. Permit HTTPS only to public
+    # IPv4 space; all private and link-local ranges stay blocked.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - { protocol: TCP, port: 443 }
+---
+# The fetch helper only serves kubectl exec/cp through the API server. It does
+# not need outbound connections of its own.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prestaciones-export-fetch-deny-egress
+  namespace: hhccia-v2
+spec:
+  podSelector:
+    matchLabels:
+      app: hhccia-prestaciones-export
+      role: fetch
+  policyTypes: [Egress]
+  egress: []

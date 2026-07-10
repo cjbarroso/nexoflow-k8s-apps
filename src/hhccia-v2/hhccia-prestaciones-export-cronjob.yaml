@@ -1,5 +1,5 @@
 # Weekly export of OH/ON prestaciones (codigos 145001/145005) + ingreso data, with
-# a locally-classified RUTA_ADMIN column, to the on-prem PVC. READ-ONLY on Datatech.
+# a Gemini-classified RUTA_ADMIN column, to the on-prem PVC. READ-ONLY on Datatech.
 # Job image + code: repo hhccia-prestaciones-export.
 apiVersion: batch/v1
 kind: CronJob
@@ -23,6 +23,7 @@ spec:
         metadata:
           labels:
             app: hhccia-prestaciones-export
+            role: exporter
             logs.cjbarroso.com/collect: "true"
         spec:
           restartPolicy: OnFailure
@@ -43,7 +44,7 @@ spec:
           containers:
             - name: export
               # Pinned to the git SHA of the publish run. Bump to redeploy.
-              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:9368aca97aae58880ba724a4026a9c9e84f76971
+              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:164a32043f53193ee59f73713bd8a64f1b45c52d
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
@@ -60,6 +61,15 @@ spec:
                   valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_USER } }
                 - name: MSSQL_PASSWORD
                   valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_PASSWORD } }
+                # Reuse the already-sealed Gemini credential in this namespace.
+                - name: GEMINI_API_KEY
+                  valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: GEMINI_API_KEY } }
+                - name: GEMINI_MODEL
+                  value: "gemini-3.1-flash-lite"
+                - name: GEMINI_BATCH_SIZE
+                  value: "100"
+                - name: GEMINI_TIMEOUT_SECONDS
+                  value: "90"
                 - name: SOURCE_TIMEZONE
                   value: "America/Argentina/Buenos_Aires"
                 # Weekly rolling window (last 7 days by CLIORD.FEC).
