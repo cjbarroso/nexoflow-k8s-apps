@@ -1,0 +1,91 @@
+# On-demand PAMI "efectores" scraper. Playwright/Chromium logs into
+# efectores.pami.org.ar, builds a CSV of Ordenes de Pago (estado GENERADA) and
+# uploads it to Google Drive. Image + code: repo pami-downloader.
+#
+# This is a SUSPENDED CronJob: it never fires on its own. Run it on demand with
+#   kubectl --context nexoflow-cf -n pami create job pami-run-<fecha> \
+#     --from=cronjob/pami-downloader
+# (see README.md).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pami-downloader
+  namespace: pami
+  labels:
+    app: pami-downloader
+spec:
+  # Never fires automatically: suspended, and the schedule (Feb 31) can never
+  # match anyway — belt and suspenders. Trigger manually via `create job --from`.
+  suspend: true
+  schedule: "0 0 31 2 *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Manual one-shot: do not retry on its own.
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: pami-downloader
+            logs.cjbarroso.com/collect: "true"
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: github-auth
+          # No nodeSelector: the job only needs public-internet egress (PAMI +
+          # Google APIs), no LAN/MSSQL and no RWO PVC, so any node can run it.
+          securityContext:
+            # The image runs as USER root and writes its CSV under /app (root-
+            # owned), so we do NOT force runAsNonRoot here. See README "Chromium
+            # como root" — Chromium likely needs --no-sandbox when run as root.
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: downloader
+              # Pinned to the immutable digest of the published image (manifest
+              # list; tags sha-12fabfb / latest / master as of 2026-07-10 — the
+              # Service-Account-auth build). To redeploy: docker buildx imagetools
+              #   inspect ghcr.io/irupe-consultores/pami-downloader:latest → new @sha256.
+              image: ghcr.io/irupe-consultores/pami-downloader@sha256:bc967e8c1e878858eff958485a2481e6b2ae10c1555fe798178ac07b7c6a257b
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
+              env:
+                - name: PAMI_USER
+                  valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: PAMI_USER } }
+                - name: PAMI_PASSWORD
+                  valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: PAMI_PASSWORD } }
+                - name: GOOGLE_DRIVE_FOLDER_ID
+                  valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: GOOGLE_DRIVE_FOLDER_ID } }
+                # Service Account auth for Drive: google.auth.GoogleAuth reads
+                # the key from this path. The SA must be an Editor on the target
+                # Shared Drive.
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /app/sa-key.json
+                # Playwright batch mode: workers=1, retries, forbidOnly.
+                - name: CI
+                  value: "true"
+              volumeMounts:
+                # Google Service Account key (read-only).
+                - name: gdrive
+                  mountPath: /app/sa-key.json
+                  subPath: sa-key.json
+                  readOnly: true
+                # Chromium headless needs a larger /dev/shm or it crashes.
+                - name: dshm
+                  mountPath: /dev/shm
+              resources:
+                requests: { cpu: 250m, memory: 512Mi }
+                limits: { cpu: "1", memory: 2Gi }
+          volumes:
+            - name: gdrive
+              secret:
+                secretName: pami-downloader-gdrive
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 512Mi

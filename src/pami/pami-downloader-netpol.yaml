@@ -1,0 +1,37 @@
+# Egress policy for the PAMI downloader. Unlike the clinical export jobs (which
+# may reach ONLY internal MSSQL), this scraper legitimately needs the PUBLIC
+# internet: efectores.pami.org.ar (PAMI portal + REST) and Google APIs (Drive
+# upload). We allow DNS + outbound 443/80 to public IPs only, and explicitly
+# carve OUT the private/LAN ranges so a compromised pod cannot pivot into
+# in-cluster or LAN services (MSSQL, other namespaces, kube-apiserver, metadata).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pami-downloader-egress
+  namespace: pami
+spec:
+  podSelector:
+    matchLabels: { app: pami-downloader }
+  policyTypes: [Egress]
+  egress:
+    # DNS to CoreDNS.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # HTTPS/HTTP to the public internet only (private ranges excluded).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 80 }
