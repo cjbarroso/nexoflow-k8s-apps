@@ -66,7 +66,7 @@ spec:
                 - name: DAYS
                   value: "7"
                 - name: CODES
-                  value: "145001,145005"
+                  value: "070864,145001,145002,145005,380103,430109,431205,450201,450301,450501,450503,450701"
                 - name: OUT_DIR
                   value: "/out"
                 - name: LOG_LEVEL
