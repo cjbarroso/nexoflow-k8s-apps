@@ -43,7 +43,7 @@ spec:
           containers:
             - name: export
               # Pinned to the git SHA of the publish run. Bump to redeploy.
-              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:8870b74b7d9f1524fe9730c056fe5212daeeaa01
+              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:9368aca97aae58880ba724a4026a9c9e84f76971
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
