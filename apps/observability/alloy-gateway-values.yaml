@@ -1,0 +1,128 @@
+# Alloy TRACE gateway Helm values — a single-replica Deployment (NOT the log
+# DaemonSet in alloy-values.yaml). Receives OTLP from the apps, tail-samples,
+# scrubs PHI, forwards to Tempo. See alloy-gateway.yaml for the why-a-Deployment
+# rationale (tail-sampling needs whole traces on one instance).
+
+# Deployment, one replica: keeps every trace on a single tail-sampler.
+controller:
+  type: deployment
+  replicas: 1
+
+# The chart's Service exposes the Alloy HTTP UI (:12345) plus the extraPorts
+# below (:4317/:4318). Apps send OTLP to alloy-gateway.observability.svc:4317.
+service:
+  enabled: true
+
+alloy:
+  # Private clinical cluster — no anonymous usage stats.
+  enableReporting: false
+  # No clustering: a single gateway replica, so no ring to form.
+  clustering:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+  # Expose the OTLP ingest ports on the container AND the Service.
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+
+  configMap:
+    content: |-
+      // ---- Receive OTLP from the apps (core + adapter) ----
+      otelcol.receiver.otlp "in" {
+        grpc { endpoint = "0.0.0.0:4317" }
+        http { endpoint = "0.0.0.0:4318" }
+        // Only traces are routed onward; any metrics/logs received are dropped.
+        output {
+          traces = [otelcol.processor.tail_sampling.policies.input]
+        }
+      }
+
+      // ---- Tail-sampling: keep ALL errors + slow traces, sample the rest ----
+      // decision_wait must exceed the time for all of a trace's spans to arrive.
+      otelcol.processor.tail_sampling "policies" {
+        decision_wait = "10s"
+
+        // Keep every trace that has an error span.
+        policy {
+          name = "keep-errors"
+          type = "status_code"
+          status_code {
+            status_codes = ["ERROR"]
+          }
+        }
+        // Keep slow traces (>= 2s end-to-end) for latency debugging.
+        policy {
+          name = "keep-slow"
+          type = "latency"
+          latency {
+            threshold_ms = 2000
+          }
+        }
+        // Sample ~15% of everything else (the "normal" baseline).
+        policy {
+          name = "baseline-sample"
+          type = "probabilistic"
+          probabilistic {
+            sampling_percentage = 15
+          }
+        }
+
+        output {
+          traces = [otelcol.processor.attributes.scrub.input]
+        }
+      }
+
+      // ---- PHI safety net (app-side discipline is the PRIMARY control) ----
+      // Drop attributes that DB/HTTP auto-instrumentation could populate with
+      // clinical values (HCL, PAC, patient text). Safe metadata is kept
+      // (db.system / db.operation / db.name / http.route / server.address).
+      otelcol.processor.attributes "scrub" {
+        action {
+          key    = "db.statement"
+          action = "delete"
+        }
+        action {
+          key    = "db.query.text"
+          action = "delete"
+        }
+        action {
+          key    = "url.query"
+          action = "delete"
+        }
+        action {
+          key    = "url.full"
+          action = "delete"
+        }
+        output {
+          traces = [otelcol.processor.batch.default.input]
+        }
+      }
+
+      // ---- Batch, then export to Tempo over OTLP/gRPC ----
+      otelcol.processor.batch "default" {
+        output {
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo.observability.svc.cluster.local:4317"
+          tls {
+            insecure = true          // in-cluster plaintext
+          }
+        }
+      }

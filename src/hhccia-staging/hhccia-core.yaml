@@ -118,6 +118,13 @@ spec:
             # Fase 1 even though the same code ships on main.
             - name: DICTATION_WRITEBACK_ENABLED
               value: "true"
+            # Distributed tracing -> Alloy trace gateway -> Tempo (shared with
+            # prod; deployment.environment=staging splits the two). service.name
+            # is the app default hhccia-core (= the pod `app` label).
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://alloy-gateway.observability.svc.cluster.local:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=staging"
           readinessProbe:
             httpGet: { path: /health/ready, port: 8000 }
             initialDelaySeconds: 5

@@ -57,6 +57,13 @@ spec:
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
             - name: MSSQL_PASSWORD
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_PASSWORD } }
+            # Distributed tracing -> Alloy trace gateway -> Tempo (shared with
+            # prod; deployment.environment=staging splits the two). service.name
+            # is hardcoded hhccia-adapter-datatech in the app (= pod `app` label).
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://alloy-gateway.observability.svc.cluster.local:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=staging"
           resources:
             requests: { cpu: 50m, memory: 128Mi }
             limits: { cpu: 500m, memory: 512Mi }

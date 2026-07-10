@@ -116,6 +116,15 @@ spec:
             # BEFORE deploying this. (verified missing 2026-07-07)
             - name: DICTATION_WRITEBACK_ENABLED
               value: "true"
+            # Distributed tracing -> Alloy trace gateway -> Tempo. Unset would
+            # disable tracing in the app (no-op). service.name comes from the app
+            # default (hhccia-core, = the pod `app` label, so trace->logs works);
+            # deployment.environment tags this as prod to split from staging in
+            # the shared Tempo. See apps/observability/ (tempo + alloy-gateway).
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://alloy-gateway.observability.svc.cluster.local:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=prod"
           # Readiness verifies the dependencies (Postgres SELECT 1 + NATS
           # connected): a pod that boots before them, or loses them, is pulled
           # from the Service instead of answering 500s.

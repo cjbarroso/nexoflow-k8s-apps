@@ -159,6 +159,53 @@ datasources:
         isDefault: false
         jsonData:
           timeInterval: 60s        # match Prometheus scrape_interval
+          # Exemplars: when a Prometheus series carries a `trace_id` label (the
+          # apps attach one to their histograms once instrumented), Grafana renders
+          # a clickable dot that jumps straight to that trace in Tempo. Harmless
+          # before the apps emit exemplars — it just does nothing until then.
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
+      # Tempo — the distributed-trace store (single-binary, ns observability).
+      # Ingest is apps -> Alloy (OTLP gateway) -> Tempo; THIS datasource is the
+      # READ side (Grafana Explore + trace panels), querying Tempo's API on :3200.
+      # Correlations tie traces into the rest of the stack:
+      #   tracesToLogsV2  -> Loki       (span -> that pod's logs)
+      #   tracesToMetrics -> Prometheus (span -> RED metrics)
+      #   nodeGraph                     (service topology from the trace)
+      # uid pinned `tempo` so panels/other datasources reference it
+      # ({type:tempo,uid:tempo}). It's a FRESH datasource (never persisted on the
+      # PVC with an auto uid), so unlike Loki/Prometheus it needs NO
+      # deleteDatasources entry above.
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.observability.svc.cluster.local:3200
+        isDefault: false
+        jsonData:
+          # Span -> logs: filter Loki by the emitting service. The span's
+          # `service.name` (hhccia-core / hhccia-adapter-datatech) maps onto the
+          # Loki stream label `app` (the pods' `app` label), which Alloy already
+          # sets. Time shifts widen the log window around the span.
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: '-1h'
+            spanEndTimeShift: '1h'
+            filterByTraceID: false
+            filterBySpanID: false
+            tags:
+              - key: 'service.name'
+                value: 'app'
+          # Span -> metrics: land in Prometheus scoped to the same time window.
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: '-1h'
+            spanEndTimeShift: '1h'
+          # Build the service graph straight from the trace spans (no
+          # metrics-generator needed for the node graph in a trace view).
+          nodeGraph:
+            enabled: true
       # Gemini cost ledger (v2 core DB). Read-only role `grafana_ro` over the
       # READ-ONLY CNPG service; it can SELECT only the sanitized view
       # `gemini_usage_report` (cost + service code, NO clinical text). Password

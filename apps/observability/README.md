@@ -12,13 +12,15 @@ metrics are scraped cluster-wide.
 | `loki.yaml` + `loki-values.yaml` | **Grafana Loki** | Monolithic mode, filesystem storage, 1 replica, **30-day** retention. The log store. PVC on **Longhorn** (replicated) so it reschedules on a node loss. |
 | `alloy.yaml` + `alloy-values.yaml` | **Grafana Alloy** | DaemonSet collector (Promtail's successor — Promtail is EOL). Tails `/var/log/pods`, ships **only opt-in pods**. One pod per node — scales with the cluster. |
 | `prometheus.yaml` + `prometheus-values.yaml` | **Prometheus** | The metric store (node analogue of Loki). Single server, **16Gi PVC on Longhorn** (replicated → reschedules on node loss), **15-day** retention, sized for a 3-node cluster. Bundled **node-exporter** DaemonSet (node CPU/mem/disk, one pod/node) + kubelet/cAdvisor scrape (per-pod) + **kube-state-metrics** (cluster objects). Also scrapes the **k3s embedded-etcd** quorum (`:2381`). Pushgateway **off**. A minimal **Alertmanager** (no PVC) runs only to drive the healthchecks.io heartbeat (below). Internal-only (no ingress). |
-| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** datasources pre-wired; auto-imports the **Node Exporter Full** dashboard. PVC on **Longhorn** (node-mobile). |
+| `grafana.yaml` + `grafana-values.yaml` | **Grafana** | UI at `https://logs.cjbarroso.com`, Authentik SSO. **Loki** (default) + **Prometheus** + **Tempo** datasources pre-wired (trace↔log↔metric correlations); auto-imports the **Node Exporter Full** dashboard. PVC on **Longhorn** (node-mobile). |
+| `tempo.yaml` + `tempo-values.yaml` | **Grafana Tempo** | Single-binary mode, filesystem storage, 1 replica, **14-day** retention. The **trace store** (trace analogue of Loki). PVC on **Longhorn**. OTLP-only ingest, **from Alloy only**, no ingress (queried via Grafana). ⚠️ the single-binary chart is upstream-**deprecated** — kept deliberately (lightest fit); see `tempo.yaml` header. |
+| `alloy-gateway.yaml` + `alloy-gateway-values.yaml` | **Grafana Alloy** (trace gateway) | **Deployment, 1 replica** (distinct from the log DaemonSet). Receives OTLP from the apps, **tail-samples** (errors + slow at 100%, ~15% baseline), **scrubs PHI** attributes, forwards to Tempo. One replica so tail-sampling sees whole traces. |
 | `observability-secrets.yaml` | Argo **directory app** → `src/observability/` | Applies the sealed `grafana-secrets`. |
 
 All Helm apps live in project `support`, namespace `observability`,
 auto-synced. Chart versions are **pinned and validated with `helm template`**:
-loki `17.3.1`, alloy `1.9.0`, grafana `12.4.4`, prometheus `29.10.1`.
-Prometheus needs **no secret** — internal, no auth.
+loki `17.3.1`, alloy `1.9.0`, grafana `12.4.4`, prometheus `29.10.1`,
+tempo `1.24.4`. Prometheus needs **no secret** — internal, no auth.
 
 > **Cluster-object metrics** (deployment desired vs available, pod restarts, job
 > status) come from **kube-state-metrics**, enabled in `prometheus-values.yaml`
@@ -80,6 +82,35 @@ sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="hhccia-v2"}[5m])
 
 Prometheus has **no ingress** — query it through Grafana. For raw access:
 `kubectl -n observability port-forward svc/prometheus-server 9090:80`.
+
+## Tracing (Tempo)
+
+Distributed traces flow **apps → Alloy gateway → Tempo**, and are viewed in the
+same Grafana. The apps (`hhccia-core`, `hhccia-adapter-datatech`) are
+instrumented with OpenTelemetry and export OTLP.
+
+**To send traces from a workload:** point it at the gateway and name the service.
+The apps read these as env vars (pydantic-settings); set them on the Deployment:
+
+```yaml
+env:
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://alloy-gateway.observability.svc.cluster.local:4317"   # OTLP/gRPC
+  - name: OTEL_SERVICE_NAME
+    value: "hhccia-core"          # becomes the span service.name (must match the pod `app` label for trace→logs)
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "deployment.environment=prod"   # or =staging, to split envs in one Tempo
+```
+
+The gateway **tail-samples** (keeps all error + slow traces, ~15% of the rest)
+and **scrubs PHI** attributes as a safety net — but the primary rule is
+**app-side: never put HCL, PAC, patient identity, or clinical text in span names
+or attributes** (mirrors the HCL/PAC log masking in `alloy-values.yaml`).
+
+**Viewing traces:** `https://logs.cjbarroso.com` → **Explore** → datasource
+**Tempo** → search by service/duration/tags, or paste a trace ID. From a span:
+**Logs for this span** jumps to Loki; **Related metrics** jumps to Prometheus.
+Prometheus panels with a `trace_id` exemplar link back into Tempo.
 
 ## Uptime alerting (healthchecks.io dead-man's switch)
 

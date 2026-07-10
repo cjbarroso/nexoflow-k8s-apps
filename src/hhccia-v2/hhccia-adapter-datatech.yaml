@@ -73,6 +73,14 @@ spec:
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_USER } }
             - name: MSSQL_PASSWORD
               valueFrom: { secretKeyRef: { name: hhccia-core-secrets, key: MSSQL_PASSWORD } }
+            # Distributed tracing -> Alloy trace gateway -> Tempo. Unset would
+            # disable tracing (no-op). service.name is hardcoded in the app
+            # (hhccia-adapter-datatech, = the pod `app` label, so trace->logs
+            # works); deployment.environment tags this as prod.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://alloy-gateway.observability.svc.cluster.local:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=prod"
           # No probes: event-driven, no HTTP server (adapter/main.py). A crash
           # exits the process and kubelet restarts the pod. A *stuck* poll loop
           # is currently only visible via the nats-exporter backlog metrics.
