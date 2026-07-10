@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pami
+  namespace: argocd
+spec:
+  project: pami
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/pami
+    targetRevision: master
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pami
+  syncPolicy:
+    # On-demand scraper: the CronJob is suspended and triggered manually with
+    # `kubectl create job ... --from=cronjob/pami-downloader`. selfHeal reverts
+    # manual drift on the managed objects; prune removes resources dropped from
+    # Git (ad-hoc Jobs created by `create job` are NOT tracked by Argo, so they
+    # are left alone).
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

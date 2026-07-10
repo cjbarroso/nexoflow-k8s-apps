@@ -141,3 +141,21 @@ spec:
   # CNPG Cluster/ObjectStore/ScheduledBackup and SealedSecrets are all namespaced.
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pami
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: PAMI downloader — on-demand scraper (own namespace, internet egress)
+  sourceRepos:
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+  destinations:
+    - { server: 'https://kubernetes.default.svc', namespace: pami }
+  # Namespace only (CreateNamespace). Everything else (CronJob, NetworkPolicy,
+  # SealedSecrets) is namespaced.
+  clusterResourceWhitelist:
+    - { group: '', kind: Namespace }
