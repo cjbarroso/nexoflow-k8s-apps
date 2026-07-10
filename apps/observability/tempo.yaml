@@ -1,0 +1,49 @@
+# Grafana Tempo — the trace store. Single-binary (monolithic) mode, filesystem
+# storage on a Longhorn PVC, single replica: the lightest viable deployment,
+# mirroring Loki (loki.yaml) — the trace analogue of the log store.
+#
+# Ingest path: apps -> Alloy (OTLP gateway: batch + PHI scrub + tail-sampling)
+# -> Tempo. Tempo itself only accepts OTLP from Alloy in-cluster; no ingress
+# (queried through Grafana, like Prometheus + Loki).
+#
+# Multi-source pattern (see docs/06-APP-STRUCTURE.md): the upstream Helm chart +
+# this repo as `ref: values` so Argo loads tempo-values.yaml from Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: tempo
+      # Pinned + validated with `helm template` against tempo-values.yaml (2026-07-09):
+      # renders exactly one single-binary StatefulSet, OTLP receivers only, PVC on
+      # Longhorn. Chart 1.24.4 -> Tempo appVersion 2.9.0.
+      #
+      # NOTE (2026-07-09): this single-binary `grafana/tempo` chart is marked
+      # `deprecated: true` upstream — Grafana steers new installs to
+      # `tempo-distributed` (microservices, ~5 pods). We deliberately keep the
+      # single-binary chart: it still tracks the current Tempo (2.9.0, same
+      # appVersion as tempo-distributed) and is by far the lightest fit for this
+      # homelab, mirroring the Loki monolithic deployment. Migration later is
+      # cheap — the backend is filesystem-on-Longhorn and the Grafana datasource
+      # uid (`tempo`) is stable. Revisit if the chart is pulled from the repo.
+      targetRevision: "1.24.4"
+      helm:
+        valueFiles:
+          - $values/apps/observability/tempo-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

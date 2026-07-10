@@ -158,3 +158,13 @@ spec:
         - ipBlock: { cidr: 192.168.5.132/32 }
       ports:
         - { protocol: TCP, port: 1433 }
+    # Traces: the adapter exports OTLP to the Alloy trace gateway (observability
+    # ns). The ONLY new egress the tracing rollout needs — scoped to that single
+    # pod + port so the anti-exfiltration lockdown otherwise still holds.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { app.kubernetes.io/instance: alloy-gateway }
+      ports:
+        - { protocol: TCP, port: 4317 }

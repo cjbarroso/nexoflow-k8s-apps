@@ -1,0 +1,82 @@
+# Grafana Tempo Helm values — single-binary, filesystem storage on Longhorn,
+# 14-day retention. Deliberately minimal/light, matching the Loki monolithic
+# deployment (loki-values.yaml). The trace store for the cluster.
+#
+# Ingest is OTLP-only, and ONLY from Alloy (the OTLP gateway that batches,
+# scrubs PHI, and tail-samples — see alloy-values.yaml). The apps never talk to
+# Tempo directly, so the jaeger/opencensus/zipkin receivers are dropped to keep
+# the surface tiny.
+
+tempo:
+  # Disable anonymous usage reporting to Grafana Labs — this is a private
+  # clinical-PII cluster, nothing phones home.
+  reportingEnabled: false
+
+  # 14-day block retention (336h). Traces are voluminous; Alloy tail-samples
+  # (errors/slow at 100% + ~15% baseline) so this stays small on Longhorn.
+  retention: 336h
+
+  # The Go GC ballast defaults to 1Gi (the chart assumes a 4-6Gi box). With our
+  # 1Gi limit that would OOM on boot — shrink it. GOMEMLIMIT-style headroom comes
+  # from the limit below.
+  memBallastSizeMbs: 128
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+  server:
+    http_listen_port: 3200
+
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  # OTLP is the receiver our gateway (Alloy) uses — gRPC 4317 + HTTP 4318.
+  # NB: the chart's default `receivers` also ship jaeger + opencensus, and its
+  # service/_ports templates HARDCODE the jaeger keys (nulling them out crashes
+  # `helm template` with a nil-pointer in _ports.tpl). Helm also deep-merges maps
+  # rather than replacing them, so those extra receivers can't be removed via
+  # values without forking `config`. We leave them: it's a ClusterIP Service with
+  # no ingress, only Alloy (same namespace) sends traces, and nothing targets the
+  # jaeger/opencensus ports — negligible surface, not worth forking the config.
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+  # Metrics-generator (service graph + span/RED metrics -> Prometheus remote_write)
+  # is a deliberate PHASE 2: it needs `--enable-feature=remote-write-receiver` on
+  # Prometheus. Left off for now.
+  metricsGenerator:
+    enabled: false
+
+# Single StatefulSet replica (monolithic), like Loki.
+replicas: 1
+
+# Persist traces + WAL on Longhorn (replicated) so the pod is node-mobile and the
+# store reschedules onto a surviving node instead of dying with one host — same
+# rationale as the Loki/Grafana/Prometheus PVCs after the 3-node HA move. Trace
+# history is disposable (no data copy needed); a StatefulSet volumeClaimTemplate's
+# storageClass is immutable, so changing it later means deleting the STS + PVC once.
+persistence:
+  enabled: true
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+
+# The chart can emit a ServiceMonitor, but this stack scrapes via Prometheus
+# values/annotations, not the Prometheus Operator — leave it off.
+serviceMonitor:
+  enabled: false

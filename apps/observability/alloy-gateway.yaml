@@ -1,0 +1,39 @@
+# Grafana Alloy — TRACE gateway. Distinct from `alloy.yaml` (the log-collector
+# DaemonSet): this is a single-replica Deployment that receives OTLP traces from
+# the apps, tail-samples them, scrubs PHI, and forwards to Tempo.
+#
+# Why a separate Deployment (not the log DaemonSet): tail-sampling must see ALL
+# spans of a trace on ONE instance to make a keep/drop decision. A DaemonSet
+# (one pod per node, load-balanced) would split a trace across pods and sample
+# wrong. One gateway replica keeps every trace whole. Volume here is low (2 apps).
+#
+# Multi-source pattern (chart + this repo as `ref: values`), same as alloy.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy-gateway
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      # Same chart + pin as the log DaemonSet (alloy.yaml). app v1.16.1.
+      # Validated with `helm template` against alloy-gateway-values.yaml (2026-07-09).
+      targetRevision: "1.9.0"
+      helm:
+        valueFiles:
+          - $values/apps/observability/alloy-gateway-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
