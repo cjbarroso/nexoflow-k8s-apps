@@ -43,7 +43,7 @@ spec:
           containers:
             - name: export
               # Pinned to the git SHA of the publish run. Bump to redeploy.
-              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:88aa9d950ba08f6d695f26c8e51095e21852f2ad
+              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:8870b74b7d9f1524fe9730c056fe5212daeeaa01
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
@@ -67,6 +67,11 @@ spec:
                   value: "7"
                 - name: CODES
                   value: "070864,145001,145002,145005,380103,430109,431205,450201,450301,450501,450503,450701"
+                # Puerta filter (case-sensitive). Origen = PTA[0], servicio = PTA[1:3].
+                - name: ORIGENES
+                  value: "Q,q,N,J,j"
+                - name: SERVICIOS
+                  value: "OH,ON,on"
                 - name: OUT_DIR
                   value: "/out"
                 - name: LOG_LEVEL
