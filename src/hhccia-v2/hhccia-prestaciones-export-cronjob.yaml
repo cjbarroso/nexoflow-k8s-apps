@@ -39,8 +39,8 @@ spec:
             seccompProfile: { type: RuntimeDefault }
           containers:
             - name: export
-              # TODO(deploy): pin to the git SHA of the first successful publish run.
-              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:latest
+              # Pinned to the git SHA of the publish run. Bump to redeploy.
+              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:88aa9d950ba08f6d695f26c8e51095e21852f2ad
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
