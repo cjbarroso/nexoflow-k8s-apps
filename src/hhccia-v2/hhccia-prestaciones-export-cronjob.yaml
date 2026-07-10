@@ -36,6 +36,9 @@ spec:
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
+            # fsGroup so the non-root uid can write to the freshly-provisioned
+            # (root-owned) Longhorn PVC mounted at /out.
+            fsGroup: 10001
             seccompProfile: { type: RuntimeDefault }
           containers:
             - name: export
