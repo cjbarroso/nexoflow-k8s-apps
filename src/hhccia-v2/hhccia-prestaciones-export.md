@@ -4,6 +4,16 @@ Read-only weekly export of OH/ON prestaciones plus ingreso data. `RUTA_ADMIN`
 is classified in bulk by Gemini 3.1 Flash-Lite. Only deduplicated `CLIPAC_OBS`
 strings leave the facility; the complete CSV remains on the on-prem PVC.
 
+After classification, rows are retained only when `RUTA_ADMIN` and
+`CLIIOR_PRE` match the audited allow-list:
+
+- `EV`: `145001`, `450701`, `450501`, `450503`, `070864`, `431205`
+- `IM`: `145005`, `450501`, `070864`
+- `VO`: `450201`, `145005`, `450501`, `450301`, `070864`
+- `FE`: `145002`, `380103`, `430109`
+
+Every other combination, including `Unknown`, is omitted from the CSV.
+
 Code/image: `hhccia-prestaciones-export`. Design/spec: HHCCIA vault
 `Wayfinder/prestaciones-oh-on/`.
 
