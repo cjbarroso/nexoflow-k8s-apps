@@ -6,6 +6,16 @@
 testFramework:
   enabled: false
 
+# The data PVC is Longhorn ReadWriteOnce, so the default RollingUpdate deadlocks
+# on every rollout: the new pod can't attach the volume while the old pod still
+# holds it (Kubernetes "Multi-Attach error"), and RollingUpdate won't kill the
+# old pod until the new one is Ready — so the roll hangs indefinitely (hit when
+# the Tempo datasource was added, 2026-07-09). Recreate terminates the old pod
+# first; a few seconds of Grafana downtime on a config change is fine for a
+# monitoring UI, and it's the correct strategy for a single RWO-backed pod.
+deploymentStrategy:
+  type: Recreate
+
 # Small PVC so dashboards/state survive restarts. Migrated (3-node HA move) from
 # local-path to Longhorn (replicated) so the pod is node-mobile — its SQLite state
 # (OIDC users, annotations; datasources/dashboards/rules are provisioned anyway)
