@@ -1,0 +1,20 @@
+# On-prem output volume for the OH/ON prestaciones CSVs. The report contains
+# clinical PII, so it stays in-cluster (Longhorn on homestation) and is retrieved
+# via `kubectl cp` from the fetch helper — it is NEVER pushed to R2 / off-site.
+#
+# RWO: the weekly CronJob (writer) and the fetch Deployment (reader) both pin to
+# node `homestation`, so they can share this ReadWriteOnce volume (multiple pods
+# on ONE node is allowed) without a Multi-Attach deadlock.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hhccia-prestaciones-export-out
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-prestaciones-export
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

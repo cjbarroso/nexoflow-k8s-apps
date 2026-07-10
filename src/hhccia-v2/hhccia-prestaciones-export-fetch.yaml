@@ -1,0 +1,52 @@
+# Tiny always-on helper to retrieve the CSVs from the on-prem PVC:
+#   kubectl --context nexoflow-cf -n hhccia-v2 cp \
+#     "$(kubectl -n hhccia-v2 get pod -l app=hhccia-prestaciones-export,role=fetch -o name | head -1 | cut -d/ -f2)":/out ./out-local
+# It mounts the output volume READ-ONLY and just sleeps. Pinned to homestation so
+# it shares the RWO PVC with the weekly CronJob (same node). Carries the app label
+# so the egress lockdown applies (it needs no egress anyway; kubectl cp is exec).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-prestaciones-export-fetch
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-prestaciones-export
+    role: fetch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhccia-prestaciones-export
+      role: fetch
+  template:
+    metadata:
+      labels:
+        app: hhccia-prestaciones-export
+        role: fetch
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: homestation
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: fetch
+          image: busybox:1.36
+          command: ["sleep", "infinity"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - name: out
+              mountPath: /out
+              readOnly: true
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 64Mi }
+      volumes:
+        - name: out
+          persistentVolumeClaim:
+            claimName: hhccia-prestaciones-export-out
