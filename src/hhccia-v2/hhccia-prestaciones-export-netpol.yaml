@@ -1,0 +1,26 @@
+# Egress lockdown for the export pods: they hold a clinical-DB credential, so —
+# like the adapter — they may reach ONLY DNS and the Datatech MSSQL host. There is
+# NO R2/internet egress (output goes to the on-prem PVC), so this is stricter than
+# adapter-egress-lockdown: no 443, no OTLP. A compromised pod cannot exfiltrate.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prestaciones-export-egress-lockdown
+  namespace: hhccia-v2
+spec:
+  podSelector:
+    matchLabels: { app: hhccia-prestaciones-export }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - ipBlock: { cidr: 192.168.5.132/32 }
+      ports:
+        - { protocol: TCP, port: 1433 }

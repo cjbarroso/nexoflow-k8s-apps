@@ -1,0 +1,80 @@
+# Weekly export of OH/ON prestaciones (codigos 145001/145005) + ingreso data, with
+# a locally-classified RUTA_ADMIN column, to the on-prem PVC. READ-ONLY on Datatech.
+# Job image + code: repo hhccia-prestaciones-export.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hhccia-prestaciones-export-weekly
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-prestaciones-export
+spec:
+  # Cluster runs UTC; timeZone makes the schedule local. Mondays 07:00 GMT-3.
+  timeZone: America/Argentina/Buenos_Aires
+  schedule: "0 7 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: hhccia-prestaciones-export
+            logs.cjbarroso.com/collect: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: github-auth
+          # Pin to homestation: it has LAN reachability to the MSSQL host and it is
+          # where the RWO output PVC lives (shared with the fetch helper).
+          nodeSelector:
+            kubernetes.io/hostname: homestation
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: export
+              # Pinned to the git SHA of the publish run. Bump to redeploy.
+              image: ghcr.io/irupe-consultores/hhccia-prestaciones-export:88aa9d950ba08f6d695f26c8e51095e21852f2ad
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
+              env:
+                - name: MSSQL_HOST
+                  value: "192.168.5.132"
+                - name: MSSQL_PORT
+                  value: "1433"
+                - name: MSSQL_DATABASE
+                  value: "SRN"
+                # Read-only login (least privilege). See the DB sealed secret.
+                - name: MSSQL_USER
+                  valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_USER } }
+                - name: MSSQL_PASSWORD
+                  valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_PASSWORD } }
+                - name: SOURCE_TIMEZONE
+                  value: "America/Argentina/Buenos_Aires"
+                # Weekly rolling window (last 7 days by CLIORD.FEC).
+                - name: DAYS
+                  value: "7"
+                - name: CODES
+                  value: "145001,145005"
+                - name: OUT_DIR
+                  value: "/out"
+                - name: LOG_LEVEL
+                  value: "INFO"
+              volumeMounts:
+                - name: out
+                  mountPath: /out
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { cpu: 500m, memory: 512Mi }
+          volumes:
+            - name: out
+              persistentVolumeClaim:
+                claimName: hhccia-prestaciones-export-out
