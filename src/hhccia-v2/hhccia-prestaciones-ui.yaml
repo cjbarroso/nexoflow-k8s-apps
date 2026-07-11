@@ -1,0 +1,137 @@
+# UI service for the prestaciones export: Authentik-gated GUI that triggers the
+# export Job (clones the CronJob jobTemplate via the k8s API) and serves the CSV
+# from the shared on-prem PVC (read-only). Needs a ServiceAccount token (unlike
+# the other hhccia-v2 pods) to talk to the k8s API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hhccia-prestaciones-ui
+  namespace: hhccia-v2
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hhccia-prestaciones-ui
+  namespace: hhccia-v2
+rules:
+  # Trigger + monitor + clean up export runs.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  # Read the CronJob whose jobTemplate is cloned per run.
+  - apiGroups: ["batch"]
+    resources: ["cronjobs"]
+    verbs: ["get", "list"]
+  # Surface run status + logs.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hhccia-prestaciones-ui
+  namespace: hhccia-v2
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hhccia-prestaciones-ui
+subjects:
+  - kind: ServiceAccount
+    name: hhccia-prestaciones-ui
+    namespace: hhccia-v2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hhccia-prestaciones-ui
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-prestaciones-ui
+spec:
+  replicas: 1
+  # RWO PVC pinned to homestation (shared with the export Jobs/fetch on the same
+  # node) => Recreate, never two pods contending the mount across a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hhccia-prestaciones-ui
+  template:
+    metadata:
+      labels:
+        app: hhccia-prestaciones-ui
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: hhccia-prestaciones-ui
+      imagePullSecrets:
+        - name: github-auth
+      nodeSelector:
+        kubernetes.io/hostname: homestation
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ui
+          # TODO(deploy): pin to the git SHA of the first successful publish run.
+          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          ports:
+            - containerPort: 8080
+          env:
+            - { name: AUTH_DISABLED, value: "false" }
+            - { name: ACCESS_GROUP, value: "hhccia-prestaciones" }
+            - { name: PUBLIC_BASE_URL, value: "https://prestaciones.irupeconsultores.com" }
+            - { name: AUTHENTIK_ISSUER, value: "https://auth.irupeconsultores.com/application/o/hhccia-prestaciones/" }
+            - { name: OIDC_AUTHORIZE_URL, value: "https://auth.irupeconsultores.com/application/o/hhccia-prestaciones/authorize/" }
+            - { name: OIDC_TOKEN_URL, value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-prestaciones/token/" }
+            - { name: OIDC_JWKS_URL, value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-prestaciones/jwks/" }
+            - name: OIDC_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: hhccia-prestaciones-ui-oidc, key: OIDC_CLIENT_ID } }
+            - name: OIDC_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: hhccia-prestaciones-ui-oidc, key: OIDC_CLIENT_SECRET } }
+            - name: SESSION_SECRET
+              valueFrom: { secretKeyRef: { name: hhccia-prestaciones-ui-oidc, key: SESSION_SECRET } }
+            - { name: K8S_NAMESPACE, value: "hhccia-v2" }
+            - { name: SOURCE_CRONJOB, value: "hhccia-prestaciones-export-weekly" }
+            - { name: OUTPUT_DIR, value: "/out" }
+            - { name: LOG_LEVEL, value: "INFO" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: out
+              mountPath: /out
+              readOnly: true
+          resources:
+            requests: { cpu: 25m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+      volumes:
+        - name: out
+          persistentVolumeClaim:
+            claimName: hhccia-prestaciones-export-out
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hhccia-prestaciones-ui
+  namespace: hhccia-v2
+spec:
+  selector:
+    app: hhccia-prestaciones-ui
+  ports:
+    - { protocol: TCP, port: 8080, targetPort: 8080 }
+  type: ClusterIP
