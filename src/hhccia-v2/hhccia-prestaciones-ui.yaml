@@ -79,7 +79,7 @@ spec:
       containers:
         - name: ui
           # Pinned to the git SHA of the publish run. Bump to redeploy.
-          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:5f44257b25cf147bacb0b2ca7214e1c44256b747
+          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:5374d21ade318d2604f9043b7ac242db6cbdc00a
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
