@@ -59,8 +59,11 @@ spec:
                   valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: PAMI_USER } }
                 - name: PAMI_PASSWORD
                   valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: PAMI_PASSWORD } }
+                # Target Drive folder — NOT a secret, so it lives here as a plain
+                # value. To change the destination: edit this line + commit (the
+                # new folder must be shared with GOOGLE_IMPERSONATE_USER as Editor).
                 - name: GOOGLE_DRIVE_FOLDER_ID
-                  valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: GOOGLE_DRIVE_FOLDER_ID } }
+                  value: "1w6ZCzapBnT2BZg5tY3mOFDK6SX2YPAoo"
                 # Service Account auth for Drive: google.auth.GoogleAuth reads
                 # the key from this path.
                 - name: GOOGLE_APPLICATION_CREDENTIALS
