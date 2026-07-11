@@ -90,10 +90,15 @@ spec:
             - { name: AUTH_DISABLED, value: "false" }
             - { name: ACCESS_GROUP, value: "hhccia-prestaciones" }
             - { name: PUBLIC_BASE_URL, value: "https://prestaciones.irupeconsultores.com" }
-            - { name: AUTHENTIK_ISSUER, value: "https://auth.irupeconsultores.com/application/o/hhccia-prestaciones/" }
-            - { name: OIDC_AUTHORIZE_URL, value: "https://auth.irupeconsultores.com/application/o/hhccia-prestaciones/authorize/" }
-            - { name: OIDC_TOKEN_URL, value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-prestaciones/token/" }
+            # Browser hits the PUBLIC, GENERIC authorize endpoint (Authentik's
+            # authorize/token are NOT slug-scoped; the client_id selects the provider).
+            - { name: OIDC_AUTHORIZE_URL, value: "https://auth.irupeconsultores.com/application/o/authorize/" }
+            # Pod-side token exchange + JWKS go IN-CLUSTER (the public host 403s the
+            # default UA). The token's iss is derived from the request host, so it is
+            # the in-cluster issuer — validate against exactly that.
+            - { name: OIDC_TOKEN_URL, value: "http://authentik-server.authentik.svc.cluster.local/application/o/token/" }
             - { name: OIDC_JWKS_URL, value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-prestaciones/jwks/" }
+            - { name: AUTHENTIK_ISSUER, value: "http://authentik-server.authentik.svc.cluster.local/application/o/hhccia-prestaciones/" }
             - name: OIDC_CLIENT_ID
               valueFrom: { secretKeyRef: { name: hhccia-prestaciones-ui-oidc, key: OIDC_CLIENT_ID } }
             - name: OIDC_CLIENT_SECRET
