@@ -14,18 +14,25 @@ sincroniza `src/pami` automáticamente (app `apps/pami/app.yaml`, project `pami`
 |---|---|
 | `pami-downloader-cronjob.yaml` | `CronJob` **suspendido** (`suspend: true`). Nunca dispara solo; se lanza a mano. |
 | `pami-downloader-netpol.yaml` | Egress: DNS + 443/80 a internet público (rangos privados excluidos). |
-| `pami-downloader-secrets.sealedsecret.yaml` | `PAMI_USER`, `PAMI_PASSWORD`, `GOOGLE_DRIVE_FOLDER_ID`. |
+| `pami-downloader-secrets.sealedsecret.yaml` | Sólo `PAMI_USER`, `PAMI_PASSWORD` (credenciales). |
 | `pami-downloader-gdrive.sealedsecret.yaml` | Key JSON de la Service Account de Google (`sa-key.json`), montada read-only en `/app/sa-key.json`. |
+
+El `GOOGLE_DRIVE_FOLDER_ID` **no es un secreto** → vive como env var plano en
+`pami-downloader-cronjob.yaml` (ver "Cambiar carpeta destino").
 
 El pull secret `github-auth` (GHCR) **no vive en Git**; se bootstrapea por-namespace
 (igual que en `hhccia-v2`). Ver "Bootstrap".
 
-**Auth de Google Drive = Service Account** (server-to-server, sin token que
-expire ni interacción humana). El código (`listado.spec.ts`) usa
-`google.auth.GoogleAuth` con `GOOGLE_APPLICATION_CREDENTIALS=/app/sa-key.json` y
-sube con `supportsAllDrives: true`. La carpeta destino debe vivir en una **Unidad
-compartida (Shared Drive)** compartida con el email de la SA como **Editor** (una
-SA no tiene cuota propia, no puede escribir en "Mi unidad").
+**Auth de Google Drive = Service Account + Domain-Wide Delegation.** El código
+(`listado.spec.ts`) usa `google.auth.GoogleAuth` con
+`GOOGLE_APPLICATION_CREDENTIALS=/app/sa-key.json`, scope `drive` y
+`supportsAllDrives: true`. Como el destino está en "Mi unidad" (este Workspace
+**legacy** no tiene Unidades compartidas) y una SA no tiene cuota propia, la SA
+**impersona** al usuario `GOOGLE_IMPERSONATE_USER` (`irupebot@cjbarroso.com`) vía
+delegación de dominio. El archivo queda a nombre de ese usuario. Requisitos:
+DWD habilitada en la consola de admin (client_id `107507975120778173699`, scope
+`https://www.googleapis.com/auth/drive`) y la carpeta destino compartida con
+`irupebot@cjbarroso.com` como **Editor**.
 
 ## Correr on-demand
 
@@ -54,17 +61,24 @@ docker buildx imagetools inspect ghcr.io/irupe-consultores/pami-downloader:lates
 
 Commit + push a `master` → Argo re-sincroniza el CronJob (~3 min).
 
+## Cambiar carpeta destino
+
+El folder ID es un env var plano. Editá la línea `GOOGLE_DRIVE_FOLDER_ID` en
+`pami-downloader-cronjob.yaml`, commit + push a `master`, y el próximo
+`create job` usa la carpeta nueva. **Único requisito externo:** compartir la
+carpeta nueva con `irupebot@cjbarroso.com` (Editor). No hace falta `kubeseal`,
+rebuild, ni tocar la DWD.
+
 ## Bootstrap (una sola vez, fuera de Git)
 
 1. **Sellar secrets** (con la app corriendo `kubeseal` contra el controller en
    `kube-system`):
 
    ```bash
-   # credenciales PAMI + carpeta Drive
+   # credenciales PAMI (el folder id NO va acá: es env plano en el cronjob)
    kubectl create secret generic pami-downloader-secrets -n pami \
      --from-literal=PAMI_USER=... \
      --from-literal=PAMI_PASSWORD=... \
-     --from-literal=GOOGLE_DRIVE_FOLDER_ID=... \
      --dry-run=client -o yaml \
      | kubeseal --controller-namespace kube-system --format yaml \
      > src/pami/pami-downloader-secrets.sealedsecret.yaml
@@ -92,8 +106,9 @@ Commit + push a `master` → Argo re-sincroniza el CronJob (~3 min).
 
 Regenerar el/los SealedSecret con los pasos de arriba y push a `master`. Para la
 Service Account, si se rota la key, generar una key JSON nueva en GCP y re-sellar
-`pami-downloader-gdrive`. Para revocar acceso: quitar la SA de la Unidad
-compartida o deshabilitar la key en GCP.
+`pami-downloader-gdrive`. Para revocar acceso: revocar la DWD en la consola de
+admin, deshabilitar la key en GCP, o quitar a `irupebot@cjbarroso.com` de la
+carpeta.
 
 ## Chromium como root (ya resuelto en la imagen)
 
