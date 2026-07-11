@@ -78,8 +78,8 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: ui
-          # TODO(deploy): pin to the git SHA of the first successful publish run.
-          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:latest
+          # Pinned to the git SHA of the publish run. Bump to redeploy.
+          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:5f44257b25cf147bacb0b2ca7214e1c44256b747
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
