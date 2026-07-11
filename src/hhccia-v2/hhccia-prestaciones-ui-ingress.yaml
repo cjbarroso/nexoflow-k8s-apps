@@ -1,0 +1,22 @@
+# Public host for the prestaciones export GUI, via the Cloudflare tunnel ingress
+# (DNS CNAME auto-created in the irupeconsultores.com zone; TLS terminates at
+# Cloudflare's edge). Must match a redirect_uri in the Authentik provider and be
+# allowed by the allow-tunnel-to-web NetworkPolicy.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hhccia-prestaciones-ui-ingress
+  namespace: hhccia-v2
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: "prestaciones.irupeconsultores.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hhccia-prestaciones-ui
+                port:
+                  number: 8080
