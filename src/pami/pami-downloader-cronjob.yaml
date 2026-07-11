@@ -46,10 +46,10 @@ spec:
           containers:
             - name: downloader
               # Pinned to the immutable digest of the published image (manifest
-              # list; tags sha-12fabfb / latest / master as of 2026-07-10 — the
-              # Service-Account-auth build). To redeploy: docker buildx imagetools
-              #   inspect ghcr.io/irupe-consultores/pami-downloader:latest → new @sha256.
-              image: ghcr.io/irupe-consultores/pami-downloader@sha256:bc967e8c1e878858eff958485a2481e6b2ae10c1555fe798178ac07b7c6a257b
+              # list; tags sha-d1ae022 / latest / master as of 2026-07-10 — the
+              # SA-auth + domain-wide-delegation build). To redeploy: docker buildx
+              #   imagetools inspect ghcr.io/irupe-consultores/pami-downloader:latest → new @sha256.
+              image: ghcr.io/irupe-consultores/pami-downloader@sha256:575595b19c372a0d25ce8aefa40f5f18d1f9620f0ece45e5afe29edd37c4edc5
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
@@ -62,10 +62,14 @@ spec:
                 - name: GOOGLE_DRIVE_FOLDER_ID
                   valueFrom: { secretKeyRef: { name: pami-downloader-secrets, key: GOOGLE_DRIVE_FOLDER_ID } }
                 # Service Account auth for Drive: google.auth.GoogleAuth reads
-                # the key from this path. The SA must be an Editor on the target
-                # Shared Drive.
+                # the key from this path.
                 - name: GOOGLE_APPLICATION_CREDENTIALS
                   value: /app/sa-key.json
+                # Domain-wide delegation: the SA impersonates this Workspace user
+                # (who has Drive quota + edit access to GOOGLE_DRIVE_FOLDER_ID).
+                # Requires DWD granted for the drive scope in the Admin console.
+                - name: GOOGLE_IMPERSONATE_USER
+                  value: irupebot@cjbarroso.com
                 # Playwright batch mode: workers=1, retries, forbidOnly.
                 - name: CI
                   value: "true"
