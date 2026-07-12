@@ -79,7 +79,7 @@ spec:
       containers:
         - name: ui
           # Pinned to the git SHA of the publish run. Bump to redeploy.
-          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:5374d21ade318d2604f9043b7ac242db6cbdc00a
+          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:cce186fa6b43217263408387659252a63a3d8943
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -108,6 +108,9 @@ spec:
             - { name: K8S_NAMESPACE, value: "hhccia-v2" }
             - { name: SOURCE_CRONJOB, value: "hhccia-prestaciones-export-weekly" }
             - { name: OUTPUT_DIR, value: "/out" }
+            - { name: GOOGLE_APPLICATION_CREDENTIALS, value: "/app/sa-key.json" }
+            - { name: GOOGLE_IMPERSONATE_USER, value: "irupebot@cjbarroso.com" }
+            - { name: GOOGLE_DRIVE_FOLDER_ID, value: "1w6ZCzapBnT2BZg5tY3mOFDK6SX2YPAoo" }
             - { name: LOG_LEVEL, value: "INFO" }
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
@@ -121,6 +124,10 @@ spec:
             - name: out
               mountPath: /out
               readOnly: true
+            - name: gdrive-credentials
+              mountPath: /app/sa-key.json
+              subPath: sa-key.json
+              readOnly: true
           resources:
             requests: { cpu: 25m, memory: 128Mi }
             limits: { cpu: 500m, memory: 256Mi }
@@ -128,6 +135,9 @@ spec:
         - name: out
           persistentVolumeClaim:
             claimName: hhccia-prestaciones-export-out
+        - name: gdrive-credentials
+          secret:
+            secretName: hhccia-prestaciones-ui-gdrive
 ---
 apiVersion: v1
 kind: Service
