@@ -79,7 +79,7 @@ spec:
       containers:
         - name: ui
           # Pinned to the git SHA of the publish run. Bump to redeploy.
-          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:cce186fa6b43217263408387659252a63a3d8943
+          image: ghcr.io/irupe-consultores/hhccia-prestaciones-ui:7564990da7fd918d3fce73af4ab176a9b879e9f1
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -110,7 +110,8 @@ spec:
             - { name: OUTPUT_DIR, value: "/out" }
             - { name: GOOGLE_APPLICATION_CREDENTIALS, value: "/app/sa-key.json" }
             - { name: GOOGLE_IMPERSONATE_USER, value: "irupebot@cjbarroso.com" }
-            - { name: GOOGLE_DRIVE_FOLDER_ID, value: "1w6ZCzapBnT2BZg5tY3mOFDK6SX2YPAoo" }
+            - { name: GOOGLE_SPREADSHEET_ID, value: "1wj3lGy_erzwSomNXhuVcyfDHLuk1Bxhaa6ySNHIUIpE" }
+            - { name: GOOGLE_SHEET_NAME, value: "Datos" }
             - { name: LOG_LEVEL, value: "INFO" }
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
