@@ -67,7 +67,7 @@ metadata:
 spec:
   podSelector:
     matchExpressions:
-      - { key: app, operator: In, values: [hhccia-core, hhccia-front, hhccia-prestaciones-ui] }
+      - { key: app, operator: In, values: [hhccia-core, hhccia-front, hhccia-prestaciones-ui, hhccia-guardia-pediatria-ui] }
   ingress:
     - from:
         - namespaceSelector:

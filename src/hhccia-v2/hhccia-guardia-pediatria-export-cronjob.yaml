@@ -1,0 +1,66 @@
+# Suspended template cloned by the GUI for on-demand reports. The automatic
+# refresh is the separate sheet-sync CronJob, avoiding duplicate weekly runs.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hhccia-guardia-pediatria-export-weekly
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-guardia-pediatria-export
+spec:
+  timeZone: America/Argentina/Buenos_Aires
+  schedule: "0 23 * * 0"
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: hhccia-guardia-pediatria-export
+            role: exporter
+            logs.cjbarroso.com/collect: "true"
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: github-auth
+          nodeSelector:
+            kubernetes.io/hostname: homestation
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            fsGroup: 10001
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: export
+              image: ghcr.io/irupe-consultores/hhccia-guardia-pediatria-export:bfa3d982c3954616a100c7ae3b8d1afefcd05c72
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
+              env:
+                - { name: MSSQL_HOST, value: "192.168.5.132" }
+                - { name: MSSQL_PORT, value: "1433" }
+                - { name: MSSQL_DATABASE, value: "SRN" }
+                - name: MSSQL_USER
+                  valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_USER } }
+                - name: MSSQL_PASSWORD
+                  valueFrom: { secretKeyRef: { name: hhccia-prestaciones-export-db, key: MSSQL_PASSWORD } }
+                - { name: SOURCE_TIMEZONE, value: "America/Argentina/Buenos_Aires" }
+                - { name: ORIGEN, value: "C" }
+                - { name: OUT_DIR, value: "/out" }
+                - { name: LOG_LEVEL, value: "INFO" }
+              volumeMounts:
+                - { name: out, mountPath: /out }
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { cpu: 500m, memory: 512Mi }
+          volumes:
+            - name: out
+              persistentVolumeClaim:
+                claimName: hhccia-guardia-pediatria-export-out

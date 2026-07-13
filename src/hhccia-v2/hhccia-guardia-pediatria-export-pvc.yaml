@@ -1,0 +1,15 @@
+# On-prem output volume for Guardia Pediatrica reports. It contains clinical
+# PII and remains in-cluster; UI downloads and Sheets sync read this same PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hhccia-guardia-pediatria-export-out
+  namespace: hhccia-v2
+  labels:
+    app: hhccia-guardia-pediatria-export
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
