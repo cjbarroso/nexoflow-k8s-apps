@@ -38,6 +38,9 @@ spec:
         - name: ingest
           persistentVolumeClaim:
             claimName: calibre-web-automated-ingest
+        - name: gmail
+          secret:
+            secretName: cwa-gmail
       containers:
         - name: calibre-web-automated
           image: crocodilestick/calibre-web-automated:dev-407
@@ -62,6 +65,9 @@ spec:
               mountPath: /calibre-library
             - name: ingest
               mountPath: /cwa-book-ingest
+            - name: gmail
+              mountPath: /config/gmail.json
+              subPath: gmail.json
           resources:
             requests:
               cpu: 100m
