@@ -6,7 +6,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: books_cwa.irupeconsultores.com
+    - host: books-cwa.irupeconsultores.com
       http:
         paths:
           - path: /

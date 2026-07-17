@@ -1,7 +1,7 @@
 # Network segmentation for the calibre-web-automated namespace.
 # Default-deny ingress, then only the flows CWA actually uses:
 #   - cloudflared tunnel connectors terminate books_cwa.irupeconsultores.com
-#     and connect to the CWA web pods on 8083.
+#     and connect to the CWA web pods on 8083 (books-cwa.irupeconsultores.com).
 #   - Kubelet probes from the CNI bridge (10.42.0.1).
 #   - Intra-namespace communication for any future sidecars.
 #
