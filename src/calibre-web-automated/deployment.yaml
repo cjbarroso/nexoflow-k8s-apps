@@ -1,0 +1,74 @@
+# Calibre-Web-Automated -- all-in-one digital library server.
+# See https://github.com/crocodilestick/Calibre-Web-Automated
+#
+# CWA manages a file-based Calibre SQLite library -- concurrent writers risk
+# corruption, so replicas=1 and strategy=Recreate. All persistent state lives
+# on Longhorn RWO PVCs.
+#
+# Proxy: Cloudflare Tunnel terminates TLS at the edge. With TRUSTED_PROXY_COUNT=2,
+# CWA correctly reads X-Forwarded-For through the tunnel + any internal reverse
+# proxy, preventing "Session protection triggered" re-logins.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calibre-web-automated
+  namespace: calibre-web-automated
+  labels:
+    app: calibre-web-automated
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: calibre-web-automated
+  template:
+    metadata:
+      labels:
+        app: calibre-web-automated
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: calibre-web-automated-config
+        - name: library
+          persistentVolumeClaim:
+            claimName: calibre-web-automated-library
+        - name: ingest
+          persistentVolumeClaim:
+            claimName: calibre-web-automated-ingest
+      containers:
+        - name: calibre-web-automated
+          image: crocodilestick/calibre-web-automated:dev-407
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: America/Argentina/Buenos_Aires
+            - name: TRUSTED_PROXY_COUNT
+              value: "2"
+          ports:
+            - name: web
+              containerPort: 8083
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: library
+              mountPath: /calibre-library
+            - name: ingest
+              mountPath: /cwa-book-ingest
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false

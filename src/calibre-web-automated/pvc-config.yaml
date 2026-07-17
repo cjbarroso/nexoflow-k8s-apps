@@ -1,0 +1,14 @@
+# CWA configuration and application state (/config).
+# Holds app.db (settings, user accounts), logs, and processed_books backups.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: calibre-web-automated-config
+  namespace: calibre-web-automated
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi

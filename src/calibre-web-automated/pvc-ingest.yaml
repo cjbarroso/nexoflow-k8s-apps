@@ -1,0 +1,14 @@
+# Book ingest staging area (/cwa-book-ingest).
+# Files dropped here are automatically imported and deleted after processing.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: calibre-web-automated-ingest
+  namespace: calibre-web-automated
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi

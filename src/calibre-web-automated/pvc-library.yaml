@@ -1,0 +1,14 @@
+# Calibre library data (/calibre-library).
+# Holds metadata.db + book files (EPUB, PDF, MOBI, etc.).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: calibre-web-automated-library
+  namespace: calibre-web-automated
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 20Gi

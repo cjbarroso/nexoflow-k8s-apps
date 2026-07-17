@@ -103,6 +103,7 @@ spec:
     - 'https://charts.gabe565.com'
   destinations:
     - { server: 'https://kubernetes.default.svc', namespace: vaultwarden }
+    - { server: 'https://kubernetes.default.svc', namespace: calibre-web-automated }
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
 ---

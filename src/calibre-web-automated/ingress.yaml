@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: calibre-web-automated
+  namespace: calibre-web-automated
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+    - host: books_cwa.irupeconsultores.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: calibre-web-automated
+                port:
+                  name: web
