@@ -8,7 +8,7 @@ image:
   # GHCR. Pin to the latest green commit SHA after the first CI run:
   #   ghcr.io/irupe-consultores/caldiy:sha-<full-commit-sha>
   repository: ghcr.io/irupe-consultores/caldiy
-  tag: sha-2843f51df4d9d76cae91d0b7a4e98b504b18ee8cd
+  tag: sha-2843f51df4d9d76cae91d0b7a4e98b504b18ee8d
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
