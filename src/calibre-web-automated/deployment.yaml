@@ -41,6 +41,18 @@ spec:
         - name: gmail
           secret:
             secretName: cwa-gmail
+      initContainers:
+        - name: copy-gmail-json
+          image: busybox:1.36
+          command: ["sh", "-c", "cp /secrets/gmail.json /config/gmail.json && chown 1000:1000 /config/gmail.json"]
+          volumeMounts:
+            - name: gmail
+              mountPath: /secrets
+              readOnly: true
+            - name: config
+              mountPath: /config
+          securityContext:
+            allowPrivilegeEscalation: false
       containers:
         - name: calibre-web-automated
           image: crocodilestick/calibre-web-automated:dev-407
@@ -65,9 +77,6 @@ spec:
               mountPath: /calibre-library
             - name: ingest
               mountPath: /cwa-book-ingest
-            - name: gmail
-              mountPath: /app/calibre-web-automated/gmail.json
-              subPath: gmail.json
           resources:
             requests:
               cpu: 100m
