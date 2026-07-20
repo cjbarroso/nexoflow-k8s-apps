@@ -52,7 +52,7 @@ spec:
         - ipBlock: { cidr: 10.42.0.1/32 }
 ---
 # Cloudflare tunnel connectors terminate caldiy.irupeconsultores.com and connect
-# straight to the Cal.com web pods on 80 — and only to them (a compromised
+# straight to the Cal.com web pods on 3000 — and only to them (a compromised
 # connector must not reach Postgres directly).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -67,7 +67,7 @@ spec:
         - namespaceSelector:
             matchLabels: { kubernetes.io/metadata.name: cloudflared }
       ports:
-        - { protocol: TCP, port: 80 }
+        - { protocol: TCP, port: 3000 }
 ---
 # Prometheus scrapes the CNPG instance metrics.
 apiVersion: networking.k8s.io/v1
