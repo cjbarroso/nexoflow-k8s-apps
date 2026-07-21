@@ -122,6 +122,10 @@ spec:
     - { server: 'https://kubernetes.default.svc', namespace: hermes2 }
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
+    # The isolated Incident Response runtime binds its dedicated ServiceAccount
+    # to read-only cluster roles; neither role grants Secrets or mutation verbs.
+    - { group: 'rbac.authorization.k8s.io', kind: ClusterRole }
+    - { group: 'rbac.authorization.k8s.io', kind: ClusterRoleBinding }
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject

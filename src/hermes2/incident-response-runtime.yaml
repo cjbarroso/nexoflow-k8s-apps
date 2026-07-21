@@ -1,0 +1,176 @@
+# Isolated Hermes runtime for the Incident Response Engineer.
+#
+# The dedicated PVC is provisioned once by the operator bootstrap procedure.
+# The permanent runtime never mounts hermes2-data: it mounts only its own PVC
+# and gets a dedicated read-only Kubernetes identity.
+# Messaging credentials are configured interactively on this PVC after rollout.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes2-incident-response
+  namespace: hermes2
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hermes2-incident-response-infrastructure-view
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csidrivers", "csinodes", "storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes2-incident-response-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: hermes2-incident-response
+    namespace: hermes2
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes2-incident-response-infrastructure-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hermes2-incident-response-infrastructure-view
+subjects:
+  - kind: ServiceAccount
+    name: hermes2-incident-response
+    namespace: hermes2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes2-incident-response-kubeconfig
+  namespace: hermes2
+data:
+  config: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+      - name: in-cluster
+        cluster:
+          server: https://kubernetes.default.svc
+          certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    users:
+      - name: incident-response
+        user:
+          tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    contexts:
+      - name: nexoflow
+        context:
+          cluster: in-cluster
+          user: incident-response
+    current-context: nexoflow
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes2-incident-response-data
+  namespace: hermes2
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes2-incident-response
+  namespace: hermes2
+  labels:
+    app: hermes2-incident-response
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes2-incident-response
+  template:
+    metadata:
+      labels:
+        app: hermes2-incident-response
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: hermes2-incident-response
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: hermes
+          image: nousresearch/hermes-agent:main@sha256:a8a528a5ad1cee0362dc85814862811d428ac0a461030d4de9a3796a7bb9a802
+          imagePullPolicy: IfNotPresent
+          args: ["gateway", "run"]
+          env:
+            - name: KUBECONFIG
+              value: /etc/incident-response/kubeconfig
+          volumeMounts:
+            - name: incident-data
+              mountPath: /opt/data
+            - name: kubeconfig
+              mountPath: /etc/incident-response
+              readOnly: true
+            - name: kube-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: incident-data
+          persistentVolumeClaim:
+            claimName: hermes2-incident-response-data
+        - name: kubeconfig
+          configMap:
+            name: hermes2-incident-response-kubeconfig
+            items:
+              - key: config
+                path: kubeconfig
+        - name: kube-api-access
+          projected:
+            defaultMode: 420
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
