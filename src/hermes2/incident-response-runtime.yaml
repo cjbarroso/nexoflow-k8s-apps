@@ -2,7 +2,7 @@
 #
 # The dedicated PVC is provisioned once by the operator bootstrap procedure.
 # The permanent runtime never mounts hermes2-data: it mounts only its own PVC
-# and gets a dedicated read-only Kubernetes identity.
+# and gets a dedicated Kubernetes identity with pod mutation permissions.
 # Messaging credentials are configured interactively on this PVC after rollout.
 apiVersion: v1
 kind: ServiceAccount
@@ -50,6 +50,31 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: hermes2-incident-response-infrastructure-view
+subjects:
+  - kind: ServiceAccount
+    name: hermes2-incident-response
+    namespace: hermes2
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hermes2-incident-response-pod-manager
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/log", "pods/portforward"]
+    verbs: ["create", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes2-incident-response-pod-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hermes2-incident-response-pod-manager
 subjects:
   - kind: ServiceAccount
     name: hermes2-incident-response

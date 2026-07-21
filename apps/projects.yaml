@@ -123,7 +123,8 @@ spec:
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
     # The isolated Incident Response runtime binds its dedicated ServiceAccount
-    # to read-only cluster roles; neither role grants Secrets or mutation verbs.
+    # to read-only cluster roles (view + infrastructure-view) and a pod-manager
+    # role that grants pod mutation verbs (create, delete, patch, update).
     - { group: 'rbac.authorization.k8s.io', kind: ClusterRole }
     - { group: 'rbac.authorization.k8s.io', kind: ClusterRoleBinding }
 ---
