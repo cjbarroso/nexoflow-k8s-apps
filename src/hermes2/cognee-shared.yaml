@@ -166,6 +166,8 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: false
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
 ---
 apiVersion: v1
 kind: Service
@@ -311,6 +313,8 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: server
               mountPath: /opt/readonly
