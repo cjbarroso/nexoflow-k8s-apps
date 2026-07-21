@@ -134,11 +134,6 @@ spec:
               value: http
             - name: API_URL
               value: http://cognee-backend:8000
-            - name: LLM_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: hermes2-cognee-openai
-                  key: LLM_API_KEY
           ports:
             - name: http
               containerPort: 8000
@@ -180,6 +175,159 @@ metadata:
 spec:
   selector:
     app: cognee-mcp
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# Incident Response receives a server-enforced read-only MCP surface.  The
+# full Cognee MCP contains mutating tools (remember, cognify, forget), so a
+# client-side tool allow-list would not be an adequate security boundary.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cognee-readonly-mcp
+  namespace: hermes2
+data:
+  server.py: |
+    import asyncio
+    import os
+
+    import httpx
+    import uvicorn
+    from mcp.server import FastMCP
+    from starlette.responses import JSONResponse
+
+    BACKEND_URL = os.environ.get("API_URL", "http://cognee-backend:8000")
+    mcp = FastMCP("Cognee Read Only")
+
+
+    @mcp.tool()
+    async def recall(
+        query: str,
+        search_type: str | None = None,
+        datasets: str | None = None,
+        session_id: str | None = None,
+        system_prompt: str | None = None,
+        top_k: int = 15,
+    ) -> object:
+        """Search shared project knowledge without changing it."""
+        payload = {"query": query, "top_k": max(1, min(top_k, 100))}
+        if search_type:
+            payload["search_type"] = search_type.upper()
+        if datasets:
+            payload["datasets"] = [
+                item.strip() for item in datasets.split(",") if item.strip()
+            ]
+        if session_id:
+            payload["session_id"] = session_id
+        if system_prompt:
+            payload["system_prompt"] = system_prompt
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{BACKEND_URL}/api/v1/recall", json=payload
+            )
+            response.raise_for_status()
+            return response.json()
+
+
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health_check(request):
+        return JSONResponse({"status": "ok"})
+
+
+    async def main():
+        mcp.settings.host = "0.0.0.0"
+        mcp.settings.port = 8000
+        app = mcp.streamable_http_app()
+        server = uvicorn.Server(
+            uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+        )
+        await server.serve()
+
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cognee-readonly-mcp
+  namespace: hermes2
+  labels:
+    app: cognee-readonly-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cognee-readonly-mcp
+  template:
+    metadata:
+      labels:
+        app: cognee-readonly-mcp
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cognee-readonly-mcp
+          image: cognee/cognee-mcp:main@sha256:e3bbe07a7297c64fda9d5ce78c9cb73a3dc4ad9b790d07d3e39cb7dc6004d189
+          imagePullPolicy: IfNotPresent
+          command: [python, /opt/readonly/server.py]
+          env:
+            - name: API_URL
+              value: http://cognee-backend:8000
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - name: server
+              mountPath: /opt/readonly
+              readOnly: true
+      volumes:
+        - name: server
+          configMap:
+            name: cognee-readonly-mcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cognee-readonly-mcp
+  namespace: hermes2
+spec:
+  selector:
+    app: cognee-readonly-mcp
   ports:
     - name: http
       port: 8000

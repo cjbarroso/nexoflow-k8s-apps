@@ -11,6 +11,7 @@ spec:
     targetRevision: master
     directory:
       recurse: false
+      exclude: '*.example.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: hermes2
