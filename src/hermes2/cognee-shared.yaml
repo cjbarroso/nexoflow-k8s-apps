@@ -280,6 +280,8 @@ spec:
               value: http
             - name: API_URL
               value: http://cognee-backend:8000
+            - name: MCP_ALLOWED_HOSTS
+              value: cognee-mcp:*,cognee-mcp.hermes2:*,cognee-mcp.hermes2.svc:*
           ports:
             - name: http
               containerPort: 8000
@@ -344,6 +346,7 @@ data:
     import httpx
     import uvicorn
     from mcp.server import FastMCP
+    from mcp.server.transport_security import TransportSecuritySettings
     from starlette.responses import JSONResponse
 
     BACKEND_URL = os.environ.get("API_URL", "http://cognee-backend:8000")
@@ -387,6 +390,15 @@ data:
     async def main():
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = 8000
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[
+                "cognee-readonly-mcp:*",
+                "cognee-readonly-mcp.hermes2:*",
+                "cognee-readonly-mcp.hermes2.svc:*",
+            ],
+            allowed_origins=[],
+        )
         app = mcp.streamable_http_app()
         server = uvicorn.Server(
             uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
