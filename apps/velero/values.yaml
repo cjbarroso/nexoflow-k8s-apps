@@ -60,12 +60,15 @@ credentials:
 # CNPG data volumes are excluded from FS backup via pod annotation (set in
 # src/authentik/postgres-cnpg.yaml). Vaultwarden gets a consistent
 # `sqlite3 .backup` from its own CronJob (src/vaultwarden/) before this runs.
+# hermes2 contains the operational agent state and shared Cognee knowledge PVC;
+# both are included in the same daily filesystem backup and 30-day retention.
 schedules:
   stateful-daily:
     schedule: "0 2 * * *"          # 02:00 daily
     template:
       includedNamespaces:
         - authentik
+        - hermes2
         - vaultwarden
       defaultVolumesToFsBackup: true
       ttl: 720h                     # 30 days
