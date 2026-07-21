@@ -13,6 +13,112 @@ spec:
     requests:
       storage: 10Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cognee-postgres-data
+  namespace: hermes2
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cognee-postgres
+  namespace: hermes2
+  labels:
+    app: cognee-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cognee-postgres
+  template:
+    metadata:
+      labels:
+        app: cognee-postgres
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg17@sha256:815bf5378222044da3b34d98e6a5fdac37b15c428b67d09c7c2d90a038e597bf
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_DB
+              value: cognee
+            - name: POSTGRES_USER
+              value: cognee
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cognee-postgres
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          startupProbe:
+            exec:
+              command: [pg_isready, -U, cognee, -d, cognee]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, cognee, -d, cognee]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, cognee, -d, cognee]
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cognee-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cognee-postgres
+  namespace: hermes2
+spec:
+  selector:
+    app: cognee-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -51,6 +157,46 @@ spec:
               value: "true"
             - name: REQUIRE_AUTHENTICATION
               value: "false"
+            - name: ENABLE_BACKEND_ACCESS_CONTROL
+              value: "false"
+            - name: SYSTEM_ROOT_DIRECTORY
+              value: /app/data/system
+            - name: DATA_ROOT_DIRECTORY
+              value: /app/data/content
+            - name: VECTOR_DB_PROVIDER
+              value: pgvector
+            - name: VECTOR_DATASET_DATABASE_HANDLER
+              value: pgvector
+            - name: VECTOR_DB_HOST
+              value: cognee-postgres
+            - name: VECTOR_DB_PORT
+              value: "5432"
+            - name: VECTOR_DB_NAME
+              value: cognee
+            - name: VECTOR_DB_USERNAME
+              value: cognee
+            - name: VECTOR_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cognee-postgres
+                  key: POSTGRES_PASSWORD
+            - name: GRAPH_DATABASE_PROVIDER
+              value: postgres
+            - name: GRAPH_DATASET_DATABASE_HANDLER
+              value: postgres_graph
+            - name: GRAPH_DATABASE_HOST
+              value: cognee-postgres
+            - name: GRAPH_DATABASE_PORT
+              value: "5432"
+            - name: GRAPH_DATABASE_NAME
+              value: cognee
+            - name: GRAPH_DATABASE_USERNAME
+              value: cognee
+            - name: GRAPH_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cognee-postgres
+                  key: POSTGRES_PASSWORD
           ports:
             - name: http
               containerPort: 8000
