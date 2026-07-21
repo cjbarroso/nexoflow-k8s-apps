@@ -1,0 +1,186 @@
+# Central Cognee backend shared by Gretchen and Incident Response Engineer.
+# The OpenAI key is materialized by the companion SealedSecret; plaintext must
+# never be committed.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cognee-data
+  namespace: hermes2
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cognee-backend
+  namespace: hermes2
+  labels:
+    app: cognee-backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cognee-backend
+  template:
+    metadata:
+      labels:
+        app: cognee-backend
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cognee
+          image: cognee/cognee:main@sha256:77dca10caac45f46100abf9c9e539ba38bf7271da23586f6f682af31a945c714
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hermes2-cognee-openai
+                  key: LLM_API_KEY
+            - name: TELEMETRY_DISABLED
+              value: "true"
+            - name: REQUIRE_AUTHENTICATION
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cognee-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cognee-backend
+  namespace: hermes2
+spec:
+  selector:
+    app: cognee-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cognee-mcp
+  namespace: hermes2
+  labels:
+    app: cognee-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cognee-mcp
+  template:
+    metadata:
+      labels:
+        app: cognee-mcp
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cognee-mcp
+          image: cognee/cognee-mcp:main@sha256:e3bbe07a7297c64fda9d5ce78c9cb73a3dc4ad9b790d07d3e39cb7dc6004d189
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TRANSPORT_MODE
+              value: http
+            - name: API_URL
+              value: http://cognee-backend:8000
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hermes2-cognee-openai
+                  key: LLM_API_KEY
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cognee-mcp
+  namespace: hermes2
+spec:
+  selector:
+    app: cognee-mcp
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

@@ -31,10 +31,54 @@ metadata:
   name: allow-intra-namespace
   namespace: hermes2
 spec:
-  podSelector: {}
+  # Cognee holds shared project context and has narrower policies below.
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: NotIn
+        values: [cognee-backend, cognee-mcp]
   ingress:
     - from:
         - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cognee-backend-from-mcp
+  namespace: hermes2
+spec:
+  podSelector:
+    matchLabels:
+      app: cognee-backend
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: cognee-mcp
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cognee-mcp-from-authorized-hermes
+  namespace: hermes2
+spec:
+  podSelector:
+    matchLabels:
+      app: cognee-mcp
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hermes2
+        - podSelector:
+            matchLabels:
+              app: hermes2-incident-response
+      ports:
+        - protocol: TCP
+          port: 8000
 ---
 # Kubelet probes + `kubectl port-forward` reach the pod from the node. Without
 # this the dashboard/API port-forward (the only access path for this instance)
