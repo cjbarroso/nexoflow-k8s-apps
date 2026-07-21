@@ -160,22 +160,3 @@ spec:
   # SealedSecrets) is namespaced.
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
----
-apiVersion: argoproj.io/v1alpha1
-kind: AppProject
-metadata:
-  name: caldiy
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  description: Cal.diy scheduling platform
-  sourceRepos:
-    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
-    - 'https://pyrrha.github.io/calcom-helm'
-  destinations:
-    - { server: 'https://kubernetes.default.svc', namespace: caldiy }
-  # Namespace only (CreateNamespace). Everything else (Deployment, CNPG Cluster,
-  # SealedSecrets) is namespaced.
-  clusterResourceWhitelist:
-    - { group: '', kind: Namespace }
