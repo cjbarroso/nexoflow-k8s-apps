@@ -123,6 +123,8 @@ spec:
           imagePullPolicy: IfNotPresent
           args: ["gateway", "run"]
           env:
+            - name: HOME
+              value: /opt/data
             - name: KUBECONFIG
               value: /etc/incident-response/kubeconfig
           volumeMounts:
