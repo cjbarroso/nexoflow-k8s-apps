@@ -2,10 +2,11 @@
 #
 # Why: the Vaultwarden image has no `sqlite3`, runs non-root, and the gabe565
 # chart can't host a sidecar — so a Velero pre-hook can't dump the DB. This
-# CronJob mounts the same `vaultwarden-data` PVC (RWO, same single node) and uses
-# SQLite's online backup API to write a guaranteed-consistent `db.backup.sqlite3`
-# onto the volume. The Velero `stateful-daily` schedule (02:00) then backs it up;
-# this runs at 01:30 so the consistent copy is fresh in each Velero backup.
+# CronJob mounts the same `vaultwarden-data-lh` PVC (Longhorn, replicated) and
+# uses SQLite's online backup API to write a guaranteed-consistent
+# `db.backup.sqlite3` onto the volume. The Velero `stateful-daily` schedule
+# (02:00) then backs it up; this runs at 01:30 so the consistent copy is fresh in
+# each Velero backup.
 #
 # Online `.backup` is safe against the live Vaultwarden process (it's the SQLite
 # backup API, designed for concurrent access) and only READS the live DB.
@@ -52,4 +53,4 @@ spec:
           volumes:
             - name: data
               persistentVolumeClaim:
-                claimName: vaultwarden-data
+                claimName: vaultwarden-data-lh
