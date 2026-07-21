@@ -423,6 +423,8 @@ spec:
       app: cognee-readonly-mcp
   template:
     metadata:
+      annotations:
+        config.cjbarroso.com/revision: "2"
       labels:
         app: cognee-readonly-mcp
         logs.cjbarroso.com/collect: "true"
