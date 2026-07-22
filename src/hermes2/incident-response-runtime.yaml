@@ -199,3 +199,25 @@ spec:
                       fieldRef:
                         apiVersion: v1
                         fieldPath: metadata.namespace
+---
+# Exposes the Hermes webhook (port 8644) so the Alertmanager auth adapter
+# (alertmanager-incident-webhook) can forward alerts into the incident-response
+# agent. ClusterIP only — reachable inside the cluster, never publicly. The
+# container does not declare containerPort 8644 (informational only); the webhook
+# aiohttp server binds 0.0.0.0:8644 inside the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes2-incident-response-webhook
+  namespace: hermes2
+  labels:
+    app: hermes2-incident-response
+spec:
+  type: ClusterIP
+  selector:
+    app: hermes2-incident-response
+  ports:
+    - name: webhook
+      port: 8644
+      targetPort: 8644
+      protocol: TCP
