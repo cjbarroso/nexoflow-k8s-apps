@@ -1687,7 +1687,7 @@ alerting:
             # Token"). $__env{} is interpolated at file read.
             settings:
               bottoken: $__env{GF_TELEGRAM_BOT_TOKEN}
-              chatid: "8859917575"
+              chatid: "8761422375"
   policies.yaml:
     apiVersion: 1
     policies:
