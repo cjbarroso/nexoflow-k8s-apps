@@ -373,6 +373,14 @@ alertmanager:
       mountPath: /etc/am-notify
       secretName: alertmanager-notify
       readOnly: true
+    # Bearer token for the `hermes-incident` webhook receiver (Alertmanager ->
+    # incident-response adapter in hermes2). Sealed in ns observability; read via
+    # credentials_file (see receivers below). Until this Secret exists the
+    # alertmanager pod stays pending.
+    - name: am-incident
+      mountPath: /etc/am-incident
+      secretName: alertmanager-incident-bearer
+      readOnly: true
   config:
     route:
       # Default: blackhole. Alerts reach a channel only via an explicit route.
@@ -386,6 +394,18 @@ alertmanager:
           receiver: healthchecks
           group_wait: 0s
           repeat_interval: 5m       # ping healthchecks.io every 5 min while alive
+        # Real alerts (NodeHighCpu et al.) → incident-response agent (Discord
+        # #incident-response). continue: true so they ALSO fall through to the
+        # Telegram `notify` route below. Drop `continue` to make Discord the only
+        # destination, or narrow the matchers to a subset of alerts.
+        - matchers:
+            - severity=~"warning|critical"
+          receiver: hermes-incident
+          group_by: ['alertname', 'instance']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+          continue: true
         # Real alerts (NodeHighCpu et al.) → Telegram + email.
         - matchers:
             - severity=~"warning|critical"
@@ -416,3 +436,14 @@ alertmanager:
               {{ with .Annotations.dashboard }}📊 <a href="{{ . }}">Open dashboard</a>
               {{ end }}{{ with .Annotations.logs }}📋 <a href="{{ . }}">View logs</a>
               {{ end }}{{ end }}
+      - name: hermes-incident
+        webhook_configs:
+          # Alertmanager -> incident-response adapter (hermes2 ns), which forwards
+          # to the Hermes incident-alerts webhook and opens a Discord
+          # #incident-response thread. Bearer token from the mounted Secret.
+          - url: http://alertmanager-incident-webhook.hermes2.svc:9090/
+            send_resolved: true
+            http_config:
+              authorization:
+                type: Bearer
+                credentials_file: /etc/am-incident/bearer-token
