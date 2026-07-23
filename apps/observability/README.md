@@ -69,8 +69,10 @@ is ever needed — the opt-in gate lives in `alloy-values.yaml`.
 `https://logs.cjbarroso.com` → **Dashboards → Node Exporter Full** for the full
 per-node breakdown, or **Node Alerts — CPU / Memory / Disk**
 (`/d/node-alerts`) for just the three metrics we alert on, each with its
-threshold drawn as a line. Or **Explore** → datasource **Prometheus** for
-ad-hoc PromQL:
+threshold drawn as a line. For the **status of every alert in one place** see
+**Alertas — Estado de infraestructura** (`/d/alerts-overview`) — the single pane
+documented in its own section below. Or **Explore** → datasource **Prometheus**
+for ad-hoc PromQL:
 
 ```promql
 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)   # CPU %/node
