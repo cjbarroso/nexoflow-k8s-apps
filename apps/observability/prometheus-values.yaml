@@ -424,7 +424,7 @@ alertmanager:
       - name: notify
         telegram_configs:
           - bot_token_file: /etc/am-notify/telegram-bot-token
-            chat_id: 8761422375
+            chat_id: 1142335836
             parse_mode: HTML
             send_resolved: true
             # Custom body: name + status, description, and the dashboard deep-link
