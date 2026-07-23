@@ -176,6 +176,23 @@ datasources:
           exemplarTraceIdDestinations:
             - name: trace_id
               datasourceUid: tempo
+      # Alertmanager — the single AM that BOTH the Prometheus rules AND the Loki
+      # ruler push into (loki-values.yaml points the ruler at this same svc). Used
+      # by the `alerts-overview` dashboard to list every ACTIVE infra alert (name,
+      # severity, state, summary, instance, active-since) in one pane — the
+      # Prometheus `ALERTS` metric only covers Prometheus-evaluated rules, so this
+      # is what brings the Loki log alerts (CNPGBackupFailed, GeminiAccessErrors…)
+      # into the same view. Internal, no auth (like Prometheus). It's a FRESH
+      # datasource (never persisted on the PVC with an auto uid), so unlike
+      # Loki/Prometheus it needs NO deleteDatasources entry above.
+      - name: Alertmanager
+        uid: alertmanager
+        type: alertmanager
+        access: proxy
+        url: http://prometheus-alertmanager.observability.svc.cluster.local:9093
+        isDefault: false
+        jsonData:
+          implementation: prometheus
       # Tempo — the distributed-trace store (single-binary, ns observability).
       # Ingest is apps -> Alloy (OTLP gateway) -> Tempo; THIS datasource is the
       # READ side (Grafana Explore + trace panels), querying Tempo's API on :3200.
@@ -650,6 +667,147 @@ dashboards:
                   "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} * 100 and node_filesystem_readonly == 0",
                   "legendFormat": "{{instance}} {{mountpoint}}"
                 }
+              ]
+            }
+          ]
+        }
+    # Single pane of glass for alert STATUS. The user wanted one place to manually
+    # inspect every infra alert and whether it's firing. Two sources, by design:
+    #   - The ACTIVE-ALERTS TABLE uses the Alertmanager datasource (uid=alertmanager,
+    #     added to datasources above) — the single AM that BOTH the Prometheus rules
+    #     AND the Loki ruler feed, so it lists every active infra alert (Prometheus +
+    #     Loki log alerts) with severity/state/summary/instance/active-since.
+    #   - The SUMMARY STATS + HISTORY use the Prometheus `ALERTS` metric (rock-solid,
+    #     predictable), which covers Prometheus-evaluated rules only; the Loki alerts
+    #     (CNPGBackupFailed, GeminiAccessErrors, …) show up in the Alertmanager table.
+    # Neither Prometheus nor Alertmanager exposes a series for an alert in the OK
+    # state — "OK" is the ABSENCE of an active alert — so this dashboard renders
+    # "active list + firing history"; anything not listed is OK. Grafana-managed
+    # rules (Gemini cost, pipeline backlog) are NOT here — they live in Grafana's
+    # own Alerting. Stable uid `alerts-overview` for deep-linking.
+    alerts-overview:
+      json: |
+        {
+          "uid": "alerts-overview",
+          "title": "Alertas — Estado de infraestructura",
+          "description": "Estado de todas las alertas de infraestructura en un solo lugar. La tabla 'Alertas activas' viene de Alertmanager (Prometheus + Loki); los contadores y el historial usan la métrica ALERTS de Prometheus (reglas Prometheus). Lo que no aparece está OK.",
+          "tags": ["alerts", "infraestructura", "alertmanager"],
+          "schemaVersion": 39,
+          "refresh": "30s",
+          "time": { "from": "now-24h", "to": "now" },
+          "templating": { "list": [] },
+          "panels": [
+            {
+              "id": 9, "type": "text", "title": "",
+              "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+              "options": { "mode": "markdown", "content": "**Cómo leer este tablero** — La tabla **Alertas activas** (Alertmanager) muestra TODA alerta de infraestructura actualmente disparada, de Prometheus **y** de Loki. Los contadores e histórico usan la métrica `ALERTS` de Prometheus (reglas Prometheus). Una alerta en estado **OK** no aparece: su ausencia significa que está sana. Las alertas gestionadas por Grafana (costo Gemini, backlog del pipeline) viven en *Alerting* de Grafana, no aquí." }
+            },
+            {
+              "id": 100, "type": "row", "title": "Resumen (reglas Prometheus)",
+              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 }
+            },
+            {
+              "id": 1, "type": "stat", "title": "Alertas firing (total)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)" } ]
+            },
+            {
+              "id": 2, "type": "stat", "title": "Críticas firing",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                "expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"}) or vector(0)" } ]
+            },
+            {
+              "id": 3, "type": "stat", "title": "Warnings firing",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                "expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"}) or vector(0)" } ]
+            },
+            {
+              "id": 4, "type": "stat", "title": "Alertas pending",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                "expr": "count(ALERTS{alertstate=\"pending\"}) or vector(0)" } ]
+            },
+            {
+              "id": 101, "type": "row", "title": "Alertas activas — todas las fuentes (Prometheus + Loki vía Alertmanager)",
+              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }
+            },
+            {
+              "id": 5, "type": "table", "title": "Alertas activas ahora (Alertmanager)",
+              "description": "Toda alerta actualmente disparada (firing/pending) que conoce el Alertmanager único: reglas de Prometheus Y del ruler de Loki. Vacío = nada activo. Fuente: datasource Alertmanager.",
+              "datasource": { "type": "alertmanager", "uid": "alertmanager" },
+              "gridPos": { "h": 12, "w": 24, "x": 0, "y": 9 },
+              "fieldConfig": { "defaults": {}, "overrides": [] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "alertname", "desc": false } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "alertmanager", "uid": "alertmanager" },
+                "labelSelector": "{}", "active": true, "silenced": false, "inhibited": false } ]
+            },
+            {
+              "id": 103, "type": "row", "title": "Detalle firing / pending (reglas Prometheus)",
+              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }
+            },
+            {
+              "id": 8, "type": "table", "title": "Detalle de alertas firing/pending (métrica ALERTS)",
+              "description": "Desglose por etiquetas de las alertas de Prometheus actualmente firing o pending (alertname, severity, alertstate, instance, …). Complementa la tabla de Alertmanager con el estado pending/firing explícito.",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": {}, "overrides": [
+                { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "custom.hidden", "value": true } ] },
+                { "matcher": { "id": "byName", "options": "Time" }, "properties": [ { "id": "custom.hidden", "value": true } ] }
+              ] },
+              "options": { "showHeader": true, "sortBy": [ { "displayName": "alertname", "desc": false } ] },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                "format": "table", "instant": true,
+                "expr": "ALERTS{alertstate=~\"firing|pending\"}" } ]
+            },
+            {
+              "id": 102, "type": "row", "title": "Historial (reglas Prometheus)",
+              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 }
+            },
+            {
+              "id": 6, "type": "timeseries", "title": "Alertas firing en el tiempo (por alerta)",
+              "description": "Cuántas instancias de cada alerta de Prometheus estuvieron firing a lo largo del rango. Un escalón arriba = la alerta se disparó; vuelve a 0 al resolverse.",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 9, "w": 24, "x": 0, "y": 33 },
+              "fieldConfig": { "defaults": { "unit": "short", "min": 0, "decimals": 0,
+                "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 15, "pointSize": 6, "showPoints": "never", "spanNulls": false } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{alertname}}",
+                "expr": "count by (alertname) (ALERTS{alertstate=\"firing\"})" } ]
+            },
+            {
+              "id": 7, "type": "timeseries", "title": "Firing por severidad (críticas vs warnings)",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "gridPos": { "h": 8, "w": 24, "x": 0, "y": 42 },
+              "fieldConfig": { "defaults": { "unit": "short", "min": 0, "decimals": 0,
+                "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false } }, "overrides": [
+                { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "displayName", "value": "críticas" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+                { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "displayName", "value": "warnings" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+              ] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "count(ALERTS{alertstate=\"firing\",severity=\"critical\"}) or vector(0)" },
+                { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" },
+                  "expr": "count(ALERTS{alertstate=\"firing\",severity=\"warning\"}) or vector(0)" }
               ]
             }
           ]

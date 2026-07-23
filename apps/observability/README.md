@@ -122,6 +122,25 @@ sealed Secret `prometheus-hc-ping` (key `url`) and read by Alertmanager via
 `../../src/observability/README.md` §2b. The `prometheus-alertmanager` pod stays
 pending until that Secret is sealed — expected.
 
+## Alert status — single pane (`/d/alerts-overview`)
+
+The **Alertas — Estado de infraestructura** dashboard is the one place to manually
+inspect every infra alert and whether it's firing. It mixes two sources on purpose:
+
+- **Active-alerts table** → the **Alertmanager** datasource (provisioned alongside
+  the others; points at the single AM `prometheus-alertmanager:9093` that BOTH the
+  Prometheus rules AND the Loki ruler feed). This lists every currently-active
+  alert — Prometheus **and** the Loki log alerts (`CNPGBackupFailed`,
+  `GeminiAccessErrors`, …) — with severity, state, summary, instance and how long
+  it's been active.
+- **Summary counters + firing history** → the Prometheus `ALERTS` metric (covers
+  Prometheus-evaluated rules; the Loki alerts show up in the Alertmanager table).
+
+Neither Prometheus nor Alertmanager emits a series for an alert in the **OK** state
+— "OK" is the *absence* of an active alert — so the dashboard renders "active list
++ firing history": anything not listed is healthy. Grafana-managed rules (Gemini
+cost, pipeline backlog) are **not** here; they live in Grafana's own *Alerting*.
+
 ## Alerts → Telegram
 
 Alerting rules live in `prometheus-values.yaml` under `serverFiles.alerting_rules.yml`.
