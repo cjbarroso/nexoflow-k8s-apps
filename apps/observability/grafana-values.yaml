@@ -176,23 +176,6 @@ datasources:
           exemplarTraceIdDestinations:
             - name: trace_id
               datasourceUid: tempo
-      # Alertmanager — the single AM that BOTH the Prometheus rules AND the Loki
-      # ruler push into (loki-values.yaml points the ruler at this same svc). Used
-      # by the `alerts-overview` dashboard to list every ACTIVE infra alert (name,
-      # severity, state, summary, instance, active-since) in one pane — the
-      # Prometheus `ALERTS` metric only covers Prometheus-evaluated rules, so this
-      # is what brings the Loki log alerts (CNPGBackupFailed, GeminiAccessErrors…)
-      # into the same view. Internal, no auth (like Prometheus). It's a FRESH
-      # datasource (never persisted on the PVC with an auto uid), so unlike
-      # Loki/Prometheus it needs NO deleteDatasources entry above.
-      - name: Alertmanager
-        uid: alertmanager
-        type: alertmanager
-        access: proxy
-        url: http://prometheus-alertmanager.observability.svc.cluster.local:9093
-        isDefault: false
-        jsonData:
-          implementation: prometheus
       # Tempo — the distributed-trace store (single-binary, ns observability).
       # Ingest is apps -> Alloy (OTLP gateway) -> Tempo; THIS datasource is the
       # READ side (Grafana Explore + trace panels), querying Tempo's API on :3200.
@@ -671,27 +654,30 @@ dashboards:
             }
           ]
         }
-    # Single pane of glass for alert STATUS. The user wanted one place to manually
-    # inspect every infra alert and whether it's firing. Two sources, by design:
-    #   - The ACTIVE-ALERTS TABLE uses the Alertmanager datasource (uid=alertmanager,
-    #     added to datasources above) — the single AM that BOTH the Prometheus rules
-    #     AND the Loki ruler feed, so it lists every active infra alert (Prometheus +
-    #     Loki log alerts) with severity/state/summary/instance/active-since.
-    #   - The SUMMARY STATS + HISTORY use the Prometheus `ALERTS` metric (rock-solid,
-    #     predictable), which covers Prometheus-evaluated rules only; the Loki alerts
-    #     (CNPGBackupFailed, GeminiAccessErrors, …) show up in the Alertmanager table.
-    # Neither Prometheus nor Alertmanager exposes a series for an alert in the OK
-    # state — "OK" is the ABSENCE of an active alert — so this dashboard renders
-    # "active list + firing history"; anything not listed is OK. Grafana-managed
-    # rules (Gemini cost, pipeline backlog) are NOT here — they live in Grafana's
-    # own Alerting. Stable uid `alerts-overview` for deep-linking.
+    # Single pane of glass for alert STATUS — one place to manually inspect every
+    # infra alert and whether it's firing. Built ONLY on datasources that work in
+    # this Grafana build (Prometheus + Loki). NOTE: an Alertmanager datasource would
+    # be the natural "all active alerts" source, but its backend plugin is NOT
+    # available in the grafana-community image (queries fail `plugin.unavailable`,
+    # /api/plugins/alertmanager → 404), so we don't use it. Instead:
+    #   - ACTIVE-ALERTS TABLE + summary counters + history → the Prometheus `ALERTS`
+    #     metric (every Prometheus-rule alert, firing/pending, with labels). The
+    #     table excludes the always-firing Watchdog (shown as its own heartbeat stat).
+    #   - LOKI LOG-ALERTS section → 4 stat panels + a trend, each running the SAME
+    #     LogQL the Loki ruler alert uses (CNPGBackupFailed, CNPGWalArchiveErrorsLog,
+    #     GeminiAccessErrors, GeminiRecordsDeadLettered), so the log alerts' live
+    #     signal is visible here too (same technique as the gemini-health dashboard).
+    # Neither source exposes a series for an alert in the OK state — "OK" is the
+    # ABSENCE of an active alert — so this renders "active list + history"; anything
+    # not listed is OK. Grafana-managed rules (Gemini cost, pipeline backlog) are NOT
+    # here — they live in Grafana's own Alerting. Stable uid `alerts-overview`.
     alerts-overview:
       json: |
         {
           "uid": "alerts-overview",
           "title": "Alertas — Estado de infraestructura",
-          "description": "Estado de todas las alertas de infraestructura en un solo lugar. La tabla 'Alertas activas' viene de Alertmanager (Prometheus + Loki); los contadores y el historial usan la métrica ALERTS de Prometheus (reglas Prometheus). Lo que no aparece está OK.",
-          "tags": ["alerts", "infraestructura", "alertmanager"],
+          "description": "Estado de todas las alertas de infraestructura en un solo lugar. Tabla de alertas activas + contadores + historial vía métrica ALERTS (reglas Prometheus); sección de alertas de logs vía Loki (las 4 alertas del ruler). Lo que no aparece está OK.",
+          "tags": ["alerts", "infraestructura", "prometheus", "loki"],
           "schemaVersion": 39,
           "refresh": "30s",
           "time": { "from": "now-24h", "to": "now" },
@@ -700,21 +686,23 @@ dashboards:
             {
               "id": 9, "type": "text", "title": "",
               "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
-              "options": { "mode": "markdown", "content": "**Cómo leer este tablero** — La tabla **Alertas activas** (Alertmanager) muestra TODA alerta de infraestructura actualmente disparada, de Prometheus **y** de Loki. Los contadores e histórico usan la métrica `ALERTS` de Prometheus (reglas Prometheus). Una alerta en estado **OK** no aparece: su ausencia significa que está sana. Las alertas gestionadas por Grafana (costo Gemini, backlog del pipeline) viven en *Alerting* de Grafana, no aquí." }
+              "options": { "mode": "markdown", "content": "**Cómo leer este tablero** — **Watchdog** debe estar siempre *activo* (es el dead-man's switch; si se apaga, Prometheus/Alertmanager están caídos). La tabla **Alertas activas** lista toda alerta de Prometheus firing/pending (sin el Watchdog): **vacía = infraestructura sana**. La sección **Alertas de logs** muestra la señal en vivo de las 4 alertas del ruler de Loki (cada panel se pone rojo cuando alcanzaría su umbral). Una alerta en estado **OK** no aparece: su ausencia significa que está sana. Las alertas gestionadas por Grafana (costo Gemini, backlog del pipeline) viven en *Alerting* de Grafana, no aquí." }
             },
             {
               "id": 100, "type": "row", "title": "Resumen (reglas Prometheus)",
               "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 }
             },
             {
-              "id": 1, "type": "stat", "title": "Alertas firing (total)",
+              "id": 1, "type": "stat", "title": "Watchdog (heartbeat)",
+              "description": "Dead-man's switch (vector(1)): DEBE estar siempre activo. Si marca AUSENTE, Prometheus o Alertmanager están caídos (healthchecks.io te avisa).",
               "datasource": { "type": "prometheus", "uid": "prometheus" },
               "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
               "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
-                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+                "mappings": [ { "type": "value", "options": { "1": { "text": "activo", "color": "green" }, "0": { "text": "AUSENTE", "color": "red" } } } ],
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
               "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)" } ]
+                "expr": "max(ALERTS{alertname=\"Watchdog\",alertstate=\"firing\"}) or vector(0)" } ]
             },
             {
               "id": 2, "type": "stat", "title": "Críticas firing",
@@ -747,28 +735,14 @@ dashboards:
                 "expr": "count(ALERTS{alertstate=\"pending\"}) or vector(0)" } ]
             },
             {
-              "id": 101, "type": "row", "title": "Alertas activas — todas las fuentes (Prometheus + Loki vía Alertmanager)",
+              "id": 101, "type": "row", "title": "Alertas activas — reglas Prometheus (métrica ALERTS, sin Watchdog)",
               "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }
             },
             {
-              "id": 5, "type": "table", "title": "Alertas activas ahora (Alertmanager)",
-              "description": "Toda alerta actualmente disparada (firing/pending) que conoce el Alertmanager único: reglas de Prometheus Y del ruler de Loki. Vacío = nada activo. Fuente: datasource Alertmanager.",
-              "datasource": { "type": "alertmanager", "uid": "alertmanager" },
-              "gridPos": { "h": 12, "w": 24, "x": 0, "y": 9 },
-              "fieldConfig": { "defaults": {}, "overrides": [] },
-              "options": { "showHeader": true, "sortBy": [ { "displayName": "alertname", "desc": false } ] },
-              "targets": [ { "refId": "A", "datasource": { "type": "alertmanager", "uid": "alertmanager" },
-                "labelSelector": "{}", "active": true, "silenced": false, "inhibited": false } ]
-            },
-            {
-              "id": 103, "type": "row", "title": "Detalle firing / pending (reglas Prometheus)",
-              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }
-            },
-            {
-              "id": 8, "type": "table", "title": "Detalle de alertas firing/pending (métrica ALERTS)",
-              "description": "Desglose por etiquetas de las alertas de Prometheus actualmente firing o pending (alertname, severity, alertstate, instance, …). Complementa la tabla de Alertmanager con el estado pending/firing explícito.",
+              "id": 5, "type": "table", "title": "Alertas activas ahora (firing / pending)",
+              "description": "Toda alerta de Prometheus actualmente firing o pending, con sus etiquetas (alertname, severity, alertstate, instance, …). Excluye el Watchdog. Vacía = ninguna alerta real activa = infraestructura sana.",
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+              "gridPos": { "h": 12, "w": 24, "x": 0, "y": 9 },
               "fieldConfig": { "defaults": {}, "overrides": [
                 { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "custom.hidden", "value": true } ] },
                 { "matcher": { "id": "byName", "options": "Time" }, "properties": [ { "id": "custom.hidden", "value": true } ] }
@@ -776,7 +750,74 @@ dashboards:
               "options": { "showHeader": true, "sortBy": [ { "displayName": "alertname", "desc": false } ] },
               "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
                 "format": "table", "instant": true,
-                "expr": "ALERTS{alertstate=~\"firing|pending\"}" } ]
+                "expr": "ALERTS{alertstate=~\"firing|pending\", alertname!=\"Watchdog\"}" } ]
+            },
+            {
+              "id": 104, "type": "row", "title": "Alertas de logs (ruler de Loki) — señal en vivo",
+              "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 }
+            },
+            {
+              "id": 11, "type": "stat", "title": "CNPGBackupFailed (10m) — alerta > 0",
+              "description": "Errores del plugin barman-cloud (critical). Mismo LogQL que la alerta CNPGBackupFailed del ruler de Loki. Rojo = alcanzaría el umbral.",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "gridPos": { "h": 4, "w": 6, "x": 0, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant",
+                "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"plugin-barman-cloud\"} | json | level=\"error\" [10m]))" } ]
+            },
+            {
+              "id": 12, "type": "stat", "title": "CNPGWalArchiveErrorsLog (10m) — alerta > 0",
+              "description": "'archive command failed' en postgres (warning). Mismo LogQL que la alerta CNPGWalArchiveErrorsLog.",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "gridPos": { "h": 4, "w": 6, "x": 6, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant",
+                "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"postgres\"} |= \"archive command failed\" [10m]))" } ]
+            },
+            {
+              "id": 13, "type": "stat", "title": "GeminiAccessErrors (5m) — alerta > 3",
+              "description": "Respuestas HTTP 4xx/5xx de Gemini (warning). Mismo LogQL que la alerta GeminiAccessErrors (>3 en 5m).",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "gridPos": { "h": 4, "w": 6, "x": 12, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 4 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant",
+                "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [5m]))" } ]
+            },
+            {
+              "id": 14, "type": "stat", "title": "GeminiRecordsDeadLettered (10m) — alerta > 0",
+              "description": "Registros enviados a dead-letter (critical). Mismo LogQL que la alerta GeminiRecordsDeadLettered.",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "gridPos": { "h": 4, "w": 6, "x": 18, "y": 22 },
+              "fieldConfig": { "defaults": { "unit": "short", "decimals": 0,
+                "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+              "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+              "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "instant",
+                "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\" [10m]))" } ]
+            },
+            {
+              "id": 15, "type": "timeseries", "title": "Señal de las alertas de logs en el tiempo",
+              "description": "Evolución de las 4 señales de las alertas del ruler de Loki (cuenta por ventana). Deben vivir en 0; un pico es lo que dispara la alerta correspondiente.",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "gridPos": { "h": 6, "w": 24, "x": 0, "y": 26 },
+              "fieldConfig": { "defaults": { "unit": "short", "min": 0, "decimals": 0,
+                "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 1, "stacking": { "mode": "none" } } }, "overrides": [] },
+              "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+              "targets": [
+                { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "legendFormat": "CNPG backup errors",
+                  "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"plugin-barman-cloud\"} | json | level=\"error\" [$__auto]))" },
+                { "refId": "B", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "legendFormat": "WAL archive failed",
+                  "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"postgres\"} |= \"archive command failed\" [$__auto]))" },
+                { "refId": "C", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "legendFormat": "Gemini 4xx/5xx",
+                  "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"generativelanguage.googleapis.com\" |~ \"HTTP/1.1 [45]\" [$__auto]))" },
+                { "refId": "D", "datasource": { "type": "loki", "uid": "loki" }, "queryType": "range", "legendFormat": "dead-letters",
+                  "expr": "sum(count_over_time({namespace=\"hhccia-v2\", container=\"hhccia-core\"} |= \"dead-lettering\" [$__auto]))" }
+              ]
             },
             {
               "id": 102, "type": "row", "title": "Historial (reglas Prometheus)",

@@ -125,21 +125,29 @@ pending until that Secret is sealed — expected.
 ## Alert status — single pane (`/d/alerts-overview`)
 
 The **Alertas — Estado de infraestructura** dashboard is the one place to manually
-inspect every infra alert and whether it's firing. It mixes two sources on purpose:
+inspect every infra alert and whether it's firing. It's built only on datasources
+that work in this Grafana build (Prometheus + Loki):
 
-- **Active-alerts table** → the **Alertmanager** datasource (provisioned alongside
-  the others; points at the single AM `prometheus-alertmanager:9093` that BOTH the
-  Prometheus rules AND the Loki ruler feed). This lists every currently-active
-  alert — Prometheus **and** the Loki log alerts (`CNPGBackupFailed`,
-  `GeminiAccessErrors`, …) — with severity, state, summary, instance and how long
-  it's been active.
-- **Summary counters + firing history** → the Prometheus `ALERTS` metric (covers
-  Prometheus-evaluated rules; the Loki alerts show up in the Alertmanager table).
+- **Watchdog heartbeat** stat → must always read *activo*; *AUSENTE* means
+  Prometheus/Alertmanager are down (the dead-man's switch stopped).
+- **Active-alerts table + summary counters + firing history** → the Prometheus
+  `ALERTS` metric: every Prometheus-rule alert (nodes, cluster, etcd, CNPG-metric,
+  NATS, workloads, storage, Velero), firing/pending, with its labels. The table
+  excludes the Watchdog (it has its own stat); **empty = no real alert = healthy**.
+- **Loki log-alerts section** → 4 stat panels + a trend, each running the *same*
+  LogQL the Loki ruler alert uses (`CNPGBackupFailed`, `CNPGWalArchiveErrorsLog`,
+  `GeminiAccessErrors`, `GeminiRecordsDeadLettered`), so the log alerts' live signal
+  is visible here too (same technique as the `gemini-health` dashboard).
 
-Neither Prometheus nor Alertmanager emits a series for an alert in the **OK** state
-— "OK" is the *absence* of an active alert — so the dashboard renders "active list
-+ firing history": anything not listed is healthy. Grafana-managed rules (Gemini
-cost, pipeline backlog) are **not** here; they live in Grafana's own *Alerting*.
+> An **Alertmanager** datasource would be the natural "all active alerts in one
+> query" source, but its backend plugin is **not available** in the grafana-community
+> image (queries fail `plugin.unavailable`; `/api/plugins/alertmanager` → 404), so
+> the dashboard doesn't use it.
+
+Neither source emits a series for an alert in the **OK** state — "OK" is the
+*absence* of an active alert — so the dashboard renders "active list + history":
+anything not listed is healthy. Grafana-managed rules (Gemini cost, pipeline
+backlog) are **not** here; they live in Grafana's own *Alerting*.
 
 ## Alerts → Telegram
 
