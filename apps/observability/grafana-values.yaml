@@ -152,6 +152,16 @@ datasources:
       # provisioning errors with "data source not found" and Grafana crashloops.
       - name: Loki
         orgId: 1
+      # Remove the orphaned Alertmanager datasource provisioned by an earlier
+      # revision (dd53fff). Its backend plugin is NOT available in this
+      # grafana-community image (queries fail `plugin.unavailable`), so the
+      # alerts-overview dashboard no longer uses it. Grafana does NOT auto-delete a
+      # provisioned datasource just because it disappears from this file — it lingers
+      # in the PVC's SQLite — so it must be deleted by name here (same mechanism as
+      # the entries above). Safe to leave in place permanently (deletes by name;
+      # no-op once it's gone).
+      - name: Alertmanager
+        orgId: 1
     datasources:
       - name: Loki
         uid: loki                  # pinned so dashboards can reference {type:loki,uid:loki}
