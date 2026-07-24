@@ -122,6 +122,19 @@ data:
               url: http://localhost:4200/auth/login
           sub_mode: hashed_user_id
           include_claims_in_id_token: true
+          # Machine-to-machine (M2M) access. This provider was created in the UI, so until
+          # now the blueprint left grant_types UNSET (the DB kept the UI's default set).
+          # Declaring it here takes ownership of the field, so the list MUST stay a
+          # superset of what the SPA needs (authorization_code + refresh_token — see the
+          # offline_access note below). Adding client_credentials lets the svc-hhccia
+          # service account (machine-user.yaml) mint a JWT for the core via
+          # `grant_type=client_credentials`. That token carries THIS provider's issuer
+          # (.../application/o/hhccia/), exactly what the core validates — a separate
+          # provider would NOT be trusted by the core.
+          grant_types:
+            - authorization_code
+            - refresh_token
+            - client_credentials
           # offline_access is required for refresh tokens — the SPA requests it
           # (useRefreshToken:true). Without this mapping Authentik silently drops
           # the scope and issues no refresh token, capping sessions at the 1h
@@ -148,6 +161,54 @@ data:
           provider: !KeyOf hhccia-provider
           meta_launch_url: https://medaudit.irupeconsultores.com/
           open_in_new_tab: false
+  # ===========================================================================
+  # Machine-to-machine (M2M) service account for the HHCCIA core. A NON-HUMAN user
+  # (type: service_account) that CANNOT do the Google browser login. It authenticates
+  # to the core's API by minting a JWT via the OAuth2 client_credentials grant against
+  # the hhccia provider (grant_types in hhccia.yaml). The credential is an APP PASSWORD
+  # created in the admin UI (Directory -> Service Accounts -> svc-hhccia -> Credentials
+  # -> App passwords), shown ONCE, then sealed into a SealedSecret for the consumer —
+  # the same generate-then-seal pattern used for OIDC client_secrets. The app password
+  # is runtime data, NOT in Git.
+  #
+  # Token exchange (the consumer does this, NOT a browser):
+  #   POST https://auth.irupeconsultores.com/application/o/hhccia/token/
+  #     grant_type=client_credentials&client_id=hhccia-front
+  #     &username=svc-hhccia&password=<app_password>&scope=profile
+  #   -> { "access_token": "<JWT>" }   then   Authorization: Bearer <JWT>   to the core.
+  #
+  # BEFORE FIRST USE (admin UI):
+  #   1. set attributes.service below to the real Datatech SER code(s) the machine may
+  #      access (case-sensitive: IN / TI / in) — it drives the `service` claim the core
+  #      scopes records by;
+  #   2. add svc-hhccia to the `hhccia-users` group (the app-access binding) — membership
+  #      is identity data managed in the UI, like every other member;
+  #   3. create the app password and seal it for the consumer.
+  machine-user.yaml: |
+    version: 1
+    metadata:
+      name: HHCCIA machine (M2M) service account
+      labels:
+        blueprints.goauthentik.io/instantiate: "true"
+    entries:
+      - model: authentik_core.user
+        id: hhccia-machine-user
+        identifiers:
+          username: svc-hhccia
+        attrs:
+          name: HHCCIA machine user
+          type: service_account
+          is_active: true
+          path: service-accounts
+          # `service` is read by the hhccia-service-claim scope mapping and emitted as
+          # the `service` claim the core scopes record access by. ⚠ Set to the real SER
+          # code(s) before use (case-sensitive: IN / TI / in). A single code or a list
+          # both work (the mapping normalizes to a list). The machine gets NO admin flag
+          # (not in hhccia-superadmins/-admin/-readonly) -> physician-level access scoped
+          # to this service. `prf` is unset -> the prf claim is null; add attributes.prf
+          # here if the core needs a professional number for this account.
+          attributes:
+            service: IN
   # Declarative branding for the login/flow page. Points the DB logo pointer at
   # the absolute R2-hosted logo (https://pub-...r2.dev/irupe-logo.jpeg) instead
   # of the self-hosted /media/public copy: the 2024.10.5 -> 2026.5.2 upgrade
