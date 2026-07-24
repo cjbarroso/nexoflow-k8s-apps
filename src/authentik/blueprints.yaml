@@ -201,14 +201,18 @@ data:
           is_active: true
           path: service-accounts
           # `service` is read by the hhccia-service-claim scope mapping and emitted as
-          # the `service` claim the core scopes record access by. ⚠ Set to the real SER
-          # code(s) before use (case-sensitive: IN / TI / in). A single code or a list
-          # both work (the mapping normalizes to a list). The machine gets NO admin flag
-          # (not in hhccia-superadmins/-admin/-readonly) -> physician-level access scoped
-          # to this service. `prf` is unset -> the prf claim is null; add attributes.prf
-          # here if the core needs a professional number for this account.
+          # the `service` claim the core scopes record access by. Set to ALL in-scope
+          # SER codes (case-sensitive: IN / TI / in) so the machine can reach every
+          # service's records; the mapping normalizes a single code or a list to a list.
+          # The machine gets NO admin flag (not in hhccia-superadmins/-admin/-readonly)
+          # -> physician-level access scoped to these services. `prf` is unset -> the prf
+          # claim is null; add attributes.prf here if the core needs a professional
+          # number for this account.
           attributes:
-            service: IN
+            service:
+              - IN
+              - in
+              - TI
   # Declarative branding for the login/flow page. Points the DB logo pointer at
   # the absolute R2-hosted logo (https://pub-...r2.dev/irupe-logo.jpeg) instead
   # of the self-hosted /media/public copy: the 2024.10.5 -> 2026.5.2 upgrade
