@@ -9,7 +9,7 @@ spec:
   # Source 1: Official Velero Helm Chart
   - chart: velero
     repoURL: https://vmware-tanzu.github.io/helm-charts
-    targetRevision: 12.0.2 # Velero server appVersion 1.18.1 (was 11.2.0 / 1.17.1)
+    targetRevision: 12.1.0 # Velero server appVersion 1.18.1 (was 11.2.0 / 1.17.1)
     helm:
       valueFiles:
       # References the file in Source 2
