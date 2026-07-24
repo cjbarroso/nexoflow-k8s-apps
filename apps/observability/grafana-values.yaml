@@ -342,7 +342,12 @@ dashboards:
     kube-state-metrics-v2:
       gnetId: 13332
       revision: 12
-      datasource: Prometheus
+      # Must be the datasource UID (prometheus), not the display name (Prometheus).
+      # Grafana 13 resolves a bare string ref as a UID; "Prometheus" matches no uid,
+      # so it fell back to the default datasource (Loki) and every panel/variable
+      # query was sent to Loki as PromQL -> "No data". node-exporter-full (1860) is
+      # unaffected: it uses a type=datasource variable that resolves by type.
+      datasource: prometheus
     # Custom cluster-health "fleet" dashboard — all 3 nodes on ONE screen for
     # side-by-side comparison (CPU/mem/disk/net/load/pods/etcd). Fills the gap:
     # node-exporter-full (1860) is a one-node-at-a-time drill-down; this shows
