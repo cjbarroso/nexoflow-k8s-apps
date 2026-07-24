@@ -172,7 +172,8 @@ data:
   # is runtime data, NOT in Git.
   #
   # Token exchange (the consumer does this, NOT a browser):
-  #   POST https://auth.irupeconsultores.com/application/o/hhccia/token/
+  #   POST https://auth.irupeconsultores.com/application/o/token/   (global token
+  #   endpoint; client_id selects the provider — NOT /application/o/hhccia/token/)
   #     grant_type=client_credentials&client_id=hhccia-front
   #     &username=svc-hhccia&password=<app_password>&scope=profile
   #   -> { "access_token": "<JWT>" }   then   Authorization: Bearer <JWT>   to the core.
