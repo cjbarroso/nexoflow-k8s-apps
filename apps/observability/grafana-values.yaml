@@ -131,8 +131,11 @@ extraConfigmapMounts:
     configMap: gcp-bq-cred-config
     readOnly: true
 
-# Pre-provisioned datasources (in-cluster). Loki stays default so existing log
-# workflows are unchanged; Prometheus is the metric store (svc prometheus-server).
+# Pre-provisioned datasources (in-cluster). Prometheus is the default to prevent
+# Grafana 13 from cross-querying Loki with Prometheus metric names as LogQL stream
+# selectors (-> Loki rejects "parse error at line 1, col 1" toast in every dashboard
+# with Prometheus variables). Dashboards with explicit datasources (all of ours) are
+# unaffected — only the pre-selected Explore datasource changes to Prometheus.
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -168,7 +171,11 @@ datasources:
         type: loki
         access: proxy
         url: http://loki.observability.svc.cluster.local:3100
-        isDefault: true
+        isDefault: false           # NOT default: Grafana 13 queries Loki for label values
+                                   # for every Prometheus dashboard variable, passing the
+                                   # metric name as a LogQL stream selector -> Loki rejects
+                                   # it ("parse error at line 1, col 1"). Making Prometheus
+                                   # default prevents these cross-datasource label queries.
         jsonData:
           maxLines: 1000
       - name: Prometheus
@@ -176,7 +183,7 @@ datasources:
         type: prometheus
         access: proxy
         url: http://prometheus-server.observability.svc.cluster.local
-        isDefault: false
+        isDefault: true
         jsonData:
           timeInterval: 60s        # match Prometheus scrape_interval
           # Exemplars: when a Prometheus series carries a `trace_id` label (the
