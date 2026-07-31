@@ -3,3 +3,7 @@ argocd 2.14.0
 task 3.42.0
 gitleaks 8.24.3
 yamllint 1.35.1
+kubeconform 0.8.0
+helm 3.17.3
+kubeseal 0.37.0
+tofu 1.9.0

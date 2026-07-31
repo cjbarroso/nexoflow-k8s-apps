@@ -1,5 +1,28 @@
 # Workflows & Guidelines
 
+## Cluster access
+
+The nexoflow Kubernetes cluster is accessed via Cloudflare Tunnel:
+
+| Context | Endpoint | Notes |
+|---|---|---|
+| `nexoflow-cf` | `https://127.0.0.1:16443` | Use this — Cloudflare Tunnel (requires local `cloudflared`) |
+| `nexoflow` | `https://192.168.5.80:6443` | Direct LAN (only when on the local network) |
+| `nexoflow-srn` | — | Separate cluster |
+
+```bash
+kubectl config use-context nexoflow-cf
+```
+
+ArgoCD lives in the `argocd` namespace. To interact with it:
+
+```bash
+# Port-forward the ArgoCD UI
+task argo:connect
+# Login
+task argo:login
+```
+
 ## Adding a New Application
 
 When adding a new workload to the cluster, follow these steps to ensure consistency:
@@ -19,8 +42,8 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
     Refer to `docs/06-APP-STRUCTURE.md` for the detailed checklist and boilerplate code. It contains the standard templates for the `Application` manifest.
 
 4.  **Handling Extra Manifests**:
-    If your application requires resources not covered by the Helm chart (e.g., a specific pure-manifest Secret or a custom PVC adjustment), place these files in `manifests/<app-name>/`.
-    *   Then, update your Argo CD `Application` to include `manifests/<app-name>` as a **second source**.
+    If your application requires resources not covered by the Helm chart (e.g., a specific pure-manifest Secret or a custom PVC adjustment), place these files in `src/<app-name>/`.
+    *   Then, update your Argo CD `Application` to include `src/<app-name>` as a **second source**.
 
     *Example (Multi-source App)*:
     ```yaml
@@ -28,13 +51,13 @@ When adding a new workload to the cluster, follow these steps to ensure consiste
       - chart: my-chart
         # ... helm config ...
       - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
-        path: manifests/my-new-app
+        path: src/my-new-app
         targetRevision: master
     ```
 
 ## Development Workflow
 
-1.  **Make Changes**: Edit the YAML files in `apps/` or `manifests/`.
+1.  **Make Changes**: Edit the YAML files in `apps/` or `src/`.
 2.  **Commit & Push**:
     ```bash
     git add .

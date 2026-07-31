@@ -1,0 +1,51 @@
+image:
+  repository: ghcr.io/dani-garcia/vaultwarden
+  tag: 1.36.0-alpine
+
+env:
+  DOMAIN: "https://vaultwarden.cjbarroso.com"
+  # ADMIN_TOKEN (argon2 hash protecting /admin) from the sealed secret.
+  # Must be an explicit env valueFrom: the chart defaults ADMIN_TOKEN to ""
+  # which would override envFrom and disable the admin page.
+  ADMIN_TOKEN:
+    valueFrom:
+      secretKeyRef:
+        name: vaultwarden-smtp
+        key: ADMIN_TOKEN
+  SIGNUPS_ALLOWED: false
+  # Outbound email via Gmail SMTP. Non-secret settings only — the
+  # sensitive SMTP_FROM / SMTP_USERNAME / SMTP_PASSWORD come from the
+  # sealed secret `vaultwarden-smtp` via envFrom below (no creds in Git).
+  # Gmail needs an App Password (account must have 2-Step Verification);
+  # it rewrites From to the authed address unless it's a verified alias.
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: "587"
+  SMTP_SECURITY: starttls
+envFrom:
+  - secretRef:
+      name: vaultwarden-smtp   # SMTP_FROM, SMTP_USERNAME, SMTP_PASSWORD
+ingress:
+  main:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "cloudflare-tunnel"
+    hosts:
+      - host: "vaultwarden.cjbarroso.com"
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - "vaultwarden.cjbarroso.com"
+        # No secretName — Cloudflare Tunnel manages the certificate.
+
+persistence:
+  data:
+    enabled: true
+    # Migrated 2026-07-08 from local-path to Longhorn (replicated) so the
+    # vault volume is node-mobile in the 3-node HA cluster. Data was copied
+    # from the old local-path PVC into this pre-created Longhorn PVC; we
+    # mount it via existingClaim (size/storageClassName are ignored then).
+    # The old `vaultwarden-data` PVC is kept (Prune=false) as a fallback.
+    existingClaim: vaultwarden-data-lh
+    accessMode: ReadWriteOnce

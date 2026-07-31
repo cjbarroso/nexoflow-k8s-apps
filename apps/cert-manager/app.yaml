@@ -5,13 +5,16 @@ metadata:
   namespace: argocd
 spec:
   project: support
-  source:
-    repoURL: https://charts.jetstack.io
-    chart: cert-manager
-    targetRevision: "1.20.2"
-    helm:
-      values: |
-        installCRDs: true
+  sources:
+    - repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: "1.20.2"
+      helm:
+        valueFiles:
+          - $values/apps/cert-manager/cert-manager-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

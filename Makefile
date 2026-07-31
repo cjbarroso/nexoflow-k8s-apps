@@ -1,3 +1,7 @@
+# DEPRECATED: Use `task` (Taskfile.yml) instead — it supersedes this Makefile.
+#   task argo:connect   (was: make argoconnect)
+#   task argo:login     (was: make argologin)
+
 ARGOCD_NAMESPACE ?= argocd
 ARGOCD_SERVICE ?= argocd-server
 ARGOCD_LOCAL_PORT ?= 8080

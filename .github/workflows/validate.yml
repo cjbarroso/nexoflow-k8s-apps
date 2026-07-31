@@ -4,11 +4,13 @@
 # to the cluster (automated sync + selfHeal). These checks are the only gate.
 #
 # Jobs:
-#   kubeconform — schema-validates every k8s manifest in apps/, bootstrap/,
-#                 src/ (CRDs resolved from the datreeio CRDs-catalog).
-#   yamllint    — checks YAML formatting consistency.
-#   gitleaks    — scans the working tree for plaintext secrets
-#                 (allowlist in .gitleaks.toml; sealed secrets are exempt).
+#   kubeconform   — schema-validates every k8s manifest in apps/, bootstrap/,
+#                   src/ (CRDs resolved from the datreeio CRDs-catalog).
+#   yamllint      — checks YAML formatting consistency.
+#   gitleaks      — scans the working tree for plaintext secrets
+#                   (allowlist in .gitleaks.toml; sealed secrets are exempt).
+#   helm-template — renders every Helm chart with its values file(s) to catch
+#                   chart/values mismatches before they reach the cluster.
 #
 # Tool versions are pinned to what was validated locally on 2026-06-11.
 name: validate
@@ -101,3 +103,88 @@ jobs:
 
       - name: Lint YAML files
         run: yamllint -c .yamllint .
+
+  helm-template:
+    name: helm template (chart + values render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      # Renders every Helm-based Application with its values file(s) to catch
+      # chart/values mismatches (e.g. a Renovate chart bump that renames a key)
+      # before they reach the cluster. Mirrors the manual `helm template`
+      # validation noted in apps/observability/grafana.yaml.
+      - name: Render and validate Helm charts
+        run: |
+          python3 << 'PYEOF'
+          import yaml, glob, subprocess, sys, os, tempfile
+
+          errors = []
+          ok = 0
+          repos = {}
+
+          for path in sorted(glob.glob('apps/**/*.yaml', recursive=True)):
+              with open(path) as f:
+                  try:
+                      docs = list(yaml.safe_load_all(f))
+                  except yaml.YAMLError:
+                      continue
+              for doc in docs:
+                  if not isinstance(doc, dict) or doc.get('kind') != 'Application':
+                      continue
+                  spec = doc.get('spec', {})
+                  sources = spec.get('sources') or ([spec['source']] if 'source' in spec else [])
+                  for src in sources:
+                      if 'chart' not in src:
+                          continue
+                      repo_url = src['repoURL']
+                      chart = src['chart']
+                      version = str(src.get('targetRevision', ''))
+                      helm_cfg = src.get('helm') or {}
+
+                      if repo_url not in repos:
+                          repos[repo_url] = f'repo{len(repos)}'
+                          subprocess.run(
+                              ['helm', 'repo', 'add', repos[repo_url], repo_url],
+                              capture_output=True, text=True, check=True)
+
+                      args = ['helm', 'template', f"{repos[repo_url]}/{chart}",
+                              '--version', version, '--include-crds']
+
+                      for vf in (helm_cfg.get('valueFiles') or []):
+                          real = vf.replace('$values/', '')
+                          if os.path.exists(real):
+                              args += ['-f', real]
+                          else:
+                              errors.append(f'{path}: values file not found: {real}')
+
+                      tmp = None
+                      inline = helm_cfg.get('values')
+                      if inline:
+                          tmp = tempfile.NamedTemporaryFile(
+                              mode='w', suffix='.yaml', delete=False)
+                          tmp.write(inline)
+                          tmp.close()
+                          args += ['-f', tmp.name]
+
+                      r = subprocess.run(args, capture_output=True, text=True)
+                      if tmp:
+                          os.unlink(tmp.name)
+
+                      if r.returncode != 0:
+                          errors.append(
+                              f'{path}: helm template {chart} {version} failed:\n{r.stderr}')
+                      else:
+                          ok += 1
+                          print(f'  OK  {chart} {version}  ({path})')
+
+          if errors:
+              print('\nFAILURES:', file=sys.stderr)
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+          print(f'\n{ok} chart(s) rendered successfully.')
+          PYEOF

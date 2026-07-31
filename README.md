@@ -9,7 +9,7 @@ and reconciles all cluster resources automatically.
 |---|---|
 | `apps/` | Argo CD Application definitions (app-of-apps) |
 | `src/` | Raw Kubernetes manifests per app |
-| `bootstrap/` | Cluster bootstrap (root app, Argo config) |
+| `bootstrap/` | Cluster bootstrap (root app, Argo config, kube-vip) |
 | `tofu/` | OpenTofu infrastructure |
 | `docs/` | Architecture, workflows, troubleshooting |
 

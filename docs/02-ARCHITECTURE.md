@@ -11,18 +11,19 @@ This repository follows a specific structure to organize Argo CD applications an
         *   The Helm values file (e.g., `n8n-values-production.yaml`).
     *   **Rule**: **All new applications and their primary configurations must go here.**
 
-*   **`manifests/`**: **Supporting Manifests.**
+*   **`src/`**: **Supporting Manifests.**
     *   This directory is for **additional required files** that cannot be easily managed within the primary Helm chart in `apps/`.
     *   Examples include:
         *   Raw Kubernetes manifests (Secrets, PVCs, Ingresses) that the Helm chart doesn't support or that need specific customization.
         *   Database cluster definitions (e.g., `nexoflow-pg-cluster.yaml`).
-    *   **Rule**: Use `manifests/` only for supplementary resources. Do not put the main Application definition here.
+    *   **Rule**: Use `src/` only for supplementary resources. Do not put the main Application definition here.
 
 *   **`bootstrap/`**: **Cluster Bootstrapping.**
     *   Contains the initial configurations to get the cluster and Argo CD up and running.
     *   Key files:
         *   `root-app.yaml`: The "App of Apps" that points Argo CD to the `apps/` directory.
         *   `repo-secret.yaml`: Optional repository registration for Argo CD. The cluster uses the public GitHub repository as the GitOps source of truth.
+        *   `kube-vip/`: Control-plane VIP DaemonSet. Applied **out-of-band** (not via Argo) because it fronts the API that Argo CD depends on. See `bootstrap/kube-vip/README.md`.
 
 ## Secrets Management
 
@@ -37,6 +38,6 @@ Secrets are managed explicitly and should not be stored in plain text in the rep
 Most applications follow the "App of Apps" pattern:
 1.  **Root App**: `bootstrap/root-app.yaml` manages the `apps/` directory.
 2.  **Application Config**: Inside `apps/<app-name>/`, an Argo CD `Application` defines the source (Helm chart or Git path) and destination.
-3.  **Values**: Helm values are stored alongside the application definition in `apps/` (or strictly for legacy/complex cases, referenced from `manifests/`).
+3.  **Values**: Helm values are stored alongside the application definition in `apps/` (or strictly for legacy/complex cases, referenced from `src/`).
 
-**Note on Legacy/Hybrid configurations**: You may see some applications (like `nexoflow`) referencing files in `manifests/` from their `apps/` definition. This is acceptable for supplementary resources, but the goal is to keep the core definition in `apps/`.
+**Note on Legacy/Hybrid configurations**: You may see some applications (like `nexoflow`) referencing files in `src/` from their `apps/` definition. This is acceptable for supplementary resources, but the goal is to keep the core definition in `apps/`.
