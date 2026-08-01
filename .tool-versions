@@ -7,3 +7,4 @@ kubeconform 0.8.0
 helm 3.17.3
 kubeseal 0.37.0
 tofu 1.9.0
+conftest 0.56.0

@@ -11,6 +11,9 @@
 #                   (allowlist in .gitleaks.toml; sealed secrets are exempt).
 #   helm-template — renders every Helm chart with its values file(s) to catch
 #                   chart/values mismatches before they reach the cluster.
+#   conftest      — OPA/Rego policy-as-code gate (policy/): no privileged
+#                   containers, no host namespaces, resources declared,
+#                   SA-token automount off, Argo auto-sync, PSS labels.
 #
 # Tool versions are pinned to what was validated locally on 2026-06-11.
 name: validate
@@ -188,3 +191,33 @@ jobs:
               sys.exit(1)
           print(f'\n{ok} chart(s) rendered successfully.')
           PYEOF
+
+  conftest:
+    name: conftest (policy-as-code)
+    runs-on: ubuntu-latest
+    env:
+      CONFTEST_VERSION: 0.56.0
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache conftest
+        id: cache-conftest
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/conftest
+          key: conftest-${{ env.CONFTEST_VERSION }}
+
+      - name: Install conftest
+        if: steps.cache-conftest.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin conftest
+
+      - name: Verify conftest
+        run: conftest --version
+
+      # bootstrap/ is excluded: kube-vip legitimately needs hostNetwork and
+      # NET_ADMIN/NET_RAW (it fronts the API that Argo CD depends on).
+      # Policies live in policy/ — see that directory for the Rego source.
+      - name: Run policies
+        run: conftest test --policy policy/ src/ apps/
