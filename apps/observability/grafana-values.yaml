@@ -172,10 +172,10 @@ datasources:
         access: proxy
         url: http://loki.observability.svc.cluster.local:3100
         isDefault: false           # NOT default: Grafana 13 queries Loki for label values
-                                   # for every Prometheus dashboard variable, passing the
-                                   # metric name as a LogQL stream selector -> Loki rejects
-                                   # it ("parse error at line 1, col 1"). Making Prometheus
-                                   # default prevents these cross-datasource label queries.
+        # for every Prometheus dashboard variable, passing the
+        # metric name as a LogQL stream selector -> Loki rejects
+        # it ("parse error at line 1, col 1"). Making Prometheus
+        # default prevents these cross-datasource label queries.
         jsonData:
           maxLines: 1000
       - name: Prometheus

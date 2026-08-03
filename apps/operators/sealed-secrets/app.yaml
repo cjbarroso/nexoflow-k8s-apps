@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://bitnami.github.io/sealed-secrets
     chart: sealed-secrets
-    targetRevision: "2.18.6" # controller appVersion 0.37.0
+    targetRevision: "2.18.6"  # controller appVersion 0.37.0
     helm:
       # Name the controller "sealed-secrets-controller" in kube-system so it
       # matches kubeseal's defaults (--controller-namespace kube-system,

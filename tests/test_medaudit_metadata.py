@@ -41,6 +41,20 @@ class MedAuditMetadataTest(unittest.TestCase):
             errors = validate(copy)
             self.assertTrue(any("ADAPTER_BUILD_SHA" in error for error in errors))
 
+    def test_missing_deployment_env_section_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            copy = Path(temporary)
+            shutil.copytree(ROOT / "src", copy / "src")
+            manifest = copy / "src/hhccia-v2/hhccia-core.yaml"
+            text = manifest.read_text()
+            manifest.write_text(text.replace(
+                "          env:\n",
+                "          # env intentionally omitted by regression fixture\n",
+                1,
+            ))
+            errors = validate(copy)
+            self.assertTrue(any("Deployment env section is missing" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

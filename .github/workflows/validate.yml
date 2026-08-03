@@ -67,6 +67,7 @@ jobs:
       #   *values*.yaml          Helm values, not k8s resources
       #   kustomization.yaml     kustomize config, not a cluster resource
       #   authentik-oidc-export  Authentik blueprint export (JSON array)
+      #   kube-state-metrics-v2-dashboard.json  Grafana dashboard (not a resource)
       - name: Validate manifests
         run: |
           kubeconform -strict -summary \
@@ -75,6 +76,7 @@ jobs:
             -ignore-filename-pattern '.*values.*\.ya?ml' \
             -ignore-filename-pattern 'kustomization\.yaml' \
             -ignore-filename-pattern 'authentik-oidc-export.*' \
+            -ignore-filename-pattern 'kube-state-metrics-v2-dashboard\.json' \
             apps bootstrap src
 
   gitleaks:

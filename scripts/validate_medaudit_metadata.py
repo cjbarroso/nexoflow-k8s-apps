@@ -39,6 +39,12 @@ def _value_for(env_text: str, name: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _env_section(document: str) -> str | None:
+    marker = "          env:"
+    start = document.find(marker)
+    return document[start:] if start >= 0 else None
+
+
 def _deployment(path: Path) -> str | None:
     for document in path.read_text().split("\n---"):
         if re.search(r"(?m)^kind: Deployment\s*$", document):
@@ -103,7 +109,10 @@ def validate(root: Path) -> list[str]:
                 errors.append(f"{path}: prod image tag must not be staging-SHA: {image}")
 
             if component in ("front", "core"):
-                env = document[document.find("          env:"):]
+                env = _env_section(document)
+                if env is None:
+                    errors.append(f"{path}: Deployment env section is missing")
+                    continue
                 actual_env = _value_for(env, "APP_ENV")
                 if actual_env != environment:
                     errors.append(f"{path}: APP_ENV={actual_env!r}, expected {environment!r}")
@@ -136,7 +145,11 @@ def validate(root: Path) -> list[str]:
         core_path = base / "hhccia-core.yaml"
         document = _deployment(core_path) if core_path.exists() else None
         if document and environment in discovered:
-            env = document[document.find("          env:"):]
+            env = _env_section(document)
+            if env is None:
+                # The per-workload check above reports this for the core
+                # Deployment; do not attempt cross-component metadata parsing.
+                continue
             # Validate all core build metadata only after every sibling image
             # has been discovered. The per-workload checks above cannot do
             # this for ADAPTER_BUILD_SHA because the adapter is visited after
