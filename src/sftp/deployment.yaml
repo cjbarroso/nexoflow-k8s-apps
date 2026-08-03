@@ -1,0 +1,86 @@
+# atmoz/sftp is intentionally run as root: its entrypoint creates the one
+# chrooted account, manages sshd host keys, and starts OpenSSH on port 22.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sftp
+  namespace: sftp
+  labels:
+    app: sftp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sftp
+  template:
+    metadata:
+      labels:
+        app: sftp
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: sftp
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sftp-data
+        - name: host-key-hook
+          configMap:
+            name: sftp-host-key-hook
+            defaultMode: 0755
+      containers:
+        - name: sftp
+          image: atmoz/sftp:alpine@sha256:81fa92512bf8ead4849f33c1c153907b86d32d77704d1c62a9c70b4316ae9e50
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SFTP_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: sftp-credentials
+                  key: SFTP_USERS
+          ports:
+            - name: ssh
+              containerPort: 22
+              protocol: TCP
+          volumeMounts:
+            # The PVC is the user's chroot home. The entrypoint creates the
+            # writable upload directory inside it from SFTP_USERS.
+            - name: data
+              mountPath: /home/sftp
+            # The hook uses the same volume to retain host keys across pod
+            # recreation without storing private keys in Git.
+            - name: data
+              mountPath: /persistent
+            - name: host-key-hook
+              mountPath: /etc/sftp.d
+              readOnly: true
+          livenessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            seccompProfile:
+              type: RuntimeDefault

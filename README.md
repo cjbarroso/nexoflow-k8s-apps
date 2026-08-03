@@ -40,3 +40,4 @@ See `docs/06-APP-STRUCTURE.md` for the full checklist.
 - `docs/05-VAULTWARDEN-UPDATE-NOTES.md` — Vaultwarden image updates
 - `docs/08-MSSQL-TUNNEL-RUNBOOK.md` — connecting to on-prem MSSQL via the tunnel
 - `docs/09-CLOUDFLARE-ACCESS-CLIENT-SERVICES.md` — running the client `access tcp` proxies as Windows services
+- `src/sftp/README.md` — single-user SFTP setup and Power Automate connection

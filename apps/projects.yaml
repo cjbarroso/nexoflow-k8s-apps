@@ -165,3 +165,21 @@ spec:
   # SealedSecrets) is namespaced.
   clusterResourceWhitelist:
     - { group: '', kind: Namespace }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: sftp
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Single-user SFTP file drop
+  sourceRepos:
+    - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+  destinations:
+    - { server: 'https://kubernetes.default.svc', namespace: sftp }
+  # Namespace only; the Deployment, Service, PVC, Secret and policies are all
+  # namespaced resources.
+  clusterResourceWhitelist:
+    - { group: '', kind: Namespace }
