@@ -12,11 +12,12 @@ Single-user SFTP file drop for `sftp.cjbarroso.com`.
   server fingerprint.
 - The pod runs as root because the image entrypoint must create the account and
   start OpenSSH; its SFTP configuration disables shell access and TCP forwarding.
-- The Service is a NodePort (`30222`) so a router can forward public TCP/22 to it.
-- Egress is denied. Direct SFTP ingress is limited to TCP/22.
+- The Service is `ClusterIP`; the Cloudflare tunnel controller reaches it on SSH
+  port 22.
+- Egress is denied. Tunnel SFTP ingress is limited to TCP/22.
 
-The SFTP endpoint is intentionally direct. Power Automate's managed SFTP-SSH
-connector cannot run `cloudflared access ssh` or another client-side proxy.
+The existing `cloudflare-tunnel` IngressClass manages the Cloudflare tunnel route
+and DNS record for `sftp.cjbarroso.com`.
 
 ## Credentials
 
@@ -43,23 +44,19 @@ Remove-Item $tmp
 Replace the placeholder before running the command. The generated file is
 managed by Argo; do not commit the plaintext Secret or the temporary file.
 
-## Publish the endpoint
+## Cloudflare setup
 
-Configure these outside Kubernetes:
+`ingress.yaml` uses the existing Cloudflare Tunnel Ingress Controller with
+`backend-protocol: ssh`. It automatically creates the DNS record and routes the
+hostname to the SFTP Service. No router port-forward or manual DNS record is
+needed.
 
-1. Give the selected Kubernetes node a stable LAN address.
-2. Forward TCP port `22` on the router to `<node-LAN-IP>:30222`.
-3. Create an `A` record for `sftp.cjbarroso.com` pointing to the public IP.
-   If the zone is hosted by Cloudflare, leave this record **DNS-only** (gray
-   cloud); the standard Cloudflare proxy does not carry SFTP.
-4. If possible, allowlist the Power Automate managed connector IP ranges at the
-   router/firewall. Microsoft publishes the region-specific ranges at
-   <https://learn.microsoft.com/en-us/connectors/common/outbound-ip-addresses>.
+After Argo syncs the app, check:
 
-Do not run `cloudflared tunnel route dns` for this hostname. If opening an
-inbound router port is unacceptable, the alternative is a paid Cloudflare
-Spectrum TCP application or another public TCP relay; that configuration is
-outside this repository.
+```bash
+kubectl -n sftp get ingress sftp
+kubectl -n sftp describe ingress sftp
+```
 
 ## Power Automate connection
 
@@ -70,6 +67,12 @@ Create a connection using the **SFTP-SSH** connector with:
 - User name: `sftp`
 - Password: the password used in `SFTP_USERS`
 - Root folder path: `/upload`
+
+Important: the controller's documented SSH flow uses
+`cloudflared access ssh` on the client when the hostname is protected by
+Cloudflare Access. Power Automate cannot run that client-side proxy. If the
+managed connector cannot establish a native SSH session to this hostname, use
+Cloudflare Spectrum or the direct NodePort/router design instead.
 
 Power Automate supports SSH host-key validation. Prefer supplying the RSA MD5
 fingerprint instead of disabling validation:

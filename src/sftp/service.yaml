@@ -6,10 +6,7 @@ metadata:
   labels:
     app: sftp
 spec:
-  # Power Automate cannot run a cloudflared client-side proxy. The router
-  # forwards public TCP/22 to this NodePort on a cluster node.
-  type: NodePort
-  externalTrafficPolicy: Cluster
+  type: ClusterIP
   selector:
     app: sftp
   ports:
@@ -17,4 +14,3 @@ spec:
       protocol: TCP
       port: 22
       targetPort: ssh
-      nodePort: 30222
