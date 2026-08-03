@@ -8,17 +8,11 @@ metadata:
     app: hhccia-core
 spec:
   replicas: 2
-  # RollingUpdate is safe since e9461c5: the durable JetStream consumers carry a
-  # deliver (queue) group, so >1 replica binds the same durable and JetStream
-  # load-balances each message to exactly one of them (the old "consumer is
-  # already bound to a subscription" crash is gone). replicas:2 spread across
-  # nodes gives the API node-HA — a pod on a rebooted node no longer takes it
-  # down. maxUnavailable:0 keeps 2 pods serving through a rollout.
+  # Recreate is temporary until startup migrations stop using destructive DDL on
+  # every boot. RollingUpdate lets a new pod compete with old readers for the
+  # exclusive index lock and fail its liveness probe before startup completes.
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    type: Recreate
   selector:
     matchLabels:
       app: hhccia-core
