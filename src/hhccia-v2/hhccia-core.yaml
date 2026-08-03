@@ -7,12 +7,13 @@ metadata:
   labels:
     app: hhccia-core
 spec:
-  replicas: 1
-  # Recreate is temporary until startup migrations stop using destructive DDL on
-  # every boot. RollingUpdate lets a new pod compete with old readers for the
-  # exclusive index lock and fail its liveness probe before startup completes.
+  replicas: 2
+  # RollingUpdate is safe now that startup migrations do not drop indexes.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: hhccia-core
@@ -46,7 +47,7 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56
+          image: ghcr.io/irupe-consultores/hhccia-core:72537065bfe9f2e20bf88073db839d77d312947b
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
@@ -55,7 +56,7 @@ spec:
             - name: APP_ENV
               value: "prod"
             - name: BUILD_SHA
-              value: "3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56"
+              value: "72537065bfe9f2e20bf88073db839d77d312947b"
             - name: FRONT_BUILD_SHA
               value: "cf3b0d341e71684b1acf06aee7fc97fc0947991f"
             - name: ADAPTER_BUILD_SHA
@@ -63,7 +64,7 @@ spec:
             - name: FRONT_IMAGE
               value: "ghcr.io/irupe-consultores/hhccia-front:cf3b0d341e71684b1acf06aee7fc97fc0947991f"
             - name: CORE_IMAGE
-              value: "ghcr.io/irupe-consultores/hhccia-core:3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56"
+              value: "ghcr.io/irupe-consultores/hhccia-core:72537065bfe9f2e20bf88073db839d77d312947b"
             - name: ADAPTER_IMAGE
               value: "ghcr.io/irupe-consultores/hhccia-adapter-datatech:18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
             - name: NATS_URL
