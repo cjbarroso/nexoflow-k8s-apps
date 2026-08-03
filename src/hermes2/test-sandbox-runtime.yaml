@@ -79,6 +79,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+              add: [CHOWN, SETUID, SETGID]
       volumes:
         - name: config
           emptyDir: {}
