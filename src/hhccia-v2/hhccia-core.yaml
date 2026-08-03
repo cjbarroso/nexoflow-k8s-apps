@@ -7,7 +7,7 @@ metadata:
   labels:
     app: hhccia-core
 spec:
-  replicas: 2
+  replicas: 1
   # Recreate is temporary until startup migrations stop using destructive DDL on
   # every boot. RollingUpdate lets a new pod compete with old readers for the
   # exclusive index lock and fail its liveness probe before startup completes.
