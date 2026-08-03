@@ -52,12 +52,26 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56
+          image: ghcr.io/irupe-consultores/hhccia-core:8e50fe0c9ded07e51da3aaeb1ab6fe8291a93650
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
             - { containerPort: 9100, name: metrics }   # Prometheus scrape (cluster-internal)
           env:
+            - name: APP_ENV
+              value: "prod"
+            - name: BUILD_SHA
+              value: "8e50fe0c9ded07e51da3aaeb1ab6fe8291a93650"
+            - name: FRONT_BUILD_SHA
+              value: "cf3b0d341e71684b1acf06aee7fc97fc0947991f"
+            - name: ADAPTER_BUILD_SHA
+              value: "18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
+            - name: FRONT_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-front:cf3b0d341e71684b1acf06aee7fc97fc0947991f"
+            - name: CORE_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-core:8e50fe0c9ded07e51da3aaeb1ab6fe8291a93650"
+            - name: ADAPTER_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-adapter-datatech:18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
             - name: NATS_URL
               value: "nats://nats:4222"
             - name: AI_MODE

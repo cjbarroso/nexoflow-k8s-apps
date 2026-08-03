@@ -33,6 +33,12 @@ spec:
             - containerPort: 8080
               name: http
           env:
+            # Drives the staging visual indicators (amber ribbon, tinted chrome,
+            # [STG] tab marker).
+            - name: APP_ENV
+              value: "staging"
+            - name: BUILD_SHA
+              value: "526c7afdbf2297c8c2745c9aee7f4a52ab933a20"
             - name: API_URL
               value: "https://api-medaudit-staging.irupeconsultores.com"
             # The switch that flips ListService -> CoreApiService (staging core).
@@ -44,10 +50,6 @@ spec:
               value: "https://auth.irupeconsultores.com/application/o/hhccia-staging/"
             - name: AUTHENTIK_CLIENT_ID
               value: "hhccia-front-staging"
-            # Drives the staging visual indicators (amber ribbon, tinted chrome,
-            # [STG] tab marker). Prod (hhccia-v2) leaves this unset → clean UI.
-            - name: APP_ENV
-              value: "staging"
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             initialDelaySeconds: 3

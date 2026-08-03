@@ -10,13 +10,13 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
-    path: 'apps' # This app's "workload" is the directory containing other app definitions
+    path: 'apps'  # This app's "workload" is the directory containing other app definitions
     targetRevision: master
     directory:
       recurse: true
   destination:
-    server: 'https://kubernetes.default.svc' # Deploy to the local cluster
-    namespace: 'argocd' # The Application resources themselves must be in the argocd namespace
+    server: 'https://kubernetes.default.svc'  # Deploy to the local cluster
+    namespace: 'argocd'  # The Application resources themselves must be in the argocd namespace
   syncPolicy:
     automated:
       prune: true

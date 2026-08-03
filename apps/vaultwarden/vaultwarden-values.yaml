@@ -37,7 +37,7 @@ ingress:
     tls:
       - hosts:
           - "vaultwarden.cjbarroso.com"
-        # No secretName — Cloudflare Tunnel manages the certificate.
+          # No secretName — Cloudflare Tunnel manages the certificate.
 
 persistence:
   data:

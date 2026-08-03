@@ -29,12 +29,16 @@ spec:
         - name: hhccia-front
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-front:7f3479c4449533f7f2249febd817ff3b445ade32
+          image: ghcr.io/irupe-consultores/hhccia-front:cf3b0d341e71684b1acf06aee7fc97fc0947991f
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http
           env:
+            - name: APP_ENV
+              value: "prod"
+            - name: BUILD_SHA
+              value: "cf3b0d341e71684b1acf06aee7fc97fc0947991f"
             # Legacy webhook (unused while CORE_API_URL is set — kept consistent
             # so any leak doesn't accidentally hit the live v1 backend).
             - name: API_URL
