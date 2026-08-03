@@ -41,9 +41,51 @@ spec:
           - cognee-mcp
           - cognee-postgres
           - cognee-readonly-mcp
+          - hermes2-test-sandbox
   ingress:
     - from:
         - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-hermes-to-test-sandbox
+  namespace: hermes2
+spec:
+  podSelector:
+    matchLabels:
+      app: hermes2-test-sandbox
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hermes2
+      ports:
+        - protocol: TCP
+          port: 2222
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-sandbox-egress
+  namespace: hermes2
+spec:
+  podSelector:
+    matchLabels:
+      app: hermes2-test-sandbox
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

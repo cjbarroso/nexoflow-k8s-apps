@@ -1,0 +1,104 @@
+# Ephemeral remote terminal target for Hermes tool execution.
+#
+# This workload is deliberately separate from the Hermes Deployment and never
+# mounts hermes2-data. The SSH key Secret is created out-of-band; do not add it
+# to this repository. /workspace is disposable and should contain only a
+# checkout or artifacts needed for the current test run.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hermes2-test-sandbox
+  namespace: hermes2
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes2-test-sandbox
+  namespace: hermes2
+  labels:
+    app: hermes2-test-sandbox
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes2-test-sandbox
+  template:
+    metadata:
+      labels:
+        app: hermes2-test-sandbox
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: hermes2-test-sandbox
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sshd
+          image: lscr.io/linuxserver/openssh-server:version-9.6_p1-r0@sha256:813375fb9b6d247c4ee355d94ac2feda372d0f5553f01f2a12e44b258972fee2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: UTC
+            - name: USER_NAME
+              value: hermes-sandbox
+            - name: PASSWORD_ACCESS
+              value: "false"
+            - name: SUDO_ACCESS
+              value: "false"
+            - name: PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hermes2-test-sandbox-ssh
+                  key: authorized_keys
+          ports:
+            - name: ssh
+              containerPort: 2222
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: workspace
+              mountPath: /workspace
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+              ephemeral-storage: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: workspace
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes2-test-sandbox
+  namespace: hermes2
+  labels:
+    app: hermes2-test-sandbox
+spec:
+  type: ClusterIP
+  selector:
+    app: hermes2-test-sandbox
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 2222
+      protocol: TCP
