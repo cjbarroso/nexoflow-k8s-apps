@@ -58,6 +58,20 @@ spec:
             - { containerPort: 8000, name: http }
             - { containerPort: 9100, name: metrics }   # Prometheus scrape (cluster-internal)
           env:
+            - name: APP_ENV
+              value: "prod"
+            - name: BUILD_SHA
+              value: "3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56"
+            - name: FRONT_BUILD_SHA
+              value: "7f3479c4449533f7f2249febd817ff3b445ade32"
+            - name: ADAPTER_BUILD_SHA
+              value: "18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
+            - name: FRONT_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-front:7f3479c4449533f7f2249febd817ff3b445ade32"
+            - name: CORE_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-core:3b05ce24b4b7dd2c3386feb47fae2b356dfb9d56"
+            - name: ADAPTER_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-adapter-datatech:18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
             - name: NATS_URL
               value: "nats://nats:4222"
             - name: AI_MODE

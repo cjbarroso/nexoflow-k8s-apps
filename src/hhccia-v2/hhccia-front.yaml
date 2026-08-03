@@ -35,6 +35,10 @@ spec:
             - containerPort: 8080
               name: http
           env:
+            - name: APP_ENV
+              value: "prod"
+            - name: BUILD_SHA
+              value: "7f3479c4449533f7f2249febd817ff3b445ade32"
             # Legacy webhook (unused while CORE_API_URL is set — kept consistent
             # so any leak doesn't accidentally hit the live v1 backend).
             - name: API_URL

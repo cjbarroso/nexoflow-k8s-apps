@@ -62,6 +62,20 @@ spec:
             - { containerPort: 8000, name: http }
             - { containerPort: 9100, name: metrics }
           env:
+            - name: APP_ENV
+              value: "staging"
+            - name: BUILD_SHA
+              value: "2d142466377501b174614594e0b14663b74258dc"
+            - name: FRONT_BUILD_SHA
+              value: "526c7afdbf2297c8c2745c9aee7f4a52ab933a20"
+            - name: ADAPTER_BUILD_SHA
+              value: "33e32d6916cc68a80ce5c1c03b136a0e2652077a"
+            - name: FRONT_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-front:staging-526c7afdbf2297c8c2745c9aee7f4a52ab933a20"
+            - name: CORE_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-core:staging-2d142466377501b174614594e0b14663b74258dc"
+            - name: ADAPTER_IMAGE
+              value: "ghcr.io/irupe-consultores/hhccia-adapter-datatech:staging-33e32d6916cc68a80ce5c1c03b136a0e2652077a"
             - name: NATS_URL
               value: "nats://nats:4222"
             - name: AI_MODE

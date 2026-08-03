@@ -27,6 +27,18 @@ permissions:
   contents: read
 
 jobs:
+  medaudit-metadata:
+    name: MedAudit image metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate current SHA tags and metadata
+        run: python3 scripts/validate_medaudit_metadata.py
+
+      - name: Test metadata validator
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
   kubeconform:
     name: kubeconform (manifest schemas)
     runs-on: ubuntu-latest
