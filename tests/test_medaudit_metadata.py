@@ -20,7 +20,7 @@ class MedAuditMetadataTest(unittest.TestCase):
             manifest = copy / "src/hhccia-v2/hhccia-core.yaml"
             text = manifest.read_text()
             manifest.write_text(text.replace(
-                'value: "7f3479c4449533f7f2249febd817ff3b445ade32"',
+                'value: "cf3b0d341e71684b1acf06aee7fc97fc0947991f"',
                 'value: "0000000000000000000000000000000000000000"',
                 1,
             ))
