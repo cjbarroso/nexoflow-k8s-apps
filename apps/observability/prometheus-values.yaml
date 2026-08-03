@@ -394,19 +394,22 @@ alertmanager:
           receiver: healthchecks
           group_wait: 0s
           repeat_interval: 5m       # ping healthchecks.io every 5 min while alive
-        # Real alerts (NodeHighCpu et al.) → incident-response agent (Discord
-        # #incident-response). continue: true so they ALSO fall through to the
-        # Telegram `notify` route below. Drop `continue` to make Discord the only
-        # destination, or narrow the matchers to a subset of alerts.
+        # CRITICAL only → incident-response AI agent (hermes2 webhook, Discord
+        # #incident-response) for root-cause analysis. Warnings deliberately do
+        # NOT reach the agent: the 14-day alert analysis (2026-08) showed the
+        # low-level signals are transient self-healing blips that only polluted
+        # the channel. continue: true so criticals ALSO fall through to the
+        # Telegram `notify` route below.
         - matchers:
-            - severity=~"warning|critical"
+            - severity="critical"
           receiver: hermes-incident
           group_by: ['alertname', 'instance']
           group_wait: 30s
           group_interval: 5m
           repeat_interval: 4h
           continue: true
-        # Real alerts (NodeHighCpu et al.) → Telegram + email.
+        # warning AND critical → Telegram. This is the low-level first layer:
+        # a cheap human heads-up with no agent callback (warnings stop here).
         - matchers:
             - severity=~"warning|critical"
           receiver: notify

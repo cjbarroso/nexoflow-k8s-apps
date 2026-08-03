@@ -151,11 +151,24 @@ Neither source emits a series for an alert in the **OK** state — "OK" is the
 anything not listed is healthy. Grafana-managed rules (Gemini cost, pipeline
 backlog) are **not** here; they live in Grafana's own *Alerting*.
 
-## Alerts → Telegram
+## Alerts → Telegram / incident-agent
 
-Alerting rules live in `prometheus-values.yaml` under `serverFiles.alerting_rules.yml`.
-Any rule labelled `severity: warning|critical` routes through Alertmanager to a
-**Telegram** chat (receiver `notify`). Currently defined:
+Alerting rules live in `prometheus-values.yaml` under `serverFiles.alerting_rules.yml`
+(Prometheus rules) and in `src/observability/loki-alerting-rules-configmap.yaml`
+(Loki ruler log rules). Alertmanager routes on severity in two layers:
+
+| Severity | Destination |
+|----------|-------------|
+| `warning` | **Telegram only** (receiver `notify`) — low-level human heads-up, no agent callback |
+| `critical` | **hermes-incident** (hermes2 incident-response AI agent → Discord `#incident-response` thread) **plus** Telegram (falls through) |
+
+Warnings deliberately never reach the agent: a 14-day log analysis (2026-08)
+showed the low-level signals (Gemini dead-letters, access errors) are transient
+self-healing blips that only polluted the incident channel. The critical
+escalations (e.g. `GeminiRecordsDeadLetteredSustained` / `...Burst`) are the ones
+that wake the agent for root-cause analysis.
+
+Currently defined (Prometheus rules):
 
 | Alert | Fires when |
 |-------|-----------|

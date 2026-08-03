@@ -2,8 +2,10 @@
 # Mounted into the Loki pod at /rules/fake (tenant `fake`, single-tenant Loki)
 # via singleBinary.extraVolume* in apps/observability/loki-values.yaml; the ruler
 # evaluates them and pushes to the Prometheus Alertmanager, which routes
-# severity=~"warning|critical" to Telegram. Each ConfigMap data key becomes a
-# rule file the ruler picks up, so a new group = a new data key below.
+# severity=warning to Telegram only (low-level first layer) and
+# severity=critical to the incident-response AI agent (hermes-incident webhook)
+# plus Telegram. Each ConfigMap data key becomes a rule file the ruler picks
+# up, so a new group = a new data key below.
 #
 # Two rule sets:
 #   - cnpg-backup.yaml  — CNPG backup/WAL failures (see comments inline).
@@ -72,22 +74,54 @@ data:
               description: "El core recibió >3 respuestas HTTP 4xx/5xx desde generativelanguage.googleapis.com en los últimos 5m — falla de acceso a Gemini (403 billing/permiso, 429 cuota, 503 sobrecarga). Si se sostiene, el procesamiento IA se detiene y los registros caen a dead-letter (ver alerta GeminiRecordsDeadLettered)."
               dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
               logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
-          # CRITICAL (real impact): the core exhausted its retries and sent
-          # records to hhccia.records.discovered.deadletter. Ingestion is losing
-          # records right now (typically sustained Gemini failure). The adapter
-          # re-discovers from Datatech every 5m so it self-heals when Gemini
-          # recovers, but nothing persists meanwhile. Two noise gates: the
-          # threshold is > 5 (not > 0) so a handful of records dead-lettered by a
-          # transient blip that self-heals on the next 5m re-feed stay quiet, and
-          # the `for: 15m` hold means only a sustained outage that keeps
-          # dead-lettering across multiple re-feed cycles ever pages.
+          # --- Dead-letter, two layers (sized from a 14-day log analysis, 2026-08) ---
+          # Observed pattern: ~1 event/day of 1-3 dead-lettered records per blip
+          # (never >3/hour, never two consecutive hours), ALL self-healed via the
+          # adapter's 5m re-feed. ~85% were JSONDecodeError ("Expecting ','
+          # delimiter") — Gemini emitting malformed/truncated JSON that fails
+          # parsing after retries; the rest were PermanentError 429
+          # RESOURCE_EXHAUSTED (monthly spend cap) / 403. A single `> 0` critical
+          # alert was therefore pure noise. The split below keeps a cheap human
+          # heads-up for every blip and reserves the incident-response agent for
+          # signals that historically never self-heal. Routing (prometheus-values
+          # alertmanager): warning -> Telegram only; critical -> hermes-incident
+          # (AI agent) + Telegram.
+          # LAYER 1 — WARNING (Telegram only): any record parked in
+          # hhccia.records.discovered.deadletter. No `for:` — it's a cheap
+          # heads-up, ~1/day at current noise levels.
           - alert: GeminiRecordsDeadLettered
-            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `dead-lettering` [10m])) > 5
-            for: 15m
+            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `dead-lettering` [10m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "Dead-letter (aviso) — registros parqueados en hhccia-core"
+              description: "El core parqueó registros en hhccia.records.discovered.deadletter en los últimos 10m. Históricamente es un blip transitorio (~85% JSONDecodeError por JSON malformado de Gemini) que se recupera solo con el re-feed del adapter (~5m). Escala a crítico solo si persiste (GeminiRecordsDeadLetteredSustained) o viene en volumen (GeminiRecordsDeadLetteredBurst)."
+              dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+              logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+          # LAYER 2a — CRITICAL "long time" (AI agent): fresh dead-letters keep
+          # appearing in every 10m window for 30m straight. A transient blip
+          # slides out of the window in <=10m, so this can only fire when Gemini
+          # (or the payload stream) genuinely keeps failing across multiple 5m
+          # adapter re-feed cycles — the historical blips never reached this.
+          - alert: GeminiRecordsDeadLetteredSustained
+            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `dead-lettering` [10m])) > 0
+            for: 30m
             labels:
               severity: critical
             annotations:
-              summary: "Registros enviados a dead-letter — ingesta IA detenida (hhccia-core)"
-              description: "El core agotó los reintentos y envió >5 registros a hhccia.records.discovered.deadletter, sostenido por 15m: la ingesta IA está perdiendo registros, casi siempre por falla sostenida de Gemini. El adaptador re-descubre desde Datatech cada 5m (se recupera solo al volver Gemini), pero mientras tanto no se persiste nada en clinical_record."
+              summary: "Dead-letter SOSTENIDO 30m — ingesta IA detenida, investigar causa raíz"
+              description: "Registros siguen cayendo a hhccia.records.discovered.deadletter desde hace >=30m (el re-feed del adapter ya corrió varias veces sin recuperarse): la ingesta IA está perdiendo registros de forma sostenida. Diagnóstico inicial: kubectl -n hhccia-v2 logs deploy/hhccia-core | grep dead-lettering — JSONDecodeError repetido = Gemini devolviendo JSON malformado (modelo/sobrecarga); PermanentError 429 = cuota mensual agotada; 403 = billing/bloqueo del proyecto GCP."
+              dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+              logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
+          # LAYER 2b — CRITICAL "many errors" (AI agent): >5 dead-letter events
+          # in 10m. The 14-day noise ceiling was 3 events/hour, so a burst this
+          # size means many records failing at once — an event worth an agent.
+          - alert: GeminiRecordsDeadLetteredBurst
+            expr: sum(count_over_time({namespace="hhccia-v2", container="hhccia-core"} |= `dead-lettering` [10m])) > 5
+            labels:
+              severity: critical
+            annotations:
+              summary: "Dead-letter en VOLUMEN (>5 en 10m) — ingesta IA cayendo en bloque"
+              description: ">5 eventos de dead-letter en 10m en hhccia.records.discovered.deadletter (el ruido histórico nunca pasó de 3/hora): muchos registros están fallando a la vez. Diagnóstico inicial: kubectl -n hhccia-v2 logs deploy/hhccia-core | grep dead-lettering — JSONDecodeError masivo = respuestas corruptas de Gemini; PermanentError 429 = cuota mensual agotada; 403 = billing/bloqueo del proyecto GCP."
               dashboard: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
               logs: "https://logs.cjbarroso.com/d/gemini-health?from=now-6h&to=now"
