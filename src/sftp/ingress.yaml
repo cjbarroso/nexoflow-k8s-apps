@@ -3,20 +3,23 @@ kind: Ingress
 metadata:
   name: sftp
   namespace: sftp
-  annotations:
-    # The Kubernetes Ingress API requires an HTTP paths block even for this
-    # non-HTTP route. The controller converts this to ssh://... for cloudflared.
-    cloudflare-tunnel-ingress-controller.strrl.dev/backend-protocol: ssh
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: sftp.cjbarroso.com
+    - host: upload.cjbarroso.com
       http:
         paths:
-          - path: /
+          - path: /upload
             pathType: Prefix
             backend:
               service:
                 name: sftp
                 port:
-                  name: ssh
+                  name: http
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: sftp
+                port:
+                  name: http

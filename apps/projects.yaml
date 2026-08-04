@@ -174,7 +174,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: Single-user SFTP file drop
+  description: Single-user HTTPS file drop
   sourceRepos:
     - 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
   destinations:

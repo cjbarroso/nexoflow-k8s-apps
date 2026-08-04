@@ -10,7 +10,7 @@ spec:
   selector:
     app: sftp
   ports:
-    - name: ssh
+    - name: http
       protocol: TCP
-      port: 22
-      targetPort: ssh
+      port: 8080
+      targetPort: http

@@ -1,5 +1,5 @@
-# SFTP has no application egress. Only the Cloudflare tunnel connector and the
-# kubelet probe path may reach the pod.
+# The upload service has no application egress. Only the Cloudflare tunnel
+# connector and the kubelet probe path may reach the pod.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -56,4 +56,4 @@ spec:
               kubernetes.io/metadata.name: cloudflared
       ports:
         - protocol: TCP
-          port: 22
+          port: 8080
