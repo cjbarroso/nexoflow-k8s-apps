@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p /config/ssh-host-keys /config/gcloud /config/.ssh /workspace
+chown -R hermes-sandbox:hermes-sandbox /config /workspace
+chmod 700 /config/.ssh
+
+if [ ! -f /config/ssh-host-keys/ssh_host_ed25519_key ]; then
+    ssh-keygen -q -t ed25519 -N '' -f /config/ssh-host-keys/ssh_host_ed25519_key
+    chown hermes-sandbox:hermes-sandbox /config/ssh-host-keys/ssh_host_ed25519_key*
+    chmod 600 /config/ssh-host-keys/ssh_host_ed25519_key
+fi
+
+install -d -m 700 -o hermes-sandbox -g hermes-sandbox /home/hermes-sandbox/.ssh
+printf '%s\n' "${PUBLIC_KEY:?PUBLIC_KEY is required}" > /home/hermes-sandbox/.ssh/authorized_keys
+chown hermes-sandbox:hermes-sandbox /home/hermes-sandbox/.ssh/authorized_keys
+chmod 600 /home/hermes-sandbox/.ssh/authorized_keys
+
+cat > /etc/ssh/sshd_config <<'EOF'
+Port 2222
+ListenAddress 0.0.0.0
+HostKey /config/ssh-host-keys/ssh_host_ed25519_key
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin no
+UsePAM no
+AllowUsers hermes-sandbox
+X11Forwarding no
+AllowTcpForwarding no
+PermitTunnel no
+EOF
+
+/usr/local/bin/init-gcloud-auth
+exec /usr/sbin/sshd -D -e

@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/env bash
 set -eu
 
 credential_file=/etc/google-wif/credential-configuration.json
