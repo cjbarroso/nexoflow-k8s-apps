@@ -2,7 +2,7 @@ FROM google/cloud-sdk:slim@sha256:570dc7ce2876a2810dbf80f1d2520c1654aa218a7f1347
 
 FROM lscr.io/linuxserver/openssh-server:version-9.6_p1-r0@sha256:813375fb9b6d247c4ee355d94ac2feda372d0f5553f01f2a12e44b258972fee2
 
-COPY --from=gcloud /google-cloud-sdk /opt/google-cloud-sdk
+COPY --from=gcloud /usr/lib/google-cloud-sdk /opt/google-cloud-sdk
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -20,6 +20,10 @@ RUN apt-get update \
     && ln -s /opt/hermes-gws/bin/python /usr/local/bin/hermes-gws-python \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
+    && ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
+    && ln -s /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq
 
 ENV PATH="/opt/google-cloud-sdk/bin:/usr/local/bin:${PATH}" \
     CLOUDSDK_CONFIG=/config/gcloud \
