@@ -66,7 +66,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: sshd
-          image: ghcr.io/cjbarroso/hermes-test-sandbox@sha256:0573d5de0fb997f8b16583382ddcb2ae0f08ecf46b45263eb267a912c97fe69b
+          image: ghcr.io/cjbarroso/hermes-test-sandbox@sha256:19d206dfcc308fe24ec24ac6b158f181f4579fc6973c265b1233f0c5404e7b7c
           imagePullPolicy: IfNotPresent
           command: ["/usr/local/bin/sandbox-entrypoint"]
           env:
