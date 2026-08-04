@@ -6,20 +6,24 @@ import subprocess
 import sys
 
 from google.auth import iam
-from google.auth import load_credentials_from_file
 from google.auth.transport.requests import Request
+from google.oauth2 import credentials as user_credentials
 from google.oauth2 import service_account
 
 
 def main() -> int:
-    credential_file = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     service_account_email = os.environ["GOOGLE_WORKSPACE_SERVICE_ACCOUNT"]
     delegated_user = os.environ["GOOGLE_WORKSPACE_DELEGATED_USER"]
     scopes = os.environ["GOOGLE_WORKSPACE_SCOPES"].split(",")
 
-    source_credentials, _ = load_credentials_from_file(credential_file)
+    # gcloud already exchanges the projected Kubernetes token for a short-lived
+    # service-account token. Reuse that token for IAM signBlob; older google-auth
+    # versions cannot refresh this external-account configuration reliably.
+    token = subprocess.check_output(
+        ["gcloud", "auth", "print-access-token"], text=True
+    ).strip()
     request = Request()
-    source_credentials.refresh(request)
+    source_credentials = user_credentials.Credentials(token=token)
     signer = iam.Signer(request, source_credentials, service_account_email)
     delegated_credentials = service_account.Credentials(
         signer=signer,
