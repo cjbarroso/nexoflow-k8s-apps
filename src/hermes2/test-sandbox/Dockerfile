@@ -14,7 +14,7 @@ RUN apt-get update \
     && npm install --global @googleworkspace/cli@0.22.5 \
     && python3 -m venv /opt/hermes-gws \
     && /opt/hermes-gws/bin/pip install --no-cache-dir google-auth==2.40.3 requests==2.32.3 \
-    && useradd --create-home --uid 1000 --shell /bin/bash hermes-sandbox \
+    && useradd --create-home --uid 1001 --shell /bin/bash hermes-sandbox \
     && mkdir -p /run/sshd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
