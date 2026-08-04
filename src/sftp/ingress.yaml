@@ -17,7 +17,7 @@ spec:
                 port:
                   name: http
           - path: /healthz
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: sftp
