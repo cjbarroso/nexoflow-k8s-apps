@@ -1,15 +1,43 @@
-# Ephemeral remote terminal target for Hermes tool execution.
+# Persistent remote terminal target for Hermes tool execution.
 #
 # This workload is deliberately separate from the Hermes Deployment and never
 # mounts hermes2-data. The SSH key Secret is created out-of-band; do not add it
-# to this repository. /workspace is disposable and should contain only a
-# checkout or artifacts needed for the current test run.
+# to this repository. Tool configuration, gcloud auth state, host keys, and
+# /workspace live on PVCs and survive pod restarts.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: hermes2-test-sandbox
   namespace: hermes2
 automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes2-test-sandbox-config
+  namespace: hermes2
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes2-test-sandbox-workspace
+  namespace: hermes2
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,21 +66,10 @@ spec:
           type: RuntimeDefault
       containers:
         - name: sshd
-          image: lscr.io/linuxserver/openssh-server:version-9.6_p1-r0@sha256:813375fb9b6d247c4ee355d94ac2feda372d0f5553f01f2a12e44b258972fee2
+          image: ghcr.io/cjbarroso/hermes-test-sandbox@sha256:0573d5de0fb997f8b16583382ddcb2ae0f08ecf46b45263eb267a912c97fe69b
           imagePullPolicy: IfNotPresent
+          command: ["/usr/local/bin/sandbox-entrypoint"]
           env:
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
-            - name: TZ
-              value: UTC
-            - name: USER_NAME
-              value: hermes-sandbox
-            - name: PASSWORD_ACCESS
-              value: "false"
-            - name: SUDO_ACCESS
-              value: "false"
             - name: PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
@@ -67,6 +84,12 @@ spec:
               mountPath: /config
             - name: workspace
               mountPath: /workspace
+            - name: wif-config
+              mountPath: /etc/google-wif
+              readOnly: true
+            - name: google-identity-token
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -82,10 +105,21 @@ spec:
               add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
       volumes:
         - name: config
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: hermes2-test-sandbox-config
         - name: workspace
-          emptyDir:
-            sizeLimit: 2Gi
+          persistentVolumeClaim:
+            claimName: hermes2-test-sandbox-workspace
+        - name: wif-config
+          configMap:
+            name: hermes2-test-sandbox-wif
+        - name: google-identity-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: https://iam.googleapis.com/projects/1022456978298/locations/global/workloadIdentityPools/nexoflow-k8s/providers/hermes2
+                  expirationSeconds: 3600
+                  path: google-identity-token
 ---
 apiVersion: v1
 kind: Service

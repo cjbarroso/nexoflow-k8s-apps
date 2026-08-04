@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes2-test-sandbox-wif
+  namespace: hermes2
+data:
+  credential-configuration.json: |
+    {
+      "universe_domain": "googleapis.com",
+      "type": "external_account",
+      "audience": "//iam.googleapis.com/projects/1022456978298/locations/global/workloadIdentityPools/nexoflow-k8s/providers/hermes2",
+      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+      "token_url": "https://sts.googleapis.com/v1/token",
+      "credential_source": {
+        "file": "/var/run/secrets/tokens/google-identity-token",
+        "format": {
+          "type": "text"
+        }
+      },
+      "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/hermes-sandbox-gcp@miintancia.iam.gserviceaccount.com:generateAccessToken"
+    }
