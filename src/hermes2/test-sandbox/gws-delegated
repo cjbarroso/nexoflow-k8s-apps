@@ -1,0 +1,39 @@
+#!/opt/hermes-gws/bin/python
+"""Run gws with a short-lived Domain-Wide Delegation access token."""
+
+import os
+import subprocess
+import sys
+
+from google.auth import iam
+from google.auth import load_credentials_from_file
+from google.auth.transport.requests import Request
+from google.oauth2 import service_account
+
+
+def main() -> int:
+    credential_file = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+    service_account_email = os.environ["GOOGLE_WORKSPACE_SERVICE_ACCOUNT"]
+    delegated_user = os.environ["GOOGLE_WORKSPACE_DELEGATED_USER"]
+    scopes = os.environ["GOOGLE_WORKSPACE_SCOPES"].split(",")
+
+    source_credentials, _ = load_credentials_from_file(credential_file)
+    request = Request()
+    source_credentials.refresh(request)
+    signer = iam.Signer(request, source_credentials, service_account_email)
+    delegated_credentials = service_account.Credentials(
+        signer=signer,
+        service_account_email=service_account_email,
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=scopes,
+        subject=delegated_user,
+    )
+    delegated_credentials.refresh(request)
+
+    environment = os.environ.copy()
+    environment["GOOGLE_WORKSPACE_CLI_TOKEN"] = delegated_credentials.token
+    return subprocess.call(["gws", *sys.argv[1:]], env=environment)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

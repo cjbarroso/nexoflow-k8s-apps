@@ -1,0 +1,8 @@
+#!/usr/bin/with-contenv bash
+set -eu
+
+credential_file=/etc/google-wif/credential-configuration.json
+if [ -r "$credential_file" ]; then
+    mkdir -p /config/gcloud
+    gcloud auth login --cred-file="$credential_file" --quiet >/dev/null 2>&1 || true
+fi
