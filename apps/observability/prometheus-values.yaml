@@ -70,6 +70,12 @@ server:
     limits:
       memory: 1500Mi              # was 700Mi (1 node)
   replicaCount: 1
+  # TSDB compactions can block the health endpoint for several minutes.
+  # Keep readiness unchanged, but allow liveness to tolerate up to 10m
+  # before kubelet restarts a healthy Prometheus during compaction.
+  livenessProbePeriodSeconds: 15
+  livenessProbeTimeout: 10
+  livenessProbeFailureThreshold: 40
 
 # --- Extra scrape jobs (appended to the chart's default scrape_configs) ---
 # k3s embedded-etcd quorum/leader health for the 3-server control plane. etcd
