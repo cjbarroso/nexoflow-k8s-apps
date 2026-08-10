@@ -1,11 +1,9 @@
 # Exposes the v2 frontend via the Cloudflare tunnel.
-#   - medaudit.irupeconsultores.com  (irupeconsultores.com zone)
-# The controller's account-scoped API token reaches this zone, so the DNS CNAME
-# is auto-created. The Angular SPA derives its OIDC redirect from
-# window.location.origin, so this host's /callback must be allowlisted in the
-# Authentik provider blueprint (src/authentik/blueprints.yaml).
-# The legacy hhccia-v2.cjbarroso.com host was removed in the domain migration to
-# medaudit.irupeconsultores.com (auth via auth.irupeconsultores.com).
+#   - medaudit.cjbarroso.com  (cjbarroso.com zone)
+# The cloudflared ingress controller creates the DNS CNAME for this host. The
+# Angular SPA derives its OIDC redirect from window.location.origin, so this
+# host's /callback must be allowlisted in the Authentik provider blueprint
+# (src/authentik/blueprints.yaml).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -14,7 +12,7 @@ metadata:
 spec:
   ingressClassName: cloudflare-tunnel
   rules:
-    - host: "medaudit.irupeconsultores.com"
+    - host: "medaudit.cjbarroso.com"
       http:
         paths:
           - path: /

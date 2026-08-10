@@ -21,7 +21,7 @@ automated sync with prune + selfHeal — v2 is the live stack).
 | `hhccia-core-ingress.yaml` | Cloudflare-tunnel ingress → `api-medaudit.irupeconsultores.com` |
 | `hhccia-adapter-datatech.yaml` | Datatech adapter (starts in `sample` mode) |
 | `hhccia-front.yaml` | Angular UI (same image as live v1) flipped to v2 via `CORE_API_URL` env |
-| `hhccia-front-ingress.yaml` | Cloudflare-tunnel ingress → `medaudit.irupeconsultores.com` |
+| `hhccia-front-ingress.yaml` | Cloudflare-tunnel ingress → `medaudit.cjbarroso.com` |
 | `secrets.example.yaml` | PLACEHOLDER secret template (excluded from Argo; replace via sealed-secrets) |
 
 ## Before syncing
