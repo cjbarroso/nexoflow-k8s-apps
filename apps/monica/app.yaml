@@ -1,0 +1,29 @@
+# Monica - personal relationship manager (https://github.com/monicahq/monica).
+#
+# Raw manifests are used because Monica has no upstream Kubernetes chart. The
+# source includes the web deployment, MariaDB, persistent storage, the
+# Cloudflare Tunnel ingress, and the network policies.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monica
+  namespace: argocd
+spec:
+  project: personales
+  source:
+    repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
+    path: src/monica
+    targetRevision: master
+    directory:
+      recurse: false
+      # The template contains plaintext placeholders and must never be synced.
+      exclude: '*.example.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monica
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,137 @@
+# Monica has no Kubernetes API access and no required internet egress: mail is
+# initially logged locally, version checks and geolocation are disabled, and the
+# database is in the same namespace. Only the Cloudflare Tunnel can reach web,
+# and only Monica pods can reach MariaDB.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monica
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: monica
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: monica
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+---
+# Kubelet readiness/liveness probes arrive from the CNI bridge.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kubelet-probes
+  namespace: monica
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: { cidr: 10.42.0.1/32 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tunnel-to-web
+  namespace: monica
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: monica
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflared
+      ports:
+        - { protocol: TCP, port: 80 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-to-database
+  namespace: monica
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: monica-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monica
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monica-db-backup
+      ports:
+        - { protocol: TCP, port: 3306 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monica-to-database
+  namespace: monica
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: monica
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monica-db
+      ports:
+        - { protocol: TCP, port: 3306 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-database-backup-to-database
+  namespace: monica
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: monica-db-backup
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monica-db
+      ports:
+        - { protocol: TCP, port: 3306 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: monica
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

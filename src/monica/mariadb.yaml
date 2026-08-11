@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: monica-db
+  namespace: monica
+  labels:
+    app.kubernetes.io/name: monica-db
+    app.kubernetes.io/part-of: monica
+spec:
+  serviceName: monica-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monica-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: monica-db
+        app.kubernetes.io/part-of: monica
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: monica
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: monica-db-data
+        - name: backups
+          persistentVolumeClaim:
+            claimName: monica-db-backups
+      containers:
+        - name: mariadb
+          image: mariadb:11.4@sha256:67873d30a17f6a9c331f06363b2fa15f38abca415529966d67c84f87f82439fe
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: MARIADB_ROOT_PASSWORD
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_DATABASE
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_USERNAME
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: backups
+              mountPath: /backup
+          startupProbe:
+            exec:
+              command: [healthcheck.sh, --connect]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: [healthcheck.sh, --connect, --innodb_initialized]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: [healthcheck.sh, --connect, --innodb_initialized]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false

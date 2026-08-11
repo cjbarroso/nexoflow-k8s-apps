@@ -1,0 +1,41 @@
+# Monica uploads, MariaDB data, and consistent logical dumps all live on
+# replicated Longhorn volumes. Velero includes this namespace in its daily
+# filesystem backup.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monica-storage
+  namespace: monica
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monica-db-data
+  namespace: monica
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monica-db-backups
+  namespace: monica
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi

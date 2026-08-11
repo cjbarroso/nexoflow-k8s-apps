@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monica
+  namespace: monica
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: monica
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monica-db
+  namespace: monica
+spec:
+  # MariaDB is a single-replica StatefulSet; the headless service gives it a
+  # stable DNS name without exposing the database outside the namespace.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: monica-db
+  ports:
+    - name: mysql
+      protocol: TCP
+      port: 3306
+      targetPort: mysql

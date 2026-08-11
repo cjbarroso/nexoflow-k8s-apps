@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monica-config
+  namespace: monica
+data:
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_URL: https://monica.irupeconsultores.com
+  APP_FORCE_URL: "true"
+  # Leave signups enabled for first-user bootstrap; set this to "true" after
+  # the initial account has been created.
+  APP_DISABLE_SIGNUP: "false"
+  APP_SIGNUP_DOUBLE_OPTIN: "false"
+  # The only ingress path to the pod is the Cloudflare Tunnel namespace.
+  APP_TRUSTED_PROXIES: '*'
+  # Keep this off: Monica's automatic discovery calls www.cloudflare.com at
+  # request time. The namespace intentionally has no unrestricted internet
+  # egress; APP_TRUSTED_PROXIES already covers the tunnel's direct proxy hop.
+  APP_TRUSTED_CLOUDFLARE: "false"
+  DB_CONNECTION: mysql
+  DB_HOST: monica-db
+  DB_PORT: "3306"
+  DB_USE_UTF8MB4: "true"
+  CACHE_DRIVER: database
+  SESSION_DRIVER: file
+  SESSION_LIFETIME: "120"
+  QUEUE_CONNECTION: sync
+  LOG_CHANNEL: daily
+  CHECK_VERSION: "false"
+  DEFAULT_MAX_UPLOAD_SIZE: "10240"
+  DEFAULT_MAX_STORAGE_SIZE: "512"
+  FILESYSTEM_DISK: public
+  MAIL_MAILER: log
+  MAIL_FROM_ADDRESS: monica@irupeconsultores.com
+  MAIL_FROM_NAME: Monica
+  MFA_ENABLED: "true"
+  DAV_ENABLED: "true"
+  ENABLE_GEOLOCATION: "false"
+  ENABLE_WEATHER: "false"
+  POLICY_COMPLIANT: "true"

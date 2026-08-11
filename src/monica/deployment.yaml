@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monica
+  namespace: monica
+  labels:
+    app.kubernetes.io/name: monica
+    app.kubernetes.io/part-of: monica
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monica
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: monica
+        app.kubernetes.io/part-of: monica
+        logs.cjbarroso.com/collect: "true"
+    spec:
+      serviceAccountName: monica
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: monica-storage
+      containers:
+        - name: web
+          image: monica:4.1.2@sha256:77a3b7e1750ae59fea97e64355b9a3b3c8ef61f309183a7ff8a0b5ae6b158087
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: monica-config
+          env:
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: APP_KEY
+            - name: HASH_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: HASH_SALT
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_DATABASE
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: storage
+              mountPath: /var/www/html/storage
+          startupProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 768Mi
+          securityContext:
+            # The official image entrypoint initializes storage and Apache as
+            # root, then Apache serves requests as www-data.
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+        - name: scheduler
+          image: monica:4.1.2@sha256:77a3b7e1750ae59fea97e64355b9a3b3c8ef61f309183a7ff8a0b5ae6b158087
+          imagePullPolicy: IfNotPresent
+          command: [/usr/local/bin/cron.sh]
+          envFrom:
+            - configMapRef:
+                name: monica-config
+          env:
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: APP_KEY
+            - name: HASH_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: HASH_SALT
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_DATABASE
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monica-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: storage
+              mountPath: /var/www/html/storage
+          livenessProbe:
+            exec:
+              command: [/bin/sh, -c, "kill -0 1"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: [/bin/sh, -c, "kill -0 1"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false

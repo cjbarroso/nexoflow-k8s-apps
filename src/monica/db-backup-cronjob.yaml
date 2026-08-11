@@ -1,0 +1,92 @@
+# Consistent logical MariaDB dump for the daily Velero filesystem backup.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monica-db-backup
+  namespace: monica
+spec:
+  schedule: "30 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: monica-db-backup
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          serviceAccountName: monica
+          affinity:
+            # The backup PVC is RWO and is mounted by the MariaDB pod too.
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: monica-db
+                  topologyKey: kubernetes.io/hostname
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: mariadb-dump
+              image: mariadb:11.4@sha256:67873d30a17f6a9c331f06363b2fa15f38abca415529966d67c84f87f82439fe
+              imagePullPolicy: IfNotPresent
+              command: [/bin/bash, -ceu]
+              args:
+                - |
+                  file="/backup/monica-$(date -u +%F).sql.gz"
+                  mariadb-dump \
+                    --host="${DB_HOST}" \
+                    --port="${DB_PORT}" \
+                    --user="${DB_USERNAME}" \
+                    --password="${DB_PASSWORD}" \
+                    --single-transaction \
+                    --quick \
+                    --routines \
+                    --events \
+                    "${DB_DATABASE}" | gzip > "${file}"
+                  gzip -t "${file}"
+                  find /backup -type f -name 'monica-*.sql.gz' -mtime +7 -delete
+                  echo "MariaDB backup OK: ${file}"
+              env:
+                - name: DB_HOST
+                  value: monica-db
+                - name: DB_PORT
+                  value: "3306"
+                - name: DB_DATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: monica-secrets
+                      key: DB_DATABASE
+                - name: DB_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: monica-secrets
+                      key: DB_USERNAME
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: monica-secrets
+                      key: DB_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: monica-db-backups
