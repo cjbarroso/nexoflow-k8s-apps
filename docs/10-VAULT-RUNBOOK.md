@@ -82,6 +82,68 @@ Do not use `VAULT_SKIP_VERIFY` for normal clients. The Vault Agent Injector and
 CSI provider are disabled in the initial deployment; enable them only through
 a deliberate follow-up change with workload-specific policies.
 
+## Vault Secrets Operator
+
+The HashiCorp Vault Secrets Operator is installed by
+`apps/operators/vault-secrets-operator/app.yaml` in the
+`vault-secrets-operator` namespace. The operator's default Vault connection and
+authentication resources are intentionally disabled. Workloads must declare
+their own namespaced connection and authentication resources so Vault policies
+remain workload-specific.
+
+The CA Secret referenced by `caCertSecretRef` must contain only `ca.crt`. Do not
+copy the `vault-tls` Secret or the CA private key out of the `vault` namespace.
+The following is a template for a workload namespace; replace the placeholders
+and commit it with that workload's manifests:
+
+```yaml
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: vault-connection
+  namespace: <WORKLOAD_NAMESPACE>
+spec:
+  address: https://vault-active.vault.svc.cluster.local:8200
+  caCertSecretRef: vault-ca
+  tlsServerName: vault-active.vault.svc.cluster.local
+  skipTLSVerify: false
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: vault-auth
+  namespace: <WORKLOAD_NAMESPACE>
+spec:
+  vaultConnectionRef: vault-connection
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: <VAULT_KUBERNETES_ROLE>
+    serviceAccount: <WORKLOAD_SERVICE_ACCOUNT>
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: workload-secrets
+  namespace: <WORKLOAD_NAMESPACE>
+spec:
+  vaultAuthRef: vault-auth
+  mount: kv
+  type: kv-v2
+  path: <VAULT_KV_PATH>
+  refreshAfter: 1m
+  destination:
+    name: workload-secrets
+    create: true
+```
+
+The Vault Kubernetes auth method and the role named by `VaultAuth` must be
+configured in Vault before the custom resources can become ready. Bind each
+role to only the intended Kubernetes ServiceAccount and namespace, and grant it
+read access only to the corresponding KV path. The generated Kubernetes Secret
+is the only secret object consumed by the workload; secret values remain in
+Vault and must not be committed to Git.
+
 ## Backups And Upgrades
 
 The Velero daily filesystem schedule includes the `vault` namespace. Keep the

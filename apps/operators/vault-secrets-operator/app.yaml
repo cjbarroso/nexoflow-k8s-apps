@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault-secrets-operator
+  namespace: argocd
+spec:
+  project: operators
+  source:
+    repoURL: https://helm.releases.hashicorp.com
+    chart: vault-secrets-operator
+    targetRevision: "1.5.0"
+    helm:
+      values: |
+        # Keep authentication and Vault connectivity workload-scoped. Each
+        # consuming namespace must declare its own VaultConnection and VaultAuth.
+        controller:
+          replicas: 1
+          podDisruptionBudget:
+            enabled: false
+          manager:
+            clientCache:
+              persistenceModel: none
+        defaultVaultConnection:
+          enabled: false
+        defaultAuthMethod:
+          enabled: false
+        csi:
+          enabled: false
+        telemetry:
+          serviceMonitor:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault-secrets-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
