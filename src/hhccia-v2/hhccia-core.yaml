@@ -47,7 +47,7 @@ spec:
         - name: hhccia-core
           # Pinned to the git SHA of the last successful publish run (main).
           # To deploy a new build: update this tag to the new commit SHA and let Argo sync.
-          image: ghcr.io/irupe-consultores/hhccia-core:62337a2019ac0c87ccf640e5dd085e7cb005e1b2
+          image: ghcr.io/irupe-consultores/hhccia-core:9555919d72c4bf72b855bed9d4f8078d3676c35d
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8000, name: http }
@@ -56,7 +56,7 @@ spec:
             - name: APP_ENV
               value: "prod"
             - name: BUILD_SHA
-              value: "62337a2019ac0c87ccf640e5dd085e7cb005e1b2"
+              value: "9555919d72c4bf72b855bed9d4f8078d3676c35d"
             - name: FRONT_BUILD_SHA
               value: "cf3b0d341e71684b1acf06aee7fc97fc0947991f"
             - name: ADAPTER_BUILD_SHA
@@ -64,7 +64,7 @@ spec:
             - name: FRONT_IMAGE
               value: "ghcr.io/irupe-consultores/hhccia-front:cf3b0d341e71684b1acf06aee7fc97fc0947991f"
             - name: CORE_IMAGE
-              value: "ghcr.io/irupe-consultores/hhccia-core:62337a2019ac0c87ccf640e5dd085e7cb005e1b2"
+              value: "ghcr.io/irupe-consultores/hhccia-core:9555919d72c4bf72b855bed9d4f8078d3676c35d"
             - name: ADAPTER_IMAGE
               value: "ghcr.io/irupe-consultores/hhccia-adapter-datatech:18a2116e74d98c71b3d5e07f34bb82d2d635fb74"
             - name: NATS_URL
