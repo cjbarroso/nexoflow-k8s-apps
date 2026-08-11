@@ -49,7 +49,7 @@ metadata:
   name: vault-server
   namespace: vault
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   secretName: vault-tls
   duration: 720h
