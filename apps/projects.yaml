@@ -25,6 +25,7 @@ spec:
     - 'https://grafana.github.io/helm-charts'            # alloy
     - 'https://grafana-community.github.io/helm-charts'  # loki + grafana (community fork)
     - 'https://charts.jetstack.io'
+    - 'https://helm.releases.hashicorp.com'              # Vault
   destinations:
     - { server: 'https://kubernetes.default.svc', namespace: argocd }
     - { server: 'https://kubernetes.default.svc', namespace: authentik }
@@ -32,6 +33,7 @@ spec:
     - { server: 'https://kubernetes.default.svc', namespace: cnpg-system }
     - { server: 'https://kubernetes.default.svc', namespace: observability }
     - { server: 'https://kubernetes.default.svc', namespace: velero }
+    - { server: 'https://kubernetes.default.svc', namespace: vault }
     # cert-manager's leader-election Roles/RoleBindings live in kube-system.
     - { server: 'https://kubernetes.default.svc', namespace: kube-system }
   # Support apps legitimately install CRDs/RBAC/webhooks (cert-manager, velero,

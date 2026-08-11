@@ -47,8 +47,9 @@ credentials:
 # Daily file-system backup of the cluster's stateful namespaces → R2 (bucket
 # `velero-backups`), 30-day retention. Covers the irreproducible state that is
 # NOT in Git: Authentik Postgres (SSO/OIDC config), Hermes2 agent/Cognee state,
-# and Vaultwarden (password vault), plus Monica (personal CRM). Other
-# namespaces remain redeployable from Git and intentionally out of scope (see
+# and Vaultwarden (password vault), Vault (Raft data and audit logs), plus Monica
+# (personal CRM). Other namespaces remain redeployable from Git and intentionally
+# out of scope (see
 # `Reference/Disaster Preparedness - full backup coverage plan.md`).
 #
 # NOTE: `default` (Gitea) was dropped 2026-05-31 — Gitea is decommissioned (no
@@ -72,6 +73,7 @@ schedules:
         - hermes2
         - monica
         - vaultwarden
+        - vault
       defaultVolumesToFsBackup: true
       ttl: 720h                     # 30 days
 

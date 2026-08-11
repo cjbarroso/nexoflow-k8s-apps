@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+spec:
+  project: support
+  sources:
+    - chart: vault
+      repoURL: https://helm.releases.hashicorp.com
+      targetRevision: "0.34.0"
+      helm:
+        valueFiles:
+          - $values/apps/vault/vault-values.yaml
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/cjbarroso/nexoflow-k8s-apps.git
+      targetRevision: master
+      path: src/vault
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

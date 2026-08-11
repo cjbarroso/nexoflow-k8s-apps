@@ -1,0 +1,192 @@
+# HashiCorp Vault - three-node Raft cluster for cluster-internal secret storage.
+# The server is reachable through the chart-created ClusterIP service at
+# https://vault-active.vault.svc.cluster.local:8200 (active-only) or
+# https://vault.vault.svc.cluster.local:8200 (all Vault nodes).
+
+global:
+  enabled: true
+  tlsDisable: false
+
+# The request is for the Vault API service. Keep optional injection and CSI
+# components off until they are deliberately configured for specific workloads.
+injector:
+  enabled: false
+csi:
+  enabled: false
+
+# The UI remains available through the API service and port-forwarding, but is
+# not exposed by a separate or external Service.
+ui:
+  enabled: false
+
+server:
+  enabled: true
+  image:
+    repository: hashicorp/vault
+    tag: "2.0.3"
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Vault documents OnDelete for upgrades: update standbys before the active
+  # node so an older node never becomes the Raft leader after an upgrade.
+  updateStrategyType: OnDelete
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8200
+    targetPort: 8200
+    publishNotReadyAddresses: true
+    active:
+      enabled: true
+    standby:
+      enabled: true
+    instanceSelector:
+      enabled: true
+
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+
+  # The audit PVC is mounted on every Vault node. Enable the file audit device
+  # once Vault is initialized; the required command is in the Vault runbook.
+  auditStorage:
+    enabled: true
+    size: 5Gi
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  readinessProbe:
+    enabled: true
+    path: /v1/sys/health?standbyok=true
+    port: 8200
+    failureThreshold: 2
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    successThreshold: 1
+    timeoutSeconds: 5
+
+  livenessProbe:
+    enabled: true
+    path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+    port: 8200
+    failureThreshold: 6
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+
+  # Re-rendering the config changes the StatefulSet pod template. The chart's
+  # OnDelete strategy still requires an operator-controlled pod restart.
+  includeConfigAnnotation: true
+
+  # Vault registers the active/standby labels through the Kubernetes API. The
+  # auth delegator binding also permits enabling Kubernetes auth later.
+  authDelegator:
+    enabled: true
+  serviceAccount:
+    create: true
+    serviceDiscovery:
+      enabled: true
+
+  statefulSet:
+    securityContext:
+      pod:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      container:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+  volumes:
+    - name: vault-tls
+      secret:
+        secretName: vault-tls
+        defaultMode: 420
+  volumeMounts:
+    - name: vault-tls
+      mountPath: /vault/userconfig/vault-tls
+      readOnly: true
+
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: vault
+          app.kubernetes.io/instance: vault
+          component: server
+
+  ha:
+    enabled: true
+    replicas: 3
+    # Use the active Service for redirects from standby nodes. This keeps
+    # clients on a stable DNS name when Raft elects a new leader.
+    apiAddr: https://vault-active.vault.svc.cluster.local:8200
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+
+        listener "tcp" {
+          tls_disable = 0
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file = "/vault/userconfig/vault-tls/tls.crt"
+          tls_key_file = "/vault/userconfig/vault-tls/tls.key"
+        }
+
+        storage "raft" {
+          path = "/vault/data"
+
+          retry_join {
+            leader_api_addr = "https://vault-0.vault-internal:8200"
+            leader_tls_servername = "vault-internal"
+            leader_ca_cert_file = "/vault/userconfig/vault-tls/ca.crt"
+          }
+
+          retry_join {
+            leader_api_addr = "https://vault-1.vault-internal:8200"
+            leader_tls_servername = "vault-internal"
+            leader_ca_cert_file = "/vault/userconfig/vault-tls/ca.crt"
+          }
+
+          retry_join {
+            leader_api_addr = "https://vault-2.vault-internal:8200"
+            leader_tls_servername = "vault-internal"
+            leader_ca_cert_file = "/vault/userconfig/vault-tls/ca.crt"
+          }
+        }
+
+        service_registration "kubernetes" {}
+
+        telemetry {
+          prometheus_retention_time = "30s"
+          disable_hostname = true
+          unauthenticated_metrics_access = true
+        }
+
+    disruptionBudget:
+      enabled: true
+      maxUnavailable: 1
