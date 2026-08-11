@@ -15,12 +15,12 @@ blueprint doesn't set), so it isn't a single copy in the DB.
   `sub_mode`, `signing_key` (a UUID reference, not key material), etc.
 - **Applications** (`authentik_core.application`): name, slug, launch URL.
 
-Current contents (2026-08-10, post primary-host change): provider `hhccia-front`
-(public/PKCE — front v2, redirect URIs for `medaudit.cjbarroso.com` and
+Current contents (2026-05-31, post domain migration): provider `hhccia-front`
+(public/PKCE — front v2, redirect URIs for `medaudit.irupeconsultores.com` and
 `localhost:4200`; the legacy `hhccia-v2.cjbarroso.com` callback was removed) and
 the Grafana provider (confidential, redirect `logs.cjbarroso.com/login/generic_oauth`
 — still on cjbarroso, intentionally not migrated); apps `HHCCIA`
-(launch `https://medaudit.cjbarroso.com/`) and `Grafana`.
+(launch `https://medaudit.irupeconsultores.com/`) and `Grafana`.
 
 ## Secrets
 `client_secret` is **REDACTED** — it is not stored in Git. The real values live in:

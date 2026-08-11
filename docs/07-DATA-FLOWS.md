@@ -22,10 +22,10 @@ hhccia-core (FastAPI)
         │  ├── AI analysis → Google Gemini API (gemini-3.5-flash, flash-lite)   ⚠ PHI leaves the cluster
         │  └── write-back of approved edits → adapter → MSSQL
         ▼
-hhccia-front (Angular SPA) ← browser ← Cloudflare tunnel (medaudit.cjbarroso.com)
+hhccia-front (Angular SPA) ← browser ← Cloudflare tunnel (medaudit.irupeconsultores.com)
 ```
 
-Auth on every human entry point: Authentik OIDC (`auth.cjbarroso.com`).
+Auth on every human entry point: Authentik OIDC (`auth.irupeconsultores.com`).
 
 ## 2. Where PHI is at rest
 

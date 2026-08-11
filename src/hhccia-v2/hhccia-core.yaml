@@ -87,12 +87,12 @@ spec:
             - name: AUTH_DISABLED
               value: "false"
             - name: AUTHENTIK_ISSUER
-              value: "https://auth.cjbarroso.com/application/o/hhccia/"
+              value: "https://auth.irupeconsultores.com/application/o/hhccia/"
             # The production SPA is served from cjbarroso.com; keep this
             # explicit so the live CORS policy follows the ingress host rather
             # than relying on the image's fallback defaults.
             - name: ALLOWED_ORIGINS
-              value: "https://medaudit.cjbarroso.com,http://localhost:4200"
+              value: "https://medaudit.irupeconsultores.com,http://localhost:4200"
             # In-cluster JWKS lookup — going out through the Cloudflare tunnel
             # gets 403'd because the Python default User-Agent is filtered.
             # The `iss` claim in the JWT is still checked against AUTHENTIK_ISSUER

@@ -110,14 +110,14 @@ data:
           # config is isolated from staging. This list is prod + local-dev only.
           redirect_uris:
             - matching_mode: strict
-              url: https://medaudit.cjbarroso.com/callback
+              url: https://medaudit.irupeconsultores.com/callback
             - matching_mode: strict
               url: http://localhost:4200/callback
             # post_logout_redirect_uri targets (the SPA sends origin + /auth/login on
             # logoff). Authentik validates the post-logout redirect against this list,
             # so without these the redirect back after logout is silently dropped.
             - matching_mode: strict
-              url: https://medaudit.cjbarroso.com/auth/login
+              url: https://medaudit.irupeconsultores.com/auth/login
             - matching_mode: strict
               url: http://localhost:4200/auth/login
           sub_mode: hashed_user_id
@@ -159,7 +159,7 @@ data:
           name: HHCCIA
           slug: hhccia
           provider: !KeyOf hhccia-provider
-          meta_launch_url: https://medaudit.cjbarroso.com/
+          meta_launch_url: https://medaudit.irupeconsultores.com/
           open_in_new_tab: false
   # ===========================================================================
   # Machine-to-machine (M2M) service account for the HHCCIA core. A NON-HUMAN user
@@ -172,7 +172,7 @@ data:
   # is runtime data, NOT in Git.
   #
   # Token exchange (the consumer does this, NOT a browser):
-  #   POST https://auth.cjbarroso.com/application/o/token/   (global token
+  #   POST https://auth.irupeconsultores.com/application/o/token/   (global token
   #   endpoint; client_id selects the provider — NOT /application/o/hhccia/token/)
   #     grant_type=client_credentials&client_id=hhccia-front
   #     &username=svc-hhccia&password=<app_password>&scope=profile
@@ -341,7 +341,7 @@ data:
   # password is collected.
   #
   # HARDENED WITH AN INVITATION STAGE: the bare flow URL
-  #   https://auth.cjbarroso.com/if/flow/hhccia-signup/
+  #   https://auth.irupeconsultores.com/if/flow/hhccia-signup/
   # is a dead end on its own (continue_flow_without_invitation: false). It only
   # proceeds with a valid ?itoken=<uuid>. The reusable invitation TOKEN is
   # runtime data (a shareable secret link) and is intentionally NOT stored in
@@ -515,7 +515,7 @@ data:
         attrs:
           name: hhccia-signup-redirect
           mode: static
-          target_static: https://medaudit.cjbarroso.com/lista-tareas
+           target_static: https://medaudit.irupeconsultores.com/lista-tareas
           keep_context: false
       # ----- flow -----
       - model: authentik_flows.flow
@@ -643,13 +643,13 @@ data:
   # dedicated flow whose identification stage exposes ONLY the Google source —
   # no username/email field, so there is no password path. The login screen
   # shows just a "Sign in with Google" button for every consumer of this
-  # Authentik (the medaudit SPA AND the auth.cjbarroso.com admin UI; one
+  # Authentik (the medaudit SPA AND the auth.irupeconsultores.com admin UI; one
   # brand serves both).
   #
   # The stock `default-authentication-flow` ("Irupé Apps") is LEFT INTACT and
   # still reachable by direct URL as an admin BREAK-GLASS for password login if
   # Google is ever unavailable:
-  #   https://auth.cjbarroso.com/if/flow/default-authentication-flow/
+  #   https://auth.irupeconsultores.com/if/flow/default-authentication-flow/
   # Normal users never see it — the brand default is the Google-only flow below.
   #
   # ⚠ PREREQ before this bites: every admin must already have a linked Google

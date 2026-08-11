@@ -37,7 +37,7 @@ to Authentik for a short-lived JWT, then presents the JWT:
 # 1. Exchange the long-lived app password for a short-lived JWT.
 #    NOTE: the token endpoint is GLOBAL (/application/o/token/); client_id
 #    selects the provider. It is NOT /application/o/hhccia/token/ (that 405s).
-TOKEN=$(curl -s https://auth.cjbarroso.com/application/o/token/ \
+TOKEN=$(curl -s https://auth.irupeconsultores.com/application/o/token/ \
   -d grant_type=client_credentials \
   -d client_id=hhccia-front \
   -d username=svc-hhccia \
@@ -48,7 +48,7 @@ TOKEN=$(curl -s https://auth.cjbarroso.com/application/o/token/ \
 curl -H "Authorization: Bearer $TOKEN" https://<service>/api/...
 ```
 
-The JWT carries `iss = https://auth.cjbarroso.com/application/o/hhccia/`
+The JWT carries `iss = https://auth.irupeconsultores.com/application/o/hhccia/`
 (what the core validates), `service = ["IN","in","TI"]`, and the admin flags all
 `false`. Access-token lifetime is `hours=1` (`access_token_validity` on the
 provider) — re-mint on expiry; don't cache the JWT long-term.
@@ -147,7 +147,7 @@ resp = c.post("/application/o/token/", data={
     "username": "svc-hhccia",
     "password": t.key,
     "scope": "profile",
-}, HTTP_HOST="auth.cjbarroso.com")
+}, HTTP_HOST="auth.irupeconsultores.com")
 print("VERIFY status=" + str(resp.status_code) + " ok=" + str("access_token" in resp.content.decode()))
 '@
 $py | kubectl -n authentik exec -i deploy/authentik-server -- ak shell 2>&1 | Select-String -Pattern 'APP_PASSWORD|VERIFY'
