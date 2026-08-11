@@ -25,7 +25,7 @@ hhccia-core (FastAPI)
 hhccia-front (Angular SPA) ← browser ← Cloudflare tunnel (medaudit.cjbarroso.com)
 ```
 
-Auth on every human entry point: Authentik OIDC (`auth.irupeconsultores.com`).
+Auth on every human entry point: Authentik OIDC (`auth.cjbarroso.com`).
 
 ## 2. Where PHI is at rest
 

@@ -12,7 +12,7 @@ sync with prune + selfHeal).
 | Dimension | Prod (`hhccia-v2`) | Staging (`hhccia-staging`) |
 |---|---|---|
 | Front host | `medaudit.cjbarroso.com` | `medaudit-staging.irupeconsultores.com` |
-| API host | `api-medaudit.irupeconsultores.com` | `api-medaudit-staging.irupeconsultores.com` |
+| API host | `api-medaudit.cjbarroso.com` | `api-medaudit-staging.irupeconsultores.com` |
 | Clinical source | Datatech **SRN** (live PII) | Datatech **HHCC** (test DB, write-capable) |
 | Postgres | `hhccia-core-db`, 2 instances, R2 PITR | `hhccia-staging-db`, 1 instance, **no backup** |
 | Images | `:<git-sha>` (pinned, `IfNotPresent`) | `:staging` (tracks the `staging` code branch) |
