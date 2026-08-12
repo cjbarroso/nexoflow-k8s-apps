@@ -60,7 +60,7 @@ server:
     # instead of being pinned to one node's local-path disk. Sized for a 3-node
     # cluster: ~3x the node/kubelet/cAdvisor series of the old single node.
     storageClass: longhorn
-    size: 16Gi                    # was 8Gi (1 node) — 15d retention at ~3x series
+    size: 32Gi                    # was 16Gi — doubled 2026-08-12 (Longhorn actualSize ~97% of 16Gi)
   resources:
     requests:
       cpu: 100m
@@ -73,9 +73,17 @@ server:
   # TSDB compactions can block the health endpoint for several minutes.
   # Keep readiness unchanged, but allow liveness to tolerate up to 10m
   # before kubelet restarts a healthy Prometheus during compaction.
+  #
+  # TEMPORARY OVERRIDE (2026-08-12, dead-man's-switch incident): the Longhorn
+  # volume faulted + auto-salvaged, leaving a huge WAL whose replay takes ~2h —
+  # far past the 10m liveness budget — so the pod crash-loops and Prometheus never
+  # becomes Ready. This gives liveness a 3h initial delay plus 2h of tolerated
+  # failures so the replay can finish and checkpoint. REVERT after the WAL drains
+  # and the healthchecks.io heartbeat is back.
   livenessProbePeriodSeconds: 15
   livenessProbeTimeout: 10
-  livenessProbeFailureThreshold: 40
+  livenessProbeInitialDelay: 10800
+  livenessProbeFailureThreshold: 480
 
 # --- Extra scrape jobs (appended to the chart's default scrape_configs) ---
 # k3s embedded-etcd quorum/leader health for the 3-server control plane. etcd
