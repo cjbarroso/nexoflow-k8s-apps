@@ -60,7 +60,10 @@ server:
     # instead of being pinned to one node's local-path disk. Sized for a 3-node
     # cluster: ~3x the node/kubelet/cAdvisor series of the old single node.
     storageClass: longhorn
-    size: 32Gi                    # was 16Gi — doubled 2026-08-12 (Longhorn actualSize ~97% of 16Gi)
+    # 32Gi: the old 16Gi volume's TSDB got corrupted by a failed online resize on
+    # a faulting single replica (2026-08-12). The PVC was recreated fresh at 32Gi
+    # (no resize needed) with the StorageClass's default 2 replicas.
+    size: 32Gi
   resources:
     requests:
       cpu: 100m
