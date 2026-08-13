@@ -21,3 +21,7 @@ defaultSettings:
   # homestation from replica scheduling. Pods on homestation can still USE
   # longhorn volumes (engine local, replicas remote).
   storageMinimalAvailablePercentage: 30
+  # 2026-08-13: the 8s default was marking replicas ERR on homestation3 during
+  # rebuild storms (R/W timeout) → failed rebuilds → degraded volumes. 60s gives
+  # replica syncs room to complete under I/O spikes without false-faulting.
+  engineReplicaTimeout: 60
