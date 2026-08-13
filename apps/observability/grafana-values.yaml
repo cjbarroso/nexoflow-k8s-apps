@@ -5060,7 +5060,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+                   "expr": "max(jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
             {
@@ -5073,7 +5073,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+                   "expr": "max(jetstream_consumer_num_ack_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
             {
@@ -5086,7 +5086,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+                   "expr": "max(jetstream_consumer_num_redelivered{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             },
             {
@@ -5109,11 +5109,11 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_pending (backlog)",
-                  "expr": "max(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
+                   "expr": "max(jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
                 { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_ack_pending (en vuelo)",
-                  "expr": "max(jetstream_consumer_num_ack_pending{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
+                   "expr": "max(jetstream_consumer_num_ack_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" },
                 { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "num_redelivered (reintentos)",
-                  "expr": "max(jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
+                   "expr": "max(jetstream_consumer_num_redelivered{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=\"core-ingestor\"})" }
               ]
             }
           ]
@@ -5156,7 +5156,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
+                   "expr": "count(jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
               ]
             },
             {
@@ -5169,7 +5169,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(jetstream_stream_consumer_count{stream_name=\"HHCCIA\"})" }
+                   "expr": "max(jetstream_stream_consumer_count{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\"})" }
               ]
             },
             {
@@ -5182,7 +5182,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(jetstream_stream_total_messages{stream_name=\"HHCCIA\"})" }
+                   "expr": "max(jetstream_stream_total_messages{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\"})" }
               ]
             },
             {
@@ -5205,7 +5205,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "min"] }, "tooltip": { "mode": "single" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "core-* presentes",
-                  "expr": "count(jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
+                   "expr": "count(jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"}) or vector(0)" }
               ]
             },
             {
@@ -5224,7 +5224,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{consumer_name}}",
-                  "expr": "count by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
+                   "expr": "count by (consumer_name) (jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
               ]
             },
             {
@@ -5243,9 +5243,9 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "pending · {{consumer_name}}",
-                  "expr": "max by (consumer_name) (jetstream_consumer_num_pending{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" },
+                   "expr": "max by (consumer_name) (jetstream_consumer_num_pending{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" },
                 { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "redelivered · {{consumer_name}}",
-                  "expr": "max by (consumer_name) (jetstream_consumer_num_redelivered{stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
+                   "expr": "max by (consumer_name) (jetstream_consumer_num_redelivered{namespace=\"hhccia-v2\", stream_name=\"HHCCIA\", consumer_name=~\"core-.*\"})" }
               ]
             }
           ]
@@ -5291,7 +5291,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "max(hhccia_bus_connected)" }
+                   "expr": "max(hhccia_bus_connected{namespace=\"hhccia-v2\"})" }
               ]
             },
             {
@@ -5313,7 +5313,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "sum(increase(hhccia_bus_messages_total{outcome=~\"dead_letter|permanent|non_json\"}[24h])) or vector(0)" }
+                   "expr": "sum(increase(hhccia_bus_messages_total{namespace=\"hhccia-v2\", outcome=~\"dead_letter|permanent|non_json\"}[24h])) or vector(0)" }
               ]
             },
             {
@@ -5326,7 +5326,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "sum(increase(hhccia_gemini_cost_usd_total[24h])) or vector(0)" }
+                   "expr": "sum(increase(hhccia_gemini_cost_usd_total{namespace=\"hhccia-v2\"}[24h])) or vector(0)" }
               ]
             },
             {
@@ -5339,7 +5339,7 @@ dashboards:
               "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" },
-                  "expr": "histogram_quantile(0.95, sum by (le) (rate(hhccia_http_request_seconds_bucket[1h])))" }
+                   "expr": "histogram_quantile(0.95, sum by (le) (rate(hhccia_http_request_seconds_bucket{namespace=\"hhccia-v2\"}[1h])))" }
               ]
             },
             {
@@ -5356,7 +5356,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{subject}} · {{outcome}}",
-                  "expr": "sum by (subject, outcome) (increase(hhccia_bus_messages_total[15m]))" }
+                   "expr": "sum by (subject, outcome) (increase(hhccia_bus_messages_total{namespace=\"hhccia-v2\"}[15m]))" }
               ]
             },
             {
@@ -5373,7 +5373,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{outcome}}",
-                  "expr": "sum by (outcome) (increase(hhccia_gemini_calls_total[15m]))" }
+                   "expr": "sum by (outcome) (increase(hhccia_gemini_calls_total{namespace=\"hhccia-v2\"}[15m]))" }
               ]
             },
             {
@@ -5390,9 +5390,9 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "p50 · {{kind}}",
-                  "expr": "histogram_quantile(0.5, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket[30m])))" },
+                   "expr": "histogram_quantile(0.5, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket{namespace=\"hhccia-v2\"}[30m])))" },
                 { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "p95 · {{kind}}",
-                  "expr": "histogram_quantile(0.95, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket[30m])))" }
+                   "expr": "histogram_quantile(0.95, sum by (le, kind) (rate(hhccia_gemini_latency_seconds_bucket{namespace=\"hhccia-v2\"}[30m])))" }
               ]
             },
             {
@@ -5409,7 +5409,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{kind}}",
-                  "expr": "sum by (kind) (increase(hhccia_gemini_cost_usd_total[1h]))" }
+                   "expr": "sum by (kind) (increase(hhccia_gemini_cost_usd_total{namespace=\"hhccia-v2\"}[1h]))" }
               ]
             },
             {
@@ -5426,7 +5426,7 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "{{route}}",
-                  "expr": "histogram_quantile(0.95, sum by (le, route) (rate(hhccia_http_request_seconds_bucket[15m])))" }
+                   "expr": "histogram_quantile(0.95, sum by (le, route) (rate(hhccia_http_request_seconds_bucket{namespace=\"hhccia-v2\"}[15m])))" }
               ]
             },
             {
@@ -5443,11 +5443,11 @@ dashboards:
               "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
               "targets": [
                 { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "en uso",
-                  "expr": "max(hhccia_db_pool_in_use)" },
+                   "expr": "max(hhccia_db_pool_in_use{namespace=\"hhccia-v2\"})" },
                 { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "tamaño del pool",
-                  "expr": "max(hhccia_db_pool_size)" },
+                   "expr": "max(hhccia_db_pool_size{namespace=\"hhccia-v2\"})" },
                 { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "legendFormat": "overflow (>0 = saturado)",
-                  "expr": "clamp_min(max(hhccia_db_pool_overflow), 0)" }
+                   "expr": "clamp_min(max(hhccia_db_pool_overflow{namespace=\"hhccia-v2\"}), 0)" }
               ]
             }
           ]
@@ -6161,7 +6161,7 @@ alerting:
                   datasource:
                     type: prometheus
                     uid: prometheus
-                  expr: 'max(jetstream_consumer_num_pending{stream_name="HHCCIA", consumer_name="core-ingestor"})'
+                  expr: 'max(jetstream_consumer_num_pending{namespace="hhccia-v2", stream_name="HHCCIA", consumer_name="core-ingestor"})'
                   instant: true
                   intervalMs: 1000
                   maxDataPoints: 43200
@@ -6220,7 +6220,7 @@ alerting:
                   datasource:
                     type: prometheus
                     uid: prometheus
-                  expr: 'max(jetstream_consumer_num_redelivered{stream_name="HHCCIA", consumer_name="core-ingestor"})'
+                  expr: 'max(jetstream_consumer_num_redelivered{namespace="hhccia-v2", stream_name="HHCCIA", consumer_name="core-ingestor"})'
                   instant: true
                   intervalMs: 1000
                   maxDataPoints: 43200

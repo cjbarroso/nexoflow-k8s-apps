@@ -280,7 +280,7 @@ serverFiles:
         rules:
           - alert: HHCCIACoreConsumersMissing
             expr: |
-              (count(jetstream_consumer_num_pending{stream_name="HHCCIA", consumer_name=~"core-.*"})
+              (count(jetstream_consumer_num_pending{namespace="hhccia-v2", stream_name="HHCCIA", consumer_name=~"core-.*"})
                 or vector(0)) < 4
             for: 10m
             labels:
@@ -298,7 +298,7 @@ serverFiles:
           - alert: HHCCIACoreDeadLetters
             expr: |
               sum by (subject, outcome)
-              (increase(hhccia_bus_messages_total{outcome=~"dead_letter|permanent|non_json"}[15m])) > 0
+              (increase(hhccia_bus_messages_total{namespace="hhccia-v2", outcome=~"dead_letter|permanent|non_json"}[15m])) > 0
             labels:
               severity: warning
             annotations:

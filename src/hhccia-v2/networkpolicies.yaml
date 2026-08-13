@@ -76,7 +76,8 @@ spec:
         - { protocol: TCP, port: 8000 }
         - { protocol: TCP, port: 8080 }
 ---
-# Prometheus scrapes nats-exporter (7777) and the CNPG instance metrics (9187).
+# Prometheus scrapes the core metrics (9100), nats-exporter (7777), and the CNPG
+# instance metrics (9187).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -89,6 +90,7 @@ spec:
         - namespaceSelector:
             matchLabels: { kubernetes.io/metadata.name: observability }
       ports:
+        - { protocol: TCP, port: 9100 }
         - { protocol: TCP, port: 7777 }
         - { protocol: TCP, port: 9187 }
 ---

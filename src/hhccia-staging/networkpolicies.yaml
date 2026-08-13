@@ -84,6 +84,7 @@ spec:
         - namespaceSelector:
             matchLabels: { kubernetes.io/metadata.name: observability }
       ports:
+        - { protocol: TCP, port: 9100 }
         - { protocol: TCP, port: 7777 }
         - { protocol: TCP, port: 9187 }
 ---
