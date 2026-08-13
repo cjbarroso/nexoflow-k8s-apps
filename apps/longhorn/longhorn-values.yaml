@@ -16,11 +16,12 @@ persistence:
 
 defaultSettings:
   defaultReplicaCount: 2
-  # Keep replicas off the disk-tight homestation node (27G/108G ≈ 25% free) and
-  # on the roomy homestation2/3 (466G each): 30% minimal-available excludes
-  # homestation from replica scheduling. Pods on homestation can still USE
-  # longhorn volumes (engine local, replicas remote).
-  storageMinimalAvailablePercentage: 30
+  # Keep replicas off the disk-tight homestation node by default (27G/108G ≈ 25%
+  # free), preferring the roomy homestation2/3 (466G each). 2026-08-13: lowered
+  # 30% -> 25% so homestation can host 2nd replicas again while homestation3 is
+  # marked non-schedulable (its replica syncs were failing). Pods on homestation
+  # can still USE longhorn volumes (engine local, replicas remote).
+  storageMinimalAvailablePercentage: 25
   # 2026-08-13: the 8s default was marking replicas ERR on homestation3 during
   # rebuild storms (R/W timeout) → failed rebuilds → degraded volumes. 30s is
   # the max Longhorn allows and gives replica syncs room to complete under I/O
