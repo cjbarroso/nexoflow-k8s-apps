@@ -51,7 +51,10 @@ oidc:
 # PVC (the namespace has no defaultVolumesToFsBackup exclusion for it).
 persistence:
   enabled: true
-  size: 10Gi
+  # Replaced the empty 10Gi local-path claim with a 2Gi claim after a verified
+  # volume copy. The claim is declared in src/planka so Argo owns its lifecycle.
+  existingClaim: planka-data-2g
+  size: 2Gi
   accessMode: ReadWriteOnce
   # storageClassName omitted: k3s's default StorageClass is local-path.
 
