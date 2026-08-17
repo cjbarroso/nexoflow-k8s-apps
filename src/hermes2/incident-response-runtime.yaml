@@ -144,7 +144,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hermes
-          image: nousresearch/hermes-agent:main@sha256:a8a528a5ad1cee0362dc85814862811d428ac0a461030d4de9a3796a7bb9a802
+          image: nousresearch/hermes-agent:main@sha256:3006d820d53f018d87d05a1a7d28e3ed5b07e78aadb272cb132f329198c8132d
           imagePullPolicy: IfNotPresent
           args: ["gateway", "run"]
           env:
