@@ -11,6 +11,10 @@ if [ ! -f /config/ssh-host-keys/ssh_host_ed25519_key ]; then
     chmod 600 /config/ssh-host-keys/ssh_host_ed25519_key
 fi
 
+# useradd creates a locked account by default. Keep password authentication
+# disabled in sshd, but unlock the account so its authorized key can be used.
+usermod -p '*' hermes-sandbox
+
 install -d -m 700 -o hermes-sandbox -g hermes-sandbox /home/hermes-sandbox/.ssh
 printf '%s\n' "${PUBLIC_KEY:?PUBLIC_KEY is required}" > /home/hermes-sandbox/.ssh/authorized_keys
 chown hermes-sandbox:hermes-sandbox /home/hermes-sandbox/.ssh/authorized_keys
