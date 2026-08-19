@@ -102,7 +102,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-              add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+              # OpenSSH privilege separation chroots its pre-auth child. Without
+              # SYS_CHROOT the listener accepts TCP and immediately resets SSH.
+              add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, SYS_CHROOT]
       volumes:
         - name: config
           persistentVolumeClaim:
