@@ -12,14 +12,14 @@ These notes document the Vaultwarden update performed on 2026-05-09 and the oper
 - Helm chart: `vaultwarden`
 - Chart version: `0.16.1`
 - Image repository: `ghcr.io/dani-garcia/vaultwarden`
-- Image tag: `1.36.0-alpine`
+- Image tag: `1.37.1-alpine`
 
 The Gabe565 chart repository still publishes `vaultwarden` chart `0.16.1` as the newest chart version. That chart defaulted to app image `1.33.2-alpine`, so the update was applied as an explicit Helm values override:
 
 ```yaml
 image:
   repository: ghcr.io/dani-garcia/vaultwarden
-  tag: 1.36.0-alpine
+  tag: 1.37.1-alpine
 ```
 
 ## Historical GitOps Source Of Truth Issue
@@ -113,7 +113,7 @@ kubectl get pods -n vaultwarden -l app.kubernetes.io/name=vaultwarden -o wide
 Successful result after this update:
 
 ```text
-ghcr.io/dani-garcia/vaultwarden:1.36.0-alpine
+ghcr.io/dani-garcia/vaultwarden:1.37.1-alpine
 deployment "vaultwarden" successfully rolled out
 ```
 
