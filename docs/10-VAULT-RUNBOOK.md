@@ -180,6 +180,31 @@ kubectl -n vault exec vault-0 -- vault operator generate-root -init   # follow p
 
 Revoke any emergency root immediately after use.
 
+## Adding A New Secret (Quick Reference)
+
+**Namespace already has a `vault-secrets.yaml` stack:**
+
+1. Write the value from inside vault-0 (migrator login, see above):
+   `vault kv put nexoflow/<NS>/<name> KEY='value'`
+2. Append one `VaultStaticSecret` block to `src/<app>/vault-secrets.yaml`
+   (`vaultAuthRef: <ns-auth>`, `destination.name` = Secret name workloads
+   read; add `rolloutRestartTargets` only if env vars must refresh).
+3. Commit, push, `task argo:sync APP=<app>`. Done.
+
+**Brand-new namespace checklist:**
+
+1. Vault: policy `<NS>-ro` (read on `nexoflow/data/<NS>/*`) + k8s role
+   `<NS>` bound to SA `default` in that namespace (both via migrator).
+2. Copy the public CA into the ns as Secret `vault-ca`, then declare
+   `VaultConnection default` + `VaultAuth <NS>` (**explicit**
+   `vaultConnectionRef`) in `src/<app>/vault-secrets.yaml`.
+3. Add the `.gitleaksignore` fingerprint for the CA cert line gitleaks
+   reports on first commit.
+4. If the Argo app uses directory `include:` filters, make sure the new file
+   matches (this bit cloudflared once).
+5. Commit → sync **root** first if any `apps/**/app.yaml` changed, then the
+   child app.
+
 ## SealedSecrets — RETIRED
 
 The sealed-secrets controller was removed on 2026-08-21 after the full VSO
