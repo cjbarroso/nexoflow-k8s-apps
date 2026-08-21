@@ -260,12 +260,12 @@ Git side (`src/<app>/vault-secrets.yaml`):
 | calibre-web-automated | cwa-gmail | nexoflow/calibre-web-automated/cwa-gmail | 2026-08-21 |
 
 **Known leftovers:**
-- `caldiy` namespace: three SealedSecrets whose manifests were removed from git
-  and have NO Argo app (drift — applied manually ~35d ago). Their values are
-  backed up in `nexoflow/caldiy/*` plus a policy+role are pre-created. Decide
-  whether to restore an Argo app for caldiy or tear the namespace down.
+- ~~`caldiy` namespace~~: deleted entirely on 2026-08-21 (namespace, Cal.com
+  deployment, CNPG cluster + PVCs, sealed secrets; Vault KV copies, policy and
+  role purged too). It had been applied manually with no Argo app and no git
+  manifests.
 - `hermes2/hhccia-machine-creds` has no consumer anywhere; kept in Vault.
-- Image-pull secrets (`github-auth` in hhccia-v2/staging/caldiy) remain
+- Image-pull secrets (`github-auth` in hhccia-v2/staging) remain
   hand-made dockerconfigjson secrets — candidates for a future decision.
 
 Operational note: when several `VaultStaticSecret`s target the same workload,
