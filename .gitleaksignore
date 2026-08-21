@@ -1,0 +1,3 @@
+# Public cert-manager cluster CA (src/vault/tls.yaml) replicated into consuming
+# namespaces for VSO TLS verification — certificates are public material.
+src/planka/vault-secrets.yaml:kubernetes-secret-yaml:17
