@@ -210,7 +210,14 @@ Git side (`src/<app>/vault-secrets.yaml`):
 
 | Namespace | Secret | KV path | Date |
 |---|---|---|---|
-| planka | planka-admin | nexoflow/planka/admin | 2026-08-21 |
+| planka | planka-admin, planka-oidc, planka-secretkey | nexoflow/planka/* | 2026-08-21 |
+| monica | monica-secrets (6 keys) | nexoflow/monica/monica | 2026-08-21 |
+
+Operational note: when several `VaultStaticSecret`s target the same workload,
+creating them in one sync makes `rolloutRestartTargets` bounce it repeatedly.
+Planka rode through three quick restarts (liveness probe kills during slow
+boots) and settled on its own; for large batches, prefer one VSS per namespace
+storing all keys under a single KV path where workloads allow it.
 
 Still on SealedSecrets: everything else (see `src/**/*sealedsecret*.yaml`),
 plus the hand-created `gemini-cost-ro` in `observability` (a prime candidate —
