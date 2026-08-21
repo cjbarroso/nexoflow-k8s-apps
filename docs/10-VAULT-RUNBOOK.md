@@ -180,6 +180,16 @@ kubectl -n vault exec vault-0 -- vault operator generate-root -init   # follow p
 
 Revoke any emergency root immediately after use.
 
+## SealedSecrets — RETIRED
+
+The sealed-secrets controller was removed on 2026-08-21 after the full VSO
+migration (zero SealedSecret instances remained). The Argo app, chart
+resources, RBAC and CRD are gone; `*.example.yaml` placeholders and older doc
+sections that mention kubeseal are kept only as historical reference. New
+secrets go to Vault via the migrator workflow above. The controller's master
+keys remain archived in Vaultwarden solely for recovering values from git
+history if ever needed.
+
 ## SealedSecret To VSO Migration
 
 Secrets move from SealedSecrets to VSO one namespace at a time. The first pilot
