@@ -144,6 +144,80 @@ read access only to the corresponding KV path. The generated Kubernetes Secret
 is the only secret object consumed by the workload; secret values remain in
 Vault and must not be committed to Git.
 
+## SealedSecret To VSO Migration
+
+Secrets move from SealedSecrets to VSO one namespace at a time. The first pilot
+was `planka-admin` (2026-08-21); the pattern below is proven — follow it exactly.
+
+### One-time per namespace
+
+Vault side (root token required; stored offline in Vaultwarden):
+
+```bash
+# policy scoped to this namespace's KV prefix
+printf 'path "nexoflow/data/<NS>/*" {\n  capabilities = ["read"]\n}' | vault policy write <NS>-ro -
+# role bound to SA default in that namespace only
+vault write auth/kubernetes/role/<NS> \
+  bound_service_account_names=default \
+  bound_service_account_namespaces=<NS> \
+  policies=<NS>-ro ttl=24h
+```
+
+Git side (`src/<app>/vault-secrets.yaml`):
+
+1. Copy the public cluster CA into the namespace as Secret `vault-ca`
+   (key `ca.crt`). It is public material — add a `.gitleaksignore` entry with
+   the exact fingerprint gitleaks prints (rule `kubernetes-secret-yaml`).
+2. Declare `VaultConnection` (name `default`, `caCertSecretRef: vault-ca`),
+   `VaultAuth` (role + SA), and one `VaultStaticSecret` per Kubernetes Secret.
+3. Delete the corresponding `*-sealedsecret.yaml` files **in the same commit**
+   so Argo prunes them atomically — never let a SealedSecret controller and VSO
+   fight over the same Secret name.
+
+### Per secret
+
+1. Copy current values verbatim from the live Secret into KV *before* touching
+   git (`vault kv put nexoflow/<NS>/<name> k=v ...`) so workloads see no change.
+2. Sync, then verify: Secret owner must be `VaultStaticSecret` and value
+   lengths must match the originals.
+3. `rolloutRestartTargets` on each `VaultStaticSecret` bounces workloads only
+   when values actually change (env vars are read once at container start).
+
+### Gotchas learned the hard way (do not relearn)
+
+- **VSO 1.5.0 requires an explicit `spec.vaultConnectionRef`** on `VaultAuth`.
+  With `allow-default-globals` enabled there is no same-namespace fallback;
+  omitting it fails with the misleading error
+  `VaultConnection.secrets.hashicorp.com "default" not found`.
+- The destination field is **`spec.destination`**, not `dest`
+  (`dest` is External Secrets terminology).
+- `kubectl auth can-i` and the connection controller can pass while the client
+  factory still cannot resolve the ref — the missing-ref failure looks like an
+  RBAC or cache problem but isn't.
+- Changing `apps/**/app.yaml` requires syncing the **root** app first: the
+  child Application definitions themselves are managed by root. Syncing the
+  child alone does not refresh its own spec.
+- Argo `selfHeal` reverts out-of-band kubectl changes within seconds. For
+  maintenance that needs the real state to drift (scaling down, wiping PVCs),
+  suspend auto-sync via a git commit, do the work, restore via another commit.
+- Sealed-secrets controller key rotation was disabled (`keyrenewperiod: "0"`,
+  chart value is all-lowercase) because monthly rotation silently invalidated
+  key backups. Back up ALL keys labeled
+  `sealedsecrets.bitnami.com/sealed-secrets-key` in `kube-system` to
+  Vaultwarden before relying on any single backup file.
+
+### Migrated secrets
+
+| Namespace | Secret | KV path | Date |
+|---|---|---|---|
+| planka | planka-admin | nexoflow/planka/admin | 2026-08-21 |
+
+Still on SealedSecrets: everything else (see `src/**/*sealedsecret*.yaml`),
+plus the hand-created `gemini-cost-ro` in `observability` (a prime candidate —
+it currently exists nowhere in git). Keep bootstrap-critical secrets sealed
+until confident; after a full cluster rebuild, VSO-sourced Secrets only appear
+once Vault is initialized and unsealed again (Argo retries until then).
+
 ## Backups And Upgrades
 
 The Velero daily filesystem schedule includes the `vault` namespace. Keep the
