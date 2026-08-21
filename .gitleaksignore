@@ -7,3 +7,4 @@ src/pami/vault-secrets.yaml:kubernetes-secret-yaml:19
 src/observability/vault-secrets.yaml:kubernetes-secret-yaml:17
 src/vaultwarden/vault-secrets.yaml:kubernetes-secret-yaml:15
 src/cloudflared/vault-secrets.yaml:kubernetes-secret-yaml:17
+src/authentik/vault-secrets.yaml:kubernetes-secret-yaml:18
