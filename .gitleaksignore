@@ -3,3 +3,4 @@
 src/planka/vault-secrets.yaml:kubernetes-secret-yaml:17
 src/monica/vault-secrets.yaml:kubernetes-secret-yaml:15
 src/sftp/vault-secrets.yaml:kubernetes-secret-yaml:15
+src/pami/vault-secrets.yaml:kubernetes-secret-yaml:19
