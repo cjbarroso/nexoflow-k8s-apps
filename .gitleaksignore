@@ -11,3 +11,4 @@ src/authentik/vault-secrets.yaml:kubernetes-secret-yaml:18
 src/hermes2/vault-secrets.yaml:kubernetes-secret-yaml:16
 
 src/hhccia-staging/vault-secrets.yaml:kubernetes-secret-yaml:13
+src/hhccia-v2/vault-secrets.yaml:kubernetes-secret-yaml:18
