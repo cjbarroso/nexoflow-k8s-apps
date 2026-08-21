@@ -144,6 +144,42 @@ read access only to the corresponding KV path. The generated Kubernetes Secret
 is the only secret object consumed by the workload; secret values remain in
 Vault and must not be committed to Git.
 
+## Day-To-Day Administration (No Root Token)
+
+The initial root token was revoked on 2026-08-21 after the VSO migration.
+All routine Vault work uses the scoped **`migrator`** policy, authenticated
+via Kubernetes auth bound to SA `vault` in namespace `vault` — there is no
+stored credential anywhere:
+
+```bash
+# Run from inside vault-0; mints a 1h token with only the migrator policy
+kubectl -n vault exec vault-0 -- sh -c '
+  export VAULT_ADDR=https://vault-active.vault.svc.cluster.local:8200 \
+         VAULT_CACERT=/vault/userconfig/vault-tls/ca.crt
+  JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+  VT=$(vault write auth/kubernetes/login jwt="$JWT" role=migrator | awk "/^token /{print \$2}")
+  export VAULT_TOKEN=$VT
+  # ... vault commands ...
+'
+```
+
+`migrator` can: read/write all KV under `nexoflow/*`, create/delete ACL
+policies, create/delete Kubernetes auth roles. It cannot: touch mounts, auth
+method config, other namespaces' KV, or tokens. Parse the login response with
+awk on the table output — `-format=json` + sed is fragile.
+
+### Emergency Root Recovery
+
+If root privileges are ever needed again (mount changes, disaster recovery),
+mint a new one from the unseal shares stored in Vaultwarden:
+
+```bash
+kubectl -n vault exec vault-0 -- vault operator generate-root -init   # follow prompts
+# feed 3 of 5 unseal keys; decode the final token with the OTP
+```
+
+Revoke any emergency root immediately after use.
+
 ## SealedSecret To VSO Migration
 
 Secrets move from SealedSecrets to VSO one namespace at a time. The first pilot
