@@ -4,4 +4,4 @@ src/planka/vault-secrets.yaml:kubernetes-secret-yaml:17
 src/monica/vault-secrets.yaml:kubernetes-secret-yaml:15
 src/sftp/vault-secrets.yaml:kubernetes-secret-yaml:15
 src/pami/vault-secrets.yaml:kubernetes-secret-yaml:19
-src/observability/vault-gemini-cost-ro.yaml:kubernetes-secret-yaml:17
+src/observability/vault-secrets.yaml:kubernetes-secret-yaml:17
