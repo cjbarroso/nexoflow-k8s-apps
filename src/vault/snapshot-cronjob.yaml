@@ -1,0 +1,104 @@
+# Nightly encrypted Raft snapshot backup for Vault.
+#
+# Flow: k8s-auth login (role vault-snapshot -> policy raft-snapshot) ->
+# GET /v1/sys/storage/raft/snapshot -> encrypt with age (public key below;
+# PRIVATE key lives ONLY in Vaultwarden) -> upload to R2
+# s3://velero-backups/vault-snapshots/ -> prune >7d.
+#
+# Snapshots contain decrypted secret data: the age encryption keeps the R2
+# copy's blast radius equal to the unseal keys. Restore = decrypt with the
+# private key, `vault operator raft snapshot restore`, unseal with 3 shares.
+#
+# PSS restricted compliant: non-root (nobody), no privilege escalation,
+# all caps dropped, RuntimeDefault seccomp.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-snapshot
+  namespace: vault
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-snapshot-backup
+  namespace: vault
+spec:
+  schedule: "30 3 * * *" # daily 03:30 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: vault-snapshot-backup
+        spec:
+          serviceAccountName: vault-snapshot
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: alpine:3.20
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: AGE_PUBLIC_KEY
+                  value: age1yusfzn90mctjw347xu853t8kvmhwdm50uwu0lcptwg28nq7l7e6qlnya30
+                - name: VAULT_ADDR
+                  value: https://vault-active.vault.svc.cluster.local:8200
+                - name: RCLONE_CONFIG_R2_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_R2_PROVIDER
+                  value: Cloudflare
+                - name: RCLONE_CONFIG_R2_ENDPOINT
+                  valueFrom:
+                    secretKeyRef: { name: rclone-r2, key: endpoint }
+                - name: RCLONE_CONFIG_R2_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef: { name: rclone-r2, key: accessKeyId }
+                - name: RCLONE_CONFIG_R2_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: { name: rclone-r2, key: secretAccessKey }
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  apk add --no-cache curl age rclone >/dev/null
+                  STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+                  JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+                  VT=$(curl -sf --cacert /vault-tls/ca.crt \
+                        -H "Content-Type: application/json" \
+                        -d "{\"role\":\"vault-snapshot\",\"jwt\":\"$JWT\"}" \
+                        "$VAULT_ADDR/v1/auth/kubernetes/login" \
+                        | grep -o '"client_token":"[^"]*"' | cut -d'"' -f4)
+                  [ -n "$VT" ] || { echo "FATAL: vault login failed"; exit 1; }
+                  curl -sf --cacert /vault-tls/ca.crt \
+                       -H "X-Vault-Token: $VT" \
+                       -o /tmp/vault.snap \
+                       "$VAULT_ADDR/v1/sys/storage/raft/snapshot"
+                  [ -s /tmp/vault.snap ] || { echo "FATAL: empty snapshot"; exit 1; }
+                  age -r "$AGE_PUBLIC_KEY" -o "/tmp/vault-$STAMP.snap.age" /tmp/vault.snap
+                  rclone copyto "/tmp/vault-$STAMP.snap.age" \
+                    "r2:velero-backups/vault-snapshots/vault-$STAMP.snap.age"
+                  rclone delete --min-age 7d "r2:velero-backups/vault-snapshots" || true
+                  echo "OK: uploaded vault-$STAMP.snap.age"
+              volumeMounts:
+                - name: ca
+                  mountPath: /vault-tls
+                  readOnly: true
+          volumes:
+            - name: ca
+              secret:
+                secretName: vault-ca
