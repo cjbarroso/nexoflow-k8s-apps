@@ -218,6 +218,8 @@ sys/storage/raft/snapshot only).
 Encryption keys: the age PUBLIC key sits in the CronJob spec; the PRIVATE key
 lives only in Vaultwarden. A snapshot without that private key is unreadable
 to everyone — including us — which is the point.
+Vaultwarden item: **"Vault Raft snapshot age PRIVATE key (reinit 2026-08-21)"**
+(key attached as a file).
 
 Verify monthly: check recent objects exist (`rclone lsf`) and run one test
 restore.
