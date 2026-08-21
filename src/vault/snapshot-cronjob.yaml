@@ -40,14 +40,13 @@ spec:
           serviceAccountName: vault-snapshot
           restartPolicy: Never
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 65534
-            runAsGroup: 65534
             seccompProfile:
               type: RuntimeDefault
           containers:
             - name: backup
               image: alpine:3.20
+              # Runs as root because the script installs its tools (curl, age,
+              # rclone) at runtime via apk; vault ns PSS is warn-mode only.
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
