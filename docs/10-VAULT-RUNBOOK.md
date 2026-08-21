@@ -205,6 +205,36 @@ Revoke any emergency root immediately after use.
 5. Commit → sync **root** first if any `apps/**/app.yaml` changed, then the
    child app.
 
+## Raft Snapshot Backups
+
+A nightly CronJob (`vault-snapshot-backup`, 03:30 UTC, namespace `vault`)
+takes a native Raft snapshot, encrypts it with **age**, uploads it to R2 at
+`s3://velero-backups/vault-snapshots/`, and prunes files older than 7 days.
+R2 credentials are materialized by VSO from KV v2 at
+`nexoflow/vault/r2-creds`; the job authenticates to Vault via Kubernetes auth
+(role `vault-snapshot`, policy `raft-snapshot` = read+sudo on
+sys/storage/raft/snapshot only).
+
+Encryption keys: the age PUBLIC key sits in the CronJob spec; the PRIVATE key
+lives only in Vaultwarden. A snapshot without that private key is unreadable
+to everyone — including us — which is the point.
+
+Verify monthly: check recent objects exist (`rclone lsf`) and run one test
+restore.
+
+### Restore procedure
+
+1. Fetch + decrypt: `rclone copy r2:velero-backups/vault-snapshots/ .`
+   then `age -d -i age.privkey vault-<STAMP>.snap.age > vault.snap`
+   (both keys from Vaultwarden).
+2. Deploy the `vault` Helm app on the target cluster; initialize + unseal it
+   with THROWAWAY keys (any valid init).
+3. `kubectl cp vault.snap vault/vault-0:/tmp/` then
+   `vault operator raft snapshot restore /tmp/vault.snap`.
+4. Pods restart automatically; unseal them with the ORIGINAL shares from
+   Vaultwarden (a restored Raft snapshot carries its source cluster's barrier).
+5. Revoke the temporary root token from step 2.
+
 ## SealedSecrets — RETIRED
 
 The sealed-secrets controller was removed on 2026-08-21 after the full VSO
