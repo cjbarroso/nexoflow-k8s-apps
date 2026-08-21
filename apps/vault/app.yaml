@@ -22,11 +22,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: vault
   syncPolicy:
-    # TEMP: automated sync disabled for the wipe-and-reinit of Vault's Raft
-    # data (unseal keys lost, Vault still empty). Restore after re-init.
-    # automated:
-    #   prune: true
-    #   selfHeal: true
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
