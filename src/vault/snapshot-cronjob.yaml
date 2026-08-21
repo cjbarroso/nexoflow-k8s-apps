@@ -60,6 +60,10 @@ spec:
                   value: s3
                 - name: RCLONE_CONFIG_R2_PROVIDER
                   value: Cloudflare
+                # R2 scoped tokens deny rclone's default bucket check
+                # (CreateBucket probe) - skip it or every upload 403s.
+                - name: RCLONE_CONFIG_R2_NO_CHECK_BUCKET
+                  value: "true"
                 - name: RCLONE_CONFIG_R2_ENDPOINT
                   valueFrom:
                     secretKeyRef: { name: rclone-r2, key: endpoint }
