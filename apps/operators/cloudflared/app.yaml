@@ -14,13 +14,15 @@ spec:
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     targetRevision: master
     ref: values
-  # Applies the SealedSecret holding the Cloudflare credentials; the chart
-  # reads it via cloudflare.secretRef (see the values file).
+  # Applies the namespace Vault stack (CA/Connection/Auth) plus the
+  # VaultStaticSecret for the Cloudflare credentials; the chart reads them via
+  # cloudflare.secretRef (see the values file). Filtered because values.yaml
+  # and README.md live in the same directory and aren't manifests.
   - repoURL: 'https://github.com/cjbarroso/nexoflow-k8s-apps.git'
     targetRevision: master
     path: src/cloudflared
     directory:
-      include: 'cloudflared-api-sealedsecret.yaml'
+      include: 'vault-secrets.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: cloudflared
