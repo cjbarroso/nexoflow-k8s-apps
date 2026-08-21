@@ -246,11 +246,27 @@ Git side (`src/<app>/vault-secrets.yaml`):
 
 | Namespace | Secret | KV path | Date |
 |---|---|---|---|
-| planka | planka-admin, planka-oidc, planka-secretkey | nexoflow/planka/* | 2026-08-21 |
+| planka | planka-admin, planka-oidc, planka-secretkey, planka-db-backup-creds | nexoflow/planka/* | 2026-08-21 |
 | monica | monica-secrets (6 keys) | nexoflow/monica/monica | 2026-08-21 |
 | sftp | sftp-credentials | nexoflow/sftp/credentials | 2026-08-21 |
-| pami | pami-downloader-secrets | nexoflow/pami/downloader | 2026-08-21 |
-| observability | gemini-cost-ro | nexoflow/observability/gemini-cost-ro | 2026-08-21 |
+| pami | pami-downloader-secrets, pami-downloader-gdrive | nexoflow/pami/* | 2026-08-21 |
+| observability | gemini-cost-ro, grafana-secrets, authentik-grafana-ro, alertmanager-notify, alertmanager-incident-bearer, prometheus-hc-ping | nexoflow/observability/* | 2026-08-21 |
+| vaultwarden | vaultwarden-smtp | nexoflow/vaultwarden/smtp | 2026-08-21 |
+| cloudflared | cloudflare-api-credentials, cloudflared-k8s-api-creds, cloudflared-mssql-creds | nexoflow/cloudflared/* | 2026-08-21 |
+| authentik | authentik-db-app, authentik-db-backup-creds, authentik-secrets (was hand-made) | nexoflow/authentik/* | 2026-08-21 |
+| hermes2 | incident-webhook, cognee-postgres, cognee-openai, machine-creds (orphan) | nexoflow/hermes2/* | 2026-08-21 |
+| hhccia-staging | hhccia-core-secrets | nexoflow/hhccia-staging/core-secrets | 2026-08-21 |
+| hhccia-v2 | all 6 prod secrets | nexoflow/hhccia-v2/* | 2026-08-21 |
+| calibre-web-automated | cwa-gmail | nexoflow/calibre-web-automated/cwa-gmail | 2026-08-21 |
+
+**Known leftovers:**
+- `caldiy` namespace: three SealedSecrets whose manifests were removed from git
+  and have NO Argo app (drift — applied manually ~35d ago). Their values are
+  backed up in `nexoflow/caldiy/*` plus a policy+role are pre-created. Decide
+  whether to restore an Argo app for caldiy or tear the namespace down.
+- `hermes2/hhccia-machine-creds` has no consumer anywhere; kept in Vault.
+- Image-pull secrets (`github-auth` in hhccia-v2/staging/caldiy) remain
+  hand-made dockerconfigjson secrets — candidates for a future decision.
 
 Operational note: when several `VaultStaticSecret`s target the same workload,
 creating them in one sync makes `rolloutRestartTargets` bounce it repeatedly.
