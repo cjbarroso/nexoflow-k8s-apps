@@ -212,12 +212,20 @@ Git side (`src/<app>/vault-secrets.yaml`):
 |---|---|---|---|
 | planka | planka-admin, planka-oidc, planka-secretkey | nexoflow/planka/* | 2026-08-21 |
 | monica | monica-secrets (6 keys) | nexoflow/monica/monica | 2026-08-21 |
+| sftp | sftp-credentials | nexoflow/sftp/credentials | 2026-08-21 |
+| pami | pami-downloader-secrets | nexoflow/pami/downloader | 2026-08-21 |
+| observability | gemini-cost-ro | nexoflow/observability/gemini-cost-ro | 2026-08-21 |
 
 Operational note: when several `VaultStaticSecret`s target the same workload,
 creating them in one sync makes `rolloutRestartTargets` bounce it repeatedly.
 Planka rode through three quick restarts (liveness probe kills during slow
 boots) and settled on its own; for large batches, prefer one VSS per namespace
 storing all keys under a single KV path where workloads allow it.
+
+Hand-created plain Secrets (e.g. the old `gemini-cost-ro`) cannot be adopted
+in place — VSO refuses with `invalid owner label`. Delete the un-owned Secret;
+VSO recreates it immediately from Vault (values are identical, workloads keep
+running on loaded env until `rolloutRestartTargets` bounces them).
 
 Still on SealedSecrets: everything else (see `src/**/*sealedsecret*.yaml`),
 plus the hand-created `gemini-cost-ro` in `observability` (a prime candidate —
