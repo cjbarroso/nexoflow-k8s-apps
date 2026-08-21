@@ -67,10 +67,10 @@ envValueFrom:
     secretKeyRef:
       name: grafana-secrets
       key: oidc-client-secret
-  # Read-only Postgres password for the Gemini-cost datasource. Lives in the
-  # PLAIN (un-sealed) Secret `gemini-cost-ro` in this namespace — recreate it by
-  # hand if the cluster is rebuilt (see Reports/2026-05-17 Estimacion de costos
-  # API Gemini.md §9). No GF_ prefix so Grafana doesn't map it onto grafana.ini.
+  # Read-only Postgres password for the Gemini-cost datasource. Sourced from
+  # Vault via VSO (src/observability/vault-gemini-cost-ro.yaml, KV path
+  # nexoflow/observability/gemini-cost-ro). No GF_ prefix so Grafana doesn't
+  # map it onto grafana.ini.
   GEMINI_COST_DB_PASSWORD:
     secretKeyRef:
       name: gemini-cost-ro
