@@ -1,5 +1,5 @@
 kubectl 1.32.0
-argocd 2.14.0
+argocd 2.14.21
 task 3.42.0
 gitleaks 8.24.3
 yamllint 1.35.1
