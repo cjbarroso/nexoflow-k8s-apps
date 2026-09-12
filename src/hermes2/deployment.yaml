@@ -49,7 +49,7 @@ spec:
           # (bug #33597). v2026.6.5 predated the fix. Digest is immutable even
           # though the tag is `main`; move to a dated vYYYY.M.D tag once one ships
           # with #43236.
-          image: nousresearch/hermes-agent:main@sha256:a8a528a5ad1cee0362dc85814862811d428ac0a461030d4de9a3796a7bb9a802
+          image: nousresearch/hermes-agent:main@sha256:ddee4a454f505d14522f6e426550be3f02f19a7e2722c21ec20c9183c565ba64
           imagePullPolicy: IfNotPresent
           args: ["gateway", "run"]
           env:
