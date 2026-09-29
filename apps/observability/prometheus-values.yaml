@@ -373,12 +373,20 @@ serverFiles:
             annotations:
               summary: "Vault TLS auto-reload job failed"
               description: "Job {{ $labels.job_name }} failed. Vault may be serving a stale listener certificate: once it expires, every client that verifies TLS breaks (snapshot backups, Vault Secrets Operator). Check: kubectl -n vault logs job/{{ $labels.job_name }} — then reload manually with: kubectl -n vault exec vault-0 -c vault -- /bin/sh -c 'kill -HUP \"$(pidof vault)\"' (repeat per pod; do NOT restart the StatefulSet, Vault is Shamir-sealed and would need 3 of 5 unseal keys)."
-          # Fallback tripwire. kube-state-metrics reports 0 (not absent) for a
-          # CronJob that has never succeeded, so this also fires until the first
-          # successful run — intended, it means \"unproven\".
+          # Backstop for the case where the Job stops running at all (CronJob
+          # deleted, suspended, or a schedule that silently never fires — which
+          # actually happened here, see src/vault/tls-reload-cronjob.yaml).
+          #
+          # `or on() vector(0)` is load-bearing: kube-state-metrics does NOT
+          # export kube_cronjob_status_last_successful_time while a CronJob has
+          # never succeeded — the series is absent, not zero. Without the
+          # fallback the comparison matches nothing and this alert can never
+          # fire for the exact situation it exists to catch (verified
+          # 2026-09-29). It therefore also fires until the first success, which
+          # is intended: the reload path is unproven until then.
           - alert: VaultTLSReloadStale
             expr: |
-              time() - kube_cronjob_status_last_successful_time{namespace="vault", cronjob="vault-tls-reload"} > 93600
+              time() - (kube_cronjob_status_last_successful_time{namespace="vault", cronjob="vault-tls-reload"} or on() vector(0)) > 93600
             for: 15m
             labels:
               severity: critical
