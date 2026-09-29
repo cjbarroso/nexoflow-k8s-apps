@@ -84,7 +84,14 @@ metadata:
 spec:
   # Far tighter than the ~30 day rotation window, and a no-op whenever the
   # Vault pods already hold the current certificate.
-  schedule: "17 */12 * * *"
+  #
+  # Explicit hour values, NOT "17 */12 * * *": on this k3s cluster a step in
+  # the HOUR field never runs. Verified 2026-09-29 — a CronJob with
+  # "17 */12 * * *" was never scheduled once (no lastScheduleTime, no Jobs, no
+  # controller error) while "0 22,23 * * *" and every existing CronJob fired
+  # normally. A schedule that silently never runs is worse than no schedule,
+  # so keep this form and re-test after any k3s upgrade.
+  schedule: "17 5,17 * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 2

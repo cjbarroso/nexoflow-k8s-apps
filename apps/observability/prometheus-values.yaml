@@ -353,6 +353,63 @@ serverFiles:
             annotations:
               summary: "Velero backup failing (schedule {{ $labels.schedule }})"
               description: "The last run of Velero schedule {{ $labels.schedule }} did not succeed — authentik/vaultwarden file backups are stale. Check: kubectl -n velero get backups, then velero backup logs <name>."
+      # Vault certificate + seal health. Closes the 2026-09-29 blind spot: Vault
+      # kept serving a certificate that expired on 2026-09-10, so every
+      # TLS-verifying client broke — 7 failed vault-snapshot-backup nights and
+      # 19 days of the Vault Secrets Operator not syncing — and NO alert fired.
+      # Argo and every probe stayed green because a stale certificate is neither
+      # a crash nor an unready pod.
+      - name: vault
+        rules:
+          # The auto-reload CronJob (src/vault/tls-reload-cronjob.yaml) is what
+          # keeps the pods serving the current certificate. If it fails, the
+          # pods keep the old certificate and client TLS breaks once it
+          # expires. This is the direct tripwire for that outage.
+          - alert: VaultTLSReloadJobFailed
+            expr: kube_job_status_failed{namespace="vault", job_name=~"vault-tls-reload.*"} > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Vault TLS auto-reload job failed"
+              description: "Job {{ $labels.job_name }} failed. Vault may be serving a stale listener certificate: once it expires, every client that verifies TLS breaks (snapshot backups, Vault Secrets Operator). Check: kubectl -n vault logs job/{{ $labels.job_name }} — then reload manually with: kubectl -n vault exec vault-0 -c vault -- /bin/sh -c 'kill -HUP \"$(pidof vault)\"' (repeat per pod; do NOT restart the StatefulSet, Vault is Shamir-sealed and would need 3 of 5 unseal keys)."
+          # Fallback tripwire. kube-state-metrics reports 0 (not absent) for a
+          # CronJob that has never succeeded, so this also fires until the first
+          # successful run — intended, it means \"unproven\".
+          - alert: VaultTLSReloadStale
+            expr: |
+              time() - kube_cronjob_status_last_successful_time{namespace="vault", cronjob="vault-tls-reload"} > 93600
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Vault TLS auto-reload has not succeeded in over a day"
+              description: "vault-tls-reload (twice daily) has not had a successful run in >26h, so nothing is confirming that the Vault pods serve the current certificate. Check the CronJob and its recent Jobs: kubectl -n vault get cronjob,jobs | grep tls-reload."
+          # renewalTime sits in the future for a healthy certificate; it only
+          # passes `time()` when cert-manager has stopped renewing, and the
+          # certificate is then genuinely on its way to expiring.
+          - alert: VaultServerCertExpiring
+            expr: |
+              certmanager_certificate_renewal_timestamp_seconds{namespace="vault", name="vault-server"} < time()
+            for: 1h
+            labels:
+              severity: critical
+            annotations:
+              summary: "Vault server certificate overdue for renewal"
+              description: "The vault-server certificate passed its scheduled renewal time and was not renewed, so it will expire within days — which breaks every client that verifies TLS. Check cert-manager: kubectl -n vault get certificate vault-server -o yaml and kubectl -n cert-manager logs deploy/cert-manager."
+          # Catches the seal failure mode too, not just crashes: Vault's
+          # readiness probe has no sealedcode=204, so a SEALED pod goes NotReady
+          # while staying alive. The cluster cannot unseal itself and needs 3 of
+          # the 5 keys from Vaultwarden.
+          - alert: VaultPodNotReady
+            expr: |
+              kube_pod_status_ready{namespace="vault", condition="true", pod=~"vault-[0-9]+"} == 0
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Vault pod not ready: {{ $labels.pod }}"
+              description: "{{ $labels.pod }} has been NotReady for >15m. With Shamir sealing a restart leaves the pod SEALED until a human unseals it (3 of 5 keys, see the vault runbook), and a sealed Vault blocks secret sync for every app at once. Check: kubectl -n vault exec {{ $labels.pod }} -c vault -- env VAULT_ADDR=https://127.0.0.1:8200 VAULT_SKIP_VERIFY=1 vault status."
 
 # --- Alertmanager: minimal, exists only to drive the healthchecks.io heartbeat ---
 # Stateless (no PVC), tiny. The server auto-discovers it via kubernetes_sd.
