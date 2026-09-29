@@ -205,6 +205,67 @@ Revoke any emergency root immediately after use.
 5. Commit → sync **root** first if any `apps/**/app.yaml` changed, then the
    child app.
 
+## Server TLS Certificate Reload
+
+`src/vault/tls.yaml` issues the listener certificate (`vault-server` →
+Secret `vault-tls`) for **30 days** with a 5-day `renewBefore`, so
+cert-manager rewrites the Secret roughly every 25 days.
+
+Vault reads `tls_cert_file` **only at process start** and then holds the
+certificate in memory. kubelet keeps replacing the mounted file, but nothing
+tells Vault to re-read it, so after a rotation the pods keep serving the
+**previous** certificate until it expires — at which point every client that
+verifies TLS fails at once: the snapshot CronJob (`FATAL: vault login
+failed`), the Vault Secrets Operator, and anything else authenticating to
+Vault. This is not repairable by restarting the pods either, because the
+cluster is sealed with **Shamir (3 of 5)**: a restart leaves every Vault pod
+SEALED until a human supplies the unseal keys.
+
+### Automatic (normal path)
+
+The `vault-tls-reload` CronJob (`src/vault/tls-reload-cronjob.yaml`, twice a
+day) compares the certificate file Vault reads against the current
+`vault-tls` Secret. When they differ it sends the Vault process a `SIGHUP`,
+which makes Vault reload listener TLS **in place — no restart, no unseal, no
+downtime**. Each reload is recorded in the `vault-tls-reload-history`
+ConfigMap (`last-reload`, `pods-reloaded`). A run where the certificate is
+already current is a no-op.
+
+Reference: [Vault SIGHUP Behavior](https://www.ibm.com/support/pages/vault-sighup-behavior).
+
+### Manual (if the Job is broken)
+
+```bash
+# Which certificate is each pod actually serving?
+for p in vault-0 vault-1 vault-2; do
+  echo -n "$p: "
+  kubectl -n vault exec $p -c vault -- \
+    openssl x509 -in /vault/userconfig/vault-tls/tls.crt -noout -dates
+done
+
+# Reload without restarting (repeat per pod):
+kubectl -n vault exec vault-0 -c vault -- /bin/sh -c 'kill -HUP "$(pidof vault)"'
+```
+
+Verify a reload actually took effect over the wire, not just on disk:
+
+```bash
+kubectl -n vault port-forward svc/vault-active 18200:8200 &
+echo | openssl s_client -connect 127.0.0.1:18200 \
+  -servername vault-active.vault.svc.cluster.local 2>/dev/null \
+  | openssl x509 -noout -dates
+```
+
+**Do not "fix" this by rolling the StatefulSet.** Restarting the pods seals
+Vault and needs 3 of the 5 unseal keys from Vaultwarden.
+
+### 2026-09-29 incident
+
+cert-manager issued revision 2 on 2026-09-05; the pods kept serving revision
+1, which expired 2026-09-10. Vault auth broke for every client until the
+`vault-snapshot-backup` CronJob alert fired — 19 days later, after 7 failed
+nightly jobs. The reload Job above exists so this cannot recur.
+
 ## Raft Snapshot Backups
 
 A nightly CronJob (`vault-snapshot-backup`, 03:30 UTC, namespace `vault`)

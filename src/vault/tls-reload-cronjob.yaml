@@ -1,0 +1,204 @@
+# TLS certificate reload for the Vault cluster.
+#
+# WHY THIS EXISTS
+# `src/vault/tls.yaml` issues the Vault server certificate for 30 days with a
+# 5-day renewBefore window, so cert-manager rewrites the `vault-tls` Secret
+# roughly every 25 days. Vault reads `tls_cert_file` only when the process
+# starts and then keeps that certificate in memory; kubelet keeps the mounted
+# file fresh (atomic symlink swap), but nothing ever tells Vault to re-read it.
+#
+# Result without this Job: after every rotation the pods keep serving the
+# PREVIOUS certificate until that one expires, and then every client that
+# verifies TLS breaks at once — the snapshot CronJob (`FATAL: vault login
+# failed`), the Vault Secrets Operator, and anything else authenticating
+# against Vault. In September 2026 that went unnoticed for 19 days. It cannot
+# be fixed by simply restarting the pods either: this cluster is sealed with
+# Shamir (3 of 5), so a restart leaves every Vault pod SEALED until a human
+# supplies the unseal keys.
+#
+# WHAT IT DOES
+# Twice a day, for each Vault pod: compare the certificate file Vault reads at
+# startup (`/vault/userconfig/vault-tls/tls.crt`, populated from the Secret)
+# against the current contents of the `vault-tls` Secret. If they differ the
+# process is holding a stale certificate, so send it SIGHUP. Vault reloads
+# listener TLS in place — no restart, no unseal, no downtime. If they match it
+# does nothing. Each reload is recorded in the `vault-tls-reload-history`
+# ConfigMap.
+#
+# `tls.crt` in the Secret is the exact PEM keystore Vault mounts, and
+# cert-manager rewrites it at every rotation, so a byte comparison is enough;
+# the Job needs no TLS or crypto tooling.
+#
+# Reference: "Vault SIGHUP Behavior" (HashiCorp/IBM) —
+# https://www.ibm.com/support/pages/vault-sighup-behavior
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-tls-reloader
+  namespace: vault
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-tls-reloader
+  namespace: vault
+rules:
+  # Read the desired certificate.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["vault-tls"]
+    verbs: ["get"]
+  # Enumerate the Vault pods so new replicas are covered automatically.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Read the mounted certificate back out of a running Vault pod.
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  # Record what was reloaded and when.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-tls-reloader
+  namespace: vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-tls-reloader
+subjects:
+  - kind: ServiceAccount
+    name: vault-tls-reloader
+    namespace: vault
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-tls-reload
+  namespace: vault
+spec:
+  # Far tighter than the ~30 day rotation window, and a no-op whenever the
+  # Vault pods already hold the current certificate.
+  schedule: "17 */12 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: vault-tls-reload
+        spec:
+          serviceAccountName: vault-tls-reloader
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reload
+              # Carries kubectl (to reach the Vault pods and the API) plus a
+              # coreutils `cmp`; the Vault image itself has neither.
+              image: alpine/k8s:1.33.4
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+
+                  NS=vault
+                  SECRET=vault-tls
+                  CERT=/vault/userconfig/vault-tls/tls.crt
+                  HISTORY=vault-tls-reload-history
+                  reloaded=0
+                  stale=0
+                  skipped=0
+
+                  # The certificate cert-manager wants the pods to serve.
+                  kubectl -n "$NS" get secret "$SECRET" -o jsonpath='{.data.tls\.crt}' \
+                    | base64 -d > /tmp/desired.crt
+
+                  if [ ! -s /tmp/desired.crt ]; then
+                    echo "FATAL: secret $NS/$SECRET has no usable tls.crt"
+                    exit 1
+                  fi
+
+                  for pod in $(kubectl -n "$NS" get pods \
+                                 -l app.kubernetes.io/name=vault \
+                                 -o jsonpath='{.items[*].metadata.name}'); do
+
+                    if ! kubectl -n "$NS" exec "$pod" -c vault -- \
+                           cat "$CERT" > /tmp/served.crt 2>/dev/null; then
+                      echo "WARN: could not read $CERT from $pod; skipping"
+                      skipped=$((skipped + 1))
+                      continue
+                    fi
+
+                    if cmp -s /tmp/desired.crt /tmp/served.crt; then
+                      echo "ok:    $pod holds the current certificate"
+                      continue
+                    fi
+
+                    stale=$((stale + 1))
+                    echo "STALE: $pod holds an older certificate than $NS/$SECRET"
+
+                    # SIGHUP makes Vault re-read its listener certificate
+                    # files; the process keeps running and stays unsealed.
+                    if ! kubectl -n "$NS" exec "$pod" -c vault -- \
+                           /bin/sh -c 'kill -HUP "$(pidof vault)"'; then
+                      echo "FATAL: could not signal the Vault process in $pod"
+                      exit 1
+                    fi
+                    echo "sent SIGHUP to $pod"
+                    reloaded=$((reloaded + 1))
+                  done
+
+                  # Leave an audit trail across pod lifetimes. A failed attempt
+                  # here must not invalidate the reload that already happened.
+                  if [ "$stale" -ne 0 ]; then
+                    kubectl -n "$NS" create configmap "$HISTORY" \
+                      --from-literal="last-reload=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                      --from-literal="pods-reloaded=$reloaded" \
+                      --dry-run=client -o yaml | kubectl apply -f - \
+                      || echo "WARN: could not record the reload in $HISTORY"
+                  fi
+
+                  if [ "$stale" -eq 0 ]; then
+                    echo "nothing to do: every Vault pod holds the current certificate"
+                  else
+                    echo "reloaded $reloaded of $stale stale Vault pod(s) via SIGHUP"
+                  fi
+
+                  # A pod we could not read means this run could not check (or
+                  # fix) the cluster: fail loudly rather than report a silent
+                  # success, so the alert fires.
+                  if [ "$skipped" -ne 0 ]; then
+                    echo "FATAL: could not read $CERT from $skipped pod(s)"
+                    exit 1
+                  fi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}
