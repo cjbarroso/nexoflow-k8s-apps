@@ -161,8 +161,8 @@ spec:
           # headroom for document batches + Gemini calls. Guaranteed-ish QoS:
           # without requests this is the first pod evicted under node pressure.
           resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { cpu: "1", memory: 1Gi }
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
 ---
 apiVersion: v1
 kind: Service
