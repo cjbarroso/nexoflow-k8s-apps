@@ -106,6 +106,7 @@ spec:
             app: vault-tls-reload
         spec:
           serviceAccountName: vault-tls-reloader
+          automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
             runAsNonRoot: true
