@@ -118,6 +118,11 @@ spec:
               # Carries kubectl (to reach the Vault pods and the API) plus a
               # coreutils `cmp`; the Vault image itself has neither.
               image: alpine/k8s:1.33.4
+              env:
+                - name: KUBERNETES_SERVICE_HOST
+                  value: kubernetes.default.svc.cluster.local
+                - name: KUBERNETES_SERVICE_PORT
+                  value: "443"
               command: ["/bin/sh", "-c"]
               args:
                 - |
