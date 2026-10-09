@@ -366,7 +366,10 @@ serverFiles:
           # pods keep the old certificate and client TLS breaks once it
           # expires. This is the direct tripwire for that outage.
           - alert: VaultTLSReloadJobFailed
-            expr: kube_job_status_failed{namespace="vault", job_name=~"vault-tls-reload.*"} > 0
+            expr: |
+              kube_job_status_failed{namespace="vault", job_name=~"vault-tls-reload.*"} > 0
+                and on(namespace, job_name)
+              topk(1, kube_job_created{namespace="vault", job_name=~"vault-tls-reload.*"})
             for: 5m
             labels:
               severity: critical
