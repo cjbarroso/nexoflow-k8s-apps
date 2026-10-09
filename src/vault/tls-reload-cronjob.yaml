@@ -145,31 +145,24 @@ spec:
                     exit 1
                   fi
 
-                  DESIRED_DER=/tmp/desired.der
-                  openssl x509 -in /tmp/desired.crt -outform DER -out "$DESIRED_DER"
-
                   for pod in $(kubectl -n "$NS" get pods \
                                  -l app.kubernetes.io/name=vault \
                                  -o jsonpath='{.items[*].metadata.name}'); do
 
-                    # Inspect the certificate actually presented by the live
-                    # HTTPS listener, not only the mounted file.
-                    if ! openssl s_client -connect "$pod.vault-internal:8200" \
-                           -servername vault-active.vault.svc.cluster.local \
-                           -showcerts </dev/null 2>/dev/null \
-                           | openssl x509 -outform DER -out /tmp/served.der; then
-                      echo "WARN: could not inspect the live listener on $pod; skipping"
+                    if ! kubectl -n "$NS" exec "$pod" -c vault -- \
+                           cat "$CERT" > /tmp/served.crt 2>/dev/null; then
+                      echo "WARN: could not read $CERT from $pod; skipping"
                       skipped=$((skipped + 1))
                       continue
                     fi
 
-                    if cmp -s "$DESIRED_DER" /tmp/served.der; then
-                      echo "ok:    $pod listener presents the current certificate"
+                    if cmp -s /tmp/desired.crt /tmp/served.crt; then
+                      echo "ok:    $pod holds the current certificate"
                       continue
                     fi
 
                     stale=$((stale + 1))
-                    echo "STALE: $pod listener presents an older certificate than $NS/$SECRET"
+                    echo "STALE: $pod holds an older certificate than $NS/$SECRET"
 
                     # SIGHUP makes Vault re-read its listener certificate
                     # files; the process keeps running and stays unsealed.
