@@ -17,17 +17,11 @@
 # supplies the unseal keys.
 #
 # WHAT IT DOES
-# Twice a day, for each Vault pod: compare the certificate file Vault reads at
-# startup (`/vault/userconfig/vault-tls/tls.crt`, populated from the Secret)
-# against the current contents of the `vault-tls` Secret. If they differ the
-# process is holding a stale certificate, so send it SIGHUP. Vault reloads
-# listener TLS in place — no restart, no unseal, no downtime. If they match it
-# does nothing. Each reload is recorded in the `vault-tls-reload-history`
-# ConfigMap.
-#
-# `tls.crt` in the Secret is the exact PEM keystore Vault mounts, and
-# cert-manager rewrites it at every rotation, so a byte comparison is enough;
-# the Job needs no TLS or crypto tooling.
+# Twice a day, compare each Vault pod's live TLS leaf with the certificate in
+# the vault-tls Secret. When they differ, confirm kubelet has mounted the new
+# certificate before sending SIGHUP, then verify it on the live listener.
+# Vault reloads in place. Confirmed reloads are recorded in the
+# vault-tls-reload-history ConfigMap.
 #
 # Reference: "Vault SIGHUP Behavior" (HashiCorp/IBM) —
 # https://www.ibm.com/support/pages/vault-sighup-behavior
@@ -115,8 +109,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: reload
-              # Carries kubectl (to reach the Vault pods and the API) plus a
-              # coreutils `cmp`; the Vault image itself has neither.
+              # Provides kubectl and curl with %{certs} support.
               image: alpine/k8s:1.33.4
               env:
                 - name: KUBERNETES_SERVICE_HOST
@@ -126,58 +119,87 @@ spec:
               command: ["/bin/sh", "-c"]
               args:
                 - |
-                  set -eu
+                  set -eu -o pipefail
 
                   NS=vault
                   SECRET=vault-tls
                   CERT=/vault/userconfig/vault-tls/tls.crt
                   HISTORY=vault-tls-reload-history
                   reloaded=0
-                  stale=0
-                  skipped=0
+                  failed=0
 
-                  # The certificate cert-manager wants the pods to serve.
+                  leaf_pem() {
+                    awk '
+                      /-----BEGIN CERTIFICATE-----/ { copying = 1; sub(/^.*-----BEGIN/, "-----BEGIN") }
+                      copying { print }
+                      /-----END CERTIFICATE-----/ && copying { complete = 1; exit }
+                      END { if (!complete) exit 1 }
+                    '
+                  }
+
+                  read_listener() {
+                    # Inspect even an expired certificate. This probe sends no
+                    # credentials and checks the exact leaf against the Secret.
+                    curl --silent --show-error --insecure --noproxy '*' \
+                      --max-time 5 --output /dev/null --write-out '%{certs}' \
+                      "https://$1.vault-internal:8200/v1/sys/health" > /tmp/peer.txt &&
+                    leaf_pem < /tmp/peer.txt > /tmp/served.crt
+                  }
+
                   kubectl -n "$NS" get secret "$SECRET" -o jsonpath='{.data.tls\.crt}' \
-                    | base64 -d > /tmp/desired.crt
+                    | base64 -d | leaf_pem > /tmp/desired.crt
+                  pods=$(kubectl -n "$NS" get pods \
+                           -l app.kubernetes.io/name=vault,component=server \
+                           -o jsonpath='{.items[*].metadata.name}')
+                  [ -n "$pods" ] || { echo "FATAL: no Vault server pods found"; exit 1; }
 
-                  if [ ! -s /tmp/desired.crt ]; then
-                    echo "FATAL: secret $NS/$SECRET has no usable tls.crt"
-                    exit 1
-                  fi
-
-                  for pod in $(kubectl -n "$NS" get pods \
-                                 -l app.kubernetes.io/name=vault \
-                                 -o jsonpath='{.items[*].metadata.name}'); do
-
-                    if ! kubectl -n "$NS" exec "$pod" -c vault -- \
-                           cat "$CERT" > /tmp/served.crt 2>/dev/null; then
-                      echo "WARN: could not read $CERT from $pod; skipping"
-                      skipped=$((skipped + 1))
+                  for pod in $pods; do
+                    if ! read_listener "$pod"; then
+                      echo "ERROR: could not read the live listener certificate on $pod"
+                      failed=$((failed + 1))
                       continue
                     fi
-
                     if cmp -s /tmp/desired.crt /tmp/served.crt; then
-                      echo "ok:    $pod holds the current certificate"
+                      echo "OK: $pod serves the current certificate"
                       continue
                     fi
 
-                    stale=$((stale + 1))
-                    echo "STALE: $pod holds an older certificate than $NS/$SECRET"
+                    if ! kubectl -n "$NS" exec "$pod" -c vault -- cat "$CERT" \
+                           | leaf_pem > /tmp/mounted.crt ||
+                       ! cmp -s /tmp/desired.crt /tmp/mounted.crt; then
+                      echo "ERROR: $pod has not mounted the current certificate"
+                      failed=$((failed + 1))
+                      continue
+                    fi
 
-                    # SIGHUP makes Vault re-read its listener certificate
-                    # files; the process keeps running and stays unsealed.
+                    echo "Reloading the listener certificate on $pod"
                     if ! kubectl -n "$NS" exec "$pod" -c vault -- \
                            /bin/sh -c 'kill -HUP "$(pidof vault)"'; then
-                      echo "FATAL: could not signal the Vault process in $pod"
-                      exit 1
+                      echo "ERROR: could not signal the Vault process in $pod"
+                      failed=$((failed + 1))
+                      continue
                     fi
-                    echo "sent SIGHUP to $pod"
-                    reloaded=$((reloaded + 1))
+
+                    verified=false
+                    for attempt in 1 2 3 4 5; do
+                      sleep 2
+                      if read_listener "$pod" && cmp -s /tmp/desired.crt /tmp/served.crt; then
+                        verified=true
+                        break
+                      fi
+                    done
+                    if [ "$verified" = true ]; then
+                      echo "OK: $pod serves the current certificate after SIGHUP"
+                      reloaded=$((reloaded + 1))
+                    else
+                      echo "ERROR: $pod did not serve the current certificate after SIGHUP"
+                      failed=$((failed + 1))
+                    fi
                   done
 
                   # Leave an audit trail across pod lifetimes. A failed attempt
                   # here must not invalidate the reload that already happened.
-                  if [ "$stale" -ne 0 ]; then
+                  if [ "$reloaded" -ne 0 ]; then
                     kubectl -n "$NS" create configmap "$HISTORY" \
                       --from-literal="last-reload=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
                       --from-literal="pods-reloaded=$reloaded" \
@@ -185,17 +207,8 @@ spec:
                       || echo "WARN: could not record the reload in $HISTORY"
                   fi
 
-                  if [ "$stale" -eq 0 ]; then
-                    echo "nothing to do: every Vault pod holds the current certificate"
-                  else
-                    echo "reloaded $reloaded of $stale stale Vault pod(s) via SIGHUP"
-                  fi
-
-                  # A pod we could not read means this run could not check (or
-                  # fix) the cluster: fail loudly rather than report a silent
-                  # success, so the alert fires.
-                  if [ "$skipped" -ne 0 ]; then
-                    echo "FATAL: could not read $CERT from $skipped pod(s)"
+                  if [ "$failed" -ne 0 ]; then
+                    echo "FATAL: current listener certificate could not be verified on $failed Vault pod(s)"
                     exit 1
                   fi
               securityContext:

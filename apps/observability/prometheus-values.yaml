@@ -319,7 +319,11 @@ serverFiles:
               summary: "Pod crashlooping: {{ $labels.namespace }}/{{ $labels.pod }}"
               description: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} times in 30m — it is not recovering on its own."
           - alert: KubeJobFailed
-            expr: kube_job_status_failed > 0
+            # Scheduled Vault reloads have a separate latest-job alert.
+            expr: |
+              kube_job_status_failed > 0
+                unless on(namespace, job_name)
+              kube_job_created{namespace="vault", job_name=~"vault-tls-reload-[0-9]+"}
             for: 5m
             labels:
               severity: warning
@@ -367,9 +371,9 @@ serverFiles:
           # expires. This is the direct tripwire for that outage.
           - alert: VaultTLSReloadJobFailed
             expr: |
-              kube_job_status_failed{namespace="vault", job_name=~"vault-tls-reload.*"} > 0
+              kube_job_status_failed{namespace="vault", job_name=~"vault-tls-reload-[0-9]+"} > 0
                 and on(namespace, job_name)
-              topk(1, kube_job_created{namespace="vault", job_name=~"vault-tls-reload.*"})
+              topk(1, kube_job_created{namespace="vault", job_name=~"vault-tls-reload-[0-9]+"})
             for: 5m
             labels:
               severity: critical
