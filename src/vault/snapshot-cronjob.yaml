@@ -92,7 +92,7 @@ spec:
                   set -eu
                   apk add --no-cache curl age rclone >/dev/null
                   STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-                  JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+                  JWT=$(cat /var/run/secrets/vault-auth/token)
                   VT=$(curl -sf --cacert /vault-tls/ca.crt \
                         -H "Content-Type: application/json" \
                         -d "{\"role\":\"vault-snapshot\",\"jwt\":\"$JWT\"}" \
@@ -113,7 +113,17 @@ spec:
                 - name: ca
                   mountPath: /vault-tls
                   readOnly: true
+                - name: vault-auth
+                  mountPath: /var/run/secrets/vault-auth
+                  readOnly: true
           volumes:
             - name: ca
               secret:
                 secretName: vault-ca
+            - name: vault-auth
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      audience: vault
+                      expirationSeconds: 3600
+                      path: token
