@@ -224,12 +224,12 @@ SEALED until a human supplies the unseal keys.
 ### Automatic (normal path)
 
 The `vault-tls-reload` CronJob (`src/vault/tls-reload-cronjob.yaml`, twice a
-day) compares the certificate file Vault reads against the current
-`vault-tls` Secret. When they differ it sends the Vault process a `SIGHUP`,
-which makes Vault reload listener TLS **in place — no restart, no unseal, no
-downtime**. Each reload is recorded in the `vault-tls-reload-history`
-ConfigMap (`last-reload`, `pods-reloaded`). A run where the certificate is
-already current is a no-op.
+day) compares the certificate served by each pod's HTTPS listener with the
+current `vault-tls` Secret. When they differ, it checks that the pod has
+mounted the new certificate and sends the Vault process a `SIGHUP` to reload
+TLS in place. The job verifies the served certificate again after the signal
+and fails if any pod cannot be verified. Confirmed reloads are recorded in
+the `vault-tls-reload-history` ConfigMap (`last-reload`, `pods-reloaded`).
 
 Reference: [Vault SIGHUP Behavior](https://www.ibm.com/support/pages/vault-sighup-behavior).
 
